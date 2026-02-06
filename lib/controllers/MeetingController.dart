@@ -4,7 +4,13 @@ import '../models/UserModel.dart';
 
 class MeetingController extends ChangeNotifier {
 
-  late MeetingModel meeting;
+  MeetingModel meeting = MeetingModel(
+    meetingId: 'm1',
+    hostId: 'u1',
+    maxCapacity: 100,
+    isActive: true,
+    participants: [],
+  );
 
   // =========================================================
   // SESSION MANAGEMENT

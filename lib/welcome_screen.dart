@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'signup_screen.dart'; 
-import 'login_screen.dart';     
+import 'signup_screen.dart';
+import 'login_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -24,8 +24,8 @@ class WelcomeScreen extends StatelessWidget {
             Image.asset(
               'assets/logoT.png',
               height: 250,
-              errorBuilder: (context, error, stackTrace) => 
-                  const Icon(Icons.auto_awesome, size: 100, color: Colors.orange),
+              errorBuilder: (context, error, stackTrace) =>
+              const Icon(Icons.auto_awesome, size: 100, color: Colors.orange),
             ),
             const SizedBox(height: 40),
             Padding(
@@ -44,7 +44,7 @@ class WelcomeScreen extends StatelessWidget {
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 30),
-                    
+
                     // 2. ربط زر الـ Login بصفحة اللوكن
                     buildButton(context, "Login", () {
                       Navigator.push(
@@ -52,9 +52,9 @@ class WelcomeScreen extends StatelessWidget {
                         MaterialPageRoute(builder: (context) => const LoginScreen()),
                       );
                     }),
-                    
+
                     const SizedBox(height: 20),
-                    
+
                     // زر الـ Register
                     buildButton(context, "Register", () {
                       Navigator.push(
@@ -84,8 +84,8 @@ class WelcomeScreen extends StatelessWidget {
         ),
         child: Center(
           child: Text(
-            text, 
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)
+              text,
+              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)
           ),
         ),
       ),
