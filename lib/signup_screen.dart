@@ -34,43 +34,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    
     if (name.isEmpty || email.isEmpty || password.isEmpty) {
       _showError("All fields are required!");
       return;
     }
 
-    
     if (name.length < 5 || !name.contains(' ')) {
-      _showError("Please enter your full name ");
+      _showError("Please enter your full name");
       return;
     }
+    
     if (RegExp(r'[0-9]').hasMatch(name)) {
       _showError("Names should not contain numbers!");
       return;
     }
 
-    
     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
-      _showError("Please enter a valid email address! 📧");
+      _showError("Please enter a valid email address!");
       return;
     }
 
-    
     if (password.length < 8) {
       _showError("Password must be at least 8 characters!");
       return;
     }
+    
     if (!RegExp(r'[A-Z]').hasMatch(password)) {
-      _showError("Password must have at least one uppercase letter ");
-      return;
-    }
-    if (!RegExp(r'[0-9]').hasMatch(password)) {
-      _showError("Password must have at least one number ");
-      return;
-    }
-    if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(password)) {
-      _showError("Password must have at least one special character");
+      _showError("Password must have at least one uppercase letter");
       return;
     }
 
@@ -97,7 +87,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     } on FirebaseAuthException catch (e) {
       if (e.code == 'email-already-in-use') {
-        _showError("This email is already in use! ");
+        _showError("This email is already in use!");
       } else {
         _showError(e.message ?? "An error occurred");
       }
@@ -157,7 +147,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                               child: Center(
                                 child: _isLoading 
-                                  ? const CircularProgressIndicator(color: Colors.white) 
+                                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
                                   : const Text("Register", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                               ),
                             ),
@@ -194,13 +184,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(padding: EdgeInsets.only(left: 5, bottom: 8), child: Text("Password", style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500))),
+        const Padding(
+          padding: EdgeInsets.only(left: 5, bottom: 8), 
+          child: Text("Password", style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500))
+        ),
         TextField(
           controller: _passwordController,
           obscureText: _obscurePassword,
           decoration: InputDecoration(
-            hintText: "",
-            filled: true, fillColor: const Color(0xFFF8F9FA),
+            hintText: "Enter your password",
+            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+            filled: true, 
+            fillColor: const Color(0xFFF8F9FA),
             suffixIcon: IconButton(
               icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey),
               onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -217,12 +212,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(padding: const EdgeInsets.only(left: 5, bottom: 8), child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500))),
+        Padding(
+          padding: const EdgeInsets.only(left: 5, bottom: 8), 
+          child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500))
+        ),
         TextField(
           controller: controller,
           decoration: InputDecoration(
             hintText: hint,
-            filled: true, fillColor: const Color(0xFFF8F9FA),
+            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+            filled: true, 
+            fillColor: const Color(0xFFF8F9FA),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           ),
