@@ -171,14 +171,6 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     }
   }
 
-  Future<void> _signOut() async {
-    await _authService.signOut();
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, '/login');
-      // OR use: Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginScreen()));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -276,79 +268,79 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                   textAlign: TextAlign.center,
                 ),
 
-                const SizedBox(height: 40),
+                const SizedBox(height: 50),
 
-                // Loading indicator
-                const CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
+                // Check Now button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _checkNow,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFB382),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 2,
+                    ),
+                    child: const Text(
+                      'Check Now',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ),
 
                 const SizedBox(height: 16),
 
-                Text(
-                  'Checking verification status...',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-
-                const SizedBox(height: 50),
-
-                // Check Now button
-                ElevatedButton(
-                  onPressed: _checkNow,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFB382),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                // Resend email button - NOW MORE VISIBLE
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _canResend && !_isResendingEmail ? _resendVerificationEmail : null,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                      side: BorderSide(
+                        color: _canResend ? const Color(0xFFFFB382) : Colors.grey.shade400,
+                        width: 2,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      backgroundColor: Colors.white,
                     ),
-                  ),
-                  child: const Text(
-                    'Check Now',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // Resend email button
-                TextButton(
-                  onPressed: _canResend && !_isResendingEmail ? _resendVerificationEmail : null,
-                  child: _isResendingEmail
-                      ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                      : Text(
-                    _canResend
-                        ? 'Resend Verification Email'
-                        : 'Resend in ${_resendCooldown}s',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: _canResend ? const Color(0xFFFFB382) : Colors.grey,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // Sign out button
-                TextButton.icon(
-                  onPressed: _signOut,
-                  icon: const Icon(Icons.logout, color: Colors.grey),
-                  label: const Text(
-                    'Sign Out',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
+                    child: _isResendingEmail
+                        ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
+                      ),
+                    )
+                        : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.email_outlined,
+                          color: _canResend ? const Color(0xFFFFB382) : Colors.grey,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _canResend
+                              ? 'Resend Verification Email'
+                              : 'Resend in ${_resendCooldown}s',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: _canResend ? const Color(0xFFFFB382) : Colors.grey,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
