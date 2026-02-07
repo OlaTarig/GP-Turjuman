@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../views/widgets/AppBar.dart';
 import '../controllers/MeetingController.dart';
 import '../views/MeetingView.dart';
+import '../models/UserModel.dart';
+
 
 
 
@@ -69,19 +71,61 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _startMeeting() async {
     final controller = MeetingController();
-
     final meeting = await controller.createMeeting("New Meeting");
 
-    if (meeting != null && mounted) {
+    if (meeting == null || !mounted) return;
+
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) return;
+
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('User') // نفس اسم الكولكشن عندك
+          .doc(firebaseUser.uid)
+          .get();
+
+      UserModel userModel;
+
+      if (userDoc.exists && userDoc.data() != null) {
+        userModel = UserModel.fromMap(userDoc.data()!);
+      } else {
+        // fallback لو ما فيه بيانات في Firestore
+        userModel = UserModel(
+          userId: firebaseUser.uid,
+          name: firebaseUser.displayName ?? 'User',
+          email: firebaseUser.email ?? '',
+        );
+      }
+
+      if (!mounted) return;
+
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => MeetingView(meeting: meeting),
+          builder: (_) => MeetingView(meeting: meeting, user: userModel),
         ),
       );
+    } catch (e) {
+      debugPrint("Error loading user model: $e");
 
+      // fallback إذا صار خطأ
+      final userModel = UserModel(
+        userId: firebaseUser.uid,
+        name: firebaseUser.displayName ?? 'User',
+        email: firebaseUser.email ?? '',
+      );
+
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MeetingView(meeting: meeting, user: userModel),
+        ),
+      );
     }
   }
+
 
 
   Future<void> _signOut() async {

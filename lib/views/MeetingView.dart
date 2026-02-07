@@ -1,108 +1,145 @@
 import 'package:flutter/material.dart';
 import '../models/MeetingModel.dart';
+import '../models/UserModel.dart';
+import '../controllers/MeetingSessionController.dart';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../controllers/MeetingSessionController.dart';
 
 
 class MeetingView extends StatefulWidget {
   final MeetingModel meeting;
+  final UserModel user;
 
-  const MeetingView({super.key, required this.meeting});
+  const MeetingView({super.key, required this.meeting, required this.user});
 
   @override
   State<MeetingView> createState() => _MeetingScreenState();
 }
 
 class _MeetingScreenState extends State<MeetingView> {
-  bool isMicOn = false;
-  bool isCameraOn = false;
-  bool isHandRaised = false;
+  late final MeetingSessionController session;
 
-  CameraController? _cameraController;
-  List<CameraDescription>? cameras;
-  bool isCameraInitialized = false;
-
-  // ✅ تنظيف الموارد عند الخروج من الصفحة
   @override
-  void dispose() {
-    _cameraController?.dispose();
-    super.dispose();
-  }
+  void initState() {
+    super.initState();
 
-  // ✅ تهيئة الكاميرا (اختيار الأمامية إن وجدت)
-  Future<void> _initializeCamera() async {
-    cameras ??= await availableCameras();
+    session = MeetingSessionController();
+    session.addListener(_onSessionChanged);
 
-    final frontCamera = cameras!.firstWhere(
-          (c) => c.lensDirection == CameraLensDirection.front,
-      orElse: () => cameras!.first,
-    );
-
-    _cameraController = CameraController(
-      frontCamera,
-      ResolutionPreset.medium,
-      enableAudio: false,
-    );
-
-    await _cameraController!.initialize();
-
-    if (!mounted) return;
-    setState(() {
-      isCameraInitialized = true;
+    // Popup بعد ما الصفحة تترسم
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAccessSettingsOnEntry();
     });
   }
 
-  // ✅ تشغيل / إيقاف الكاميرا عند الضغط على زر الفيديو
-  Future<void> _toggleCamera() async {
-    if (!isCameraOn) {
-      // تشغيل الكاميرا
-      await _initializeCamera();
-      if (!mounted) return;
-      setState(() {
-        isCameraOn = true;
-      });
-    } else {
-      // إيقاف الكاميرا
-      await _cameraController?.dispose();
-      _cameraController = null;
+  void _onSessionChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
 
-      if (!mounted) return;
-      setState(() {
-        isCameraOn = false;
-        isCameraInitialized = false;
-      });
+  void _checkAccessSettingsOnEntry() {
+    final micOff = widget.user.micAccessSettings == false;
+    final camOff = widget.user.cameraAccessSettings == false;
+
+    if (micOff || camOff) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Access Required'),
+          content: Text(
+            micOff && camOff
+                ? 'Microphone and Camera access are disabled in your settings. Please enable them to use meeting features.'
+                : micOff
+                ? 'Microphone access is disabled in your settings. Please enable it to use audio.'
+                : 'Camera access is disabled in your settings. Please enable it to use video.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Later'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                // مؤقتًا نفتح إعدادات الجهاز لين تبنين صفحة Settings داخل التطبيق
+                openAppSettings();
+              },
+              child: const Text('Open Settings'),
+            ),
+          ],
+        ),
+      );
     }
   }
-  Future<void> _toggleMic() async {
-    if (!isMicOn) {
-      // طلب إذن المايك
-      final status = await Permission.microphone.request();
 
-      if (status.isGranted) {
-        if (!mounted) return;
-        setState(() {
-          isMicOn = true;
-        });
-        // لاحقًا: هنا نربط تشغيل بث الصوت داخل الاجتماع (WebRTC/SDK)
-      } else {
-        if (!mounted) return;
+  @override
+  void dispose() {
+    session.removeListener(_onSessionChanged);
+    session.disposeSession();
+    super.dispose();
+  }
+
+  Future<void> _onCameraPressed() async {
+    // بوابة إعدادات المستخدم
+    if (!widget.user.cameraAccessSettings) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Camera is disabled in settings'),
+          action: SnackBarAction(
+            label: 'Settings',
+            onPressed: openAppSettings,
+          ),
+        ),
+      );
+      return;
+    }
+
+    await session.toggleCamera();
+  }
+
+  Future<void> _onMicPressed() async {
+    // بوابة إعدادات المستخدم
+    if (!widget.user.micAccessSettings) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Microphone is disabled in settings'),
+          action: SnackBarAction(
+            label: 'Settings',
+            onPressed: openAppSettings,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // نخلي الكنترولر يطلب إذن المايك
+    final before = session.isMicOn;
+    await session.toggleMic();
+
+    // إذا ما تغيّرت الحالة، غالبًا permission مرفوض (خصوصًا permanentlyDenied)
+    if (!before && !session.isMicOn) {
+      final st = await Permission.microphone.status;
+      if (st.isPermanentlyDenied && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Microphone permission is required')),
+          SnackBar(
+            content: const Text('Microphone permission is permanently denied. Enable it from settings.'),
+            action: SnackBarAction(
+              label: 'Settings',
+              onPressed: openAppSettings,
+            ),
+          ),
         );
       }
-    } else {
-      // إيقاف المايك
-      if (!mounted) return;
-      setState(() {
-        isMicOn = false;
-      });
-      // لاحقًا: هنا نربط إيقاف بث الصوت داخل الاجتماع
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
+    final camReady = session.isCameraOn &&
+        session.isCameraInitialized &&
+        session.cameraController != null;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -124,8 +161,8 @@ class _MeetingScreenState extends State<MeetingView> {
             child: Container(
               width: double.infinity,
               color: Colors.black,
-              child: (isCameraOn && isCameraInitialized && _cameraController != null)
-                  ? CameraPreview(_cameraController!)
+              child: camReady
+                  ? CameraPreview(session.cameraController!)
                   : const Center(
                 child: Icon(
                   Icons.videocam_off,
@@ -145,33 +182,40 @@ class _MeetingScreenState extends State<MeetingView> {
               children: [
                 IconButton(
                   icon: Icon(
-                    isMicOn ? Icons.mic : Icons.mic_off,
+                    session.isMicOn ? Icons.mic : Icons.mic_off,
                     color: Colors.white,
                   ),
-                  onPressed:  _toggleMic,
-
+                  onPressed: _onMicPressed,
                 ),
 
                 IconButton(
                   icon: Icon(
-                    isCameraOn ? Icons.videocam : Icons.videocam_off,
+                    session.isCameraOn ? Icons.videocam : Icons.videocam_off,
                     color: Colors.white,
                   ),
-                  // ✅ بدل ما نقلب المتغير فقط، نستخدم التوغل الحقيقي للكamera
-                  onPressed: _toggleCamera,
+                  onPressed: _onCameraPressed,
                 ),
 
                 IconButton(
                   icon: Icon(
-                    isHandRaised ? Icons.pan_tool : Icons.pan_tool_outlined,
+                    session.isHandRaised ? Icons.pan_tool : Icons.pan_tool_outlined,
                     color: Colors.orange,
                   ),
-                  onPressed: () {
-                    setState(() {
-                      isHandRaised = !isHandRaised;
-                    });
+                  onPressed: session.toggleHand,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.cameraswitch, color: Colors.white),
+                  onPressed: () async {
+                    if (!session.isCameraOn) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Turn on camera first')),
+                      );
+                      return;
+                    }
+                    await session.flipCamera();
                   },
                 ),
+
 
                 IconButton(
                   icon: const Icon(Icons.call_end, color: Colors.red),
@@ -187,3 +231,4 @@ class _MeetingScreenState extends State<MeetingView> {
     );
   }
 }
+

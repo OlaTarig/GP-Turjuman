@@ -6,7 +6,6 @@ class UserModel {
 
   String role; // "host" or "participant"
 
-
   // ===== App Settings (persistent) =====
   bool micAccessSettings;
   bool cameraAccessSettings;
@@ -29,8 +28,7 @@ class UserModel {
     required this.userId,
     required this.name,
     required this.email,
-    this.role = "participant", // default to participant
-
+    this.role = "participant",
 
     this.micAccessSettings = true,
     this.cameraAccessSettings = true,
@@ -46,4 +44,52 @@ class UserModel {
     this.isSpeechCaptioningOn = false,
     this.isHandAvatarOn = false,
   });
+
+  // ===== Convert UserModel to Firestore Map =====
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'name': name,
+      'email': email,
+      'role': role,
+
+      'micAccessSettings': micAccessSettings,
+      'cameraAccessSettings': cameraAccessSettings,
+
+      'micPermissionGranted': micPermissionGranted,
+      'cameraPermissionGranted': cameraPermissionGranted,
+
+      'isMicrophoneOn': isMicrophoneOn,
+      'isCameraOn': isCameraOn,
+      'isHandRaised': isHandRaised,
+
+      'isSignCaptioningOn': isSignCaptioningOn,
+      'isSpeechCaptioningOn': isSpeechCaptioningOn,
+      'isHandAvatarOn': isHandAvatarOn,
+    };
+  }
+
+  // ===== Create UserModel from Firestore Map =====
+  factory UserModel.fromMap(Map<String, dynamic> map) {
+    return UserModel(
+      userId: map['userId'] ?? '',
+      name: map['name'] ?? '',
+      email: map['email'] ?? '',
+      role: map['role'] ?? 'participant',
+
+      micAccessSettings: map['micAccessSettings'] ?? true,
+      cameraAccessSettings: map['cameraAccessSettings'] ?? true,
+
+      micPermissionGranted: map['micPermissionGranted'] ?? false,
+      cameraPermissionGranted: map['cameraPermissionGranted'] ?? false,
+
+      isMicrophoneOn: map['isMicrophoneOn'] ?? false,
+      isCameraOn: map['isCameraOn'] ?? false,
+      isHandRaised: map['isHandRaised'] ?? false,
+
+      isSignCaptioningOn: map['isSignCaptioningOn'] ?? false,
+      isSpeechCaptioningOn: map['isSpeechCaptioningOn'] ?? false,
+      isHandAvatarOn: map['isHandAvatarOn'] ?? false,
+    );
+  }
 }
