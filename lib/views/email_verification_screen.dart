@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 // Import your auth service
-import '../AuthService.dart';
+ import '../AuthService.dart';
 import 'home_page.dart';
 
 class EmailVerificationScreen extends StatefulWidget {

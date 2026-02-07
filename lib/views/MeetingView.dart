@@ -1,100 +1,112 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import '../models/MeetingModel.dart';
 
-import '../controllers/MeetingController.dart';
-import '../models/UserModel.dart';
+class MeetingView extends StatefulWidget {
+  final MeetingModel meeting;
 
-class MeetingRoomView extends StatelessWidget {
-  final UserModel currentUser;
+  const MeetingView({super.key, required this.meeting});
 
-  const MeetingRoomView({super.key, required this.currentUser});
+  @override
+  State<MeetingView> createState() => _MeetingScreenState();
+}
+
+class _MeetingScreenState extends State<MeetingView> {
+
+  bool isMicOn = false;
+  bool isCameraOn = false;
+  bool isHandRaised = false;
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MeetingController>(
-      builder: (context, controller, child) {
-        final meeting = controller.meeting;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.grey[900],
+        title: Text(widget.meeting.title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.people),
+            onPressed: () {
+              // later: open participants panel
+            },
+          )
+        ],
+      ),
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Text("Meeting ID: ${meeting.meetingId}"),
-          ),
-          body: Column(
-            children: [
-              // -----------------------
-              // Participants List
-              // -----------------------
-              Expanded(
-                child: ListView.builder(
-                  itemCount: meeting.participants.length,
-                  itemBuilder: (context, index) {
-                    var user = meeting.participants[index];
-                    return ListTile(
-                      title: Text(user.name),
-                      subtitle: Text(
-                          "Mic: ${user.isMicrophoneOn ? "On" : "Muted"} | Camera: ${user.isCameraOn ? "On" : "Off"}"),
-                      trailing: user.isHandRaised
-                          ? const Icon(Icons.pan_tool, color: Colors.orange)
-                          : null,
-                    );
-                  },
+      body: Column(
+        children: [
+
+          // 🎥 Video Area
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              color: Colors.black,
+              child: const Center(
+                child: Text(
+                  "Video Area",
+                  style: TextStyle(color: Colors.white),
                 ),
               ),
-
-              const Divider(),
-
-              // -----------------------
-              // Control Bar
-              // -----------------------
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Mic button
-                  IconButton(
-                    icon: Icon(
-                      currentUser.isMicrophoneOn ? Icons.mic : Icons.mic_off,
-                    ),
-                    onPressed: () {
-                      controller.toggleMicrophone(currentUser.userId);
-                    },
-                  ),
-
-                  // Camera button
-                  IconButton(
-                    icon: Icon(
-                      currentUser.isCameraOn
-                          ? Icons.videocam
-                          : Icons.videocam_off,
-                    ),
-                    onPressed: () {
-                      controller.toggleCamera(currentUser.userId);
-                    },
-                  ),
-
-                  // Raise hand button
-                  IconButton(
-                    icon: Icon(
-                      Icons.pan_tool,
-                      color: currentUser.isHandRaised
-                          ? Colors.orange
-                          : Colors.grey,
-                    ),
-                    onPressed: () {
-                      if (currentUser.isHandRaised) {
-                        controller.lowerHand(currentUser.userId);
-                      } else {
-                        controller.raiseHand(currentUser.userId);
-                      }
-                    },
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-            ],
+            ),
           ),
-        );
-      },
+
+          // 🎛 Bottom Controls
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            color: Colors.grey[900],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+
+                IconButton(
+                  icon: Icon(
+                    isMicOn ? Icons.mic : Icons.mic_off,
+                    color: Colors.white,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      isMicOn = !isMicOn;
+                    });
+                  },
+                ),
+
+                IconButton(
+                  icon: Icon(
+                    isCameraOn ? Icons.videocam : Icons.videocam_off,
+                    color: Colors.white,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      isCameraOn = !isCameraOn;
+                    });
+                  },
+                ),
+
+                IconButton(
+                  icon: Icon(
+                    isHandRaised
+                        ? Icons.pan_tool
+                        : Icons.pan_tool_outlined,
+                    color: Colors.orange,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      isHandRaised = !isHandRaised;
+                    });
+                  },
+                ),
+
+                IconButton(
+                  icon: const Icon(Icons.call_end, color: Colors.red),
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

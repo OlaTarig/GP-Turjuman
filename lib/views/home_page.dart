@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../views/widgets/AppBar.dart';
+import '../controllers/MeetingController.dart';
+import '../views/MeetingView.dart';
+
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -64,15 +68,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _startMeeting() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Starting meeting...'),
-        backgroundColor: const Color(0xFFFFB382),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+    final controller = MeetingController();
+
+    final meeting = await controller.createMeeting("New Meeting");
+
+    if (meeting != null && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MeetingView(meeting: meeting),
+        ),
+      );
+
+    }
   }
+
 
   Future<void> _signOut() async {
     try {
