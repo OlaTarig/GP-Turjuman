@@ -181,28 +181,46 @@ class _MeetingScreenState extends State<MeetingView> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.grey[900],
-        title: Text(widget.meeting.title),
+        centerTitle: true, // ✅ العنوان بالمنتصف
+        title: Text(
+          widget.meeting.title,
+          style: const TextStyle(color: Colors.white), // ✅ نفس الأبيض
+        ),
+        iconTheme: const IconThemeData(color: Colors.white), // ✅ أيقونات بيضاء
         actions: [
-          TextButton(
-            onPressed: _onLeaveOrEndPressed,
-            child: Text(
-              _isHost ? 'End Meeting' : 'Leave Meeting',
-              style: TextStyle(
-                color: _isHost ? Colors.redAccent : Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
           IconButton(
-            icon: const Icon(Icons.people),
+            icon: const Icon(Icons.people, color: Colors.white),
             onPressed: () {
               // later: participants panel
             },
           ),
         ],
       ),
+
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: _onLeaveOrEndPressed,
+                child: Text(
+                  _isHost ? 'End Meeting' : 'Leave Meeting',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ),
+
           // 🎥 Video Area
           Expanded(
             child: Padding(
@@ -273,12 +291,14 @@ class _MeetingScreenState extends State<MeetingView> {
                   icon: session.isMicOn ? Icons.mic : Icons.mic_off,
                   label: 'Mic',
                   isActive: session.isMicOn,
+                  activeColor: Colors.orange, // ✅ نفس hand
                   onTap: _onMicPressed,
                 ),
                 _meetingIcon(
                   icon: session.isCameraOn ? Icons.videocam : Icons.videocam_off,
                   label: 'Camera',
                   isActive: session.isCameraOn,
+                  activeColor: Colors.orange, // ✅ نفس hand
                   onTap: _onCameraPressed,
                 ),
                 _meetingIcon(
