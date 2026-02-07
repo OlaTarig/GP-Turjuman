@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/MeetingModel.dart';
 import 'package:camera/camera.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 
 class MeetingView extends StatefulWidget {
   final MeetingModel meeting;
@@ -71,6 +73,33 @@ class _MeetingScreenState extends State<MeetingView> {
       });
     }
   }
+  Future<void> _toggleMic() async {
+    if (!isMicOn) {
+      // طلب إذن المايك
+      final status = await Permission.microphone.request();
+
+      if (status.isGranted) {
+        if (!mounted) return;
+        setState(() {
+          isMicOn = true;
+        });
+        // لاحقًا: هنا نربط تشغيل بث الصوت داخل الاجتماع (WebRTC/SDK)
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Microphone permission is required')),
+        );
+      }
+    } else {
+      // إيقاف المايك
+      if (!mounted) return;
+      setState(() {
+        isMicOn = false;
+      });
+      // لاحقًا: هنا نربط إيقاف بث الصوت داخل الاجتماع
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -119,11 +148,8 @@ class _MeetingScreenState extends State<MeetingView> {
                     isMicOn ? Icons.mic : Icons.mic_off,
                     color: Colors.white,
                   ),
-                  onPressed: () {
-                    setState(() {
-                      isMicOn = !isMicOn;
-                    });
-                  },
+                  onPressed:  _toggleMic,
+
                 ),
 
                 IconButton(
