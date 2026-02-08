@@ -15,7 +15,7 @@ class WelcomeScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFF9E3), Color(0xFFFFB382)],
+            colors: [Color(0xFFFFF9E3),Color(0xFFFFD98F), Color(0xFFFFB382)],
           ),
         ),
         child: Column(
@@ -45,7 +45,7 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 30),
 
-                    // 2. ربط زر الـ Login بصفحة اللوكن
+                    // Login Button
                     buildButton(context, "Login", () {
                       Navigator.push(
                         context,
@@ -55,7 +55,7 @@ class WelcomeScreen extends StatelessWidget {
 
                     const SizedBox(height: 20),
 
-                    // زر الـ Register
+                    // Register Button
                     buildButton(context, "Register", () {
                       Navigator.push(
                         context,
@@ -73,19 +73,66 @@ class WelcomeScreen extends StatelessWidget {
   }
 
   Widget buildButton(BuildContext context, String text, VoidCallback onTap) {
+    return AnimatedButton(text: text, onTap: onTap);
+  }
+}
+
+// Animated Button Widget for better interactivity
+class AnimatedButton extends StatefulWidget {
+  final String text;
+  final VoidCallback onTap;
+
+  const AnimatedButton({
+    super.key,
+    required this.text,
+    required this.onTap,
+  });
+
+  @override
+  State<AnimatedButton> createState() => _AnimatedButtonState();
+}
+
+class _AnimatedButtonState extends State<AnimatedButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeInOut,
         width: double.infinity,
         height: 55,
+        transform: Matrix4.identity()..scale(_isPressed ? 0.95 : 1.0),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFFFDBB84), Color(0xFFFFD98F)]),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFDBB84), Color(0xFFFFD98F)],
+          ),
           borderRadius: BorderRadius.circular(15),
+          boxShadow: _isPressed
+              ? []
+              : [
+            BoxShadow(
+              color: const Color(0xFFFFD98F).withOpacity(0.5),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Center(
           child: Text(
-              text,
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)
+            widget.text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ),
