@@ -1,100 +1,356 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-
-import '../controllers/MeetingController.dart';
+import '../models/MeetingModel.dart';
 import '../models/UserModel.dart';
+import '../controllers/MeetingSessionController.dart';
+import 'package:camera/camera.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-class MeetingRoomView extends StatelessWidget {
-  final UserModel currentUser;
+class MeetingView extends StatefulWidget {
+  final MeetingModel meeting;
+  final UserModel user;
 
-  const MeetingRoomView({super.key, required this.currentUser});
+  const MeetingView({super.key, required this.meeting, required this.user});
+
+  @override
+  State<MeetingView> createState() => _MeetingScreenState();
+}
+
+class _MeetingScreenState extends State<MeetingView> {
+  // نفس ألوان الهوم بيج
+  static const Color primaryOrange = Color(0xFFFFB382);
+  static const Color darkBg = Color(0xFF2D2F31);
+
+  late final MeetingSessionController session;
+
+  @override
+  void initState() {
+    super.initState();
+    session = MeetingSessionController();
+    session.addListener(_onSessionChanged);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAccessSettingsOnEntry();
+    });
+  }
+
+  void _onSessionChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void _checkAccessSettingsOnEntry() {
+    final micOff = widget.user.micAccessSettings == false;
+    final camOff = widget.user.cameraAccessSettings == false;
+
+    if (micOff || camOff) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Access Required'),
+          content: Text(
+            micOff && camOff
+                ? 'Microphone and Camera access are disabled in your settings. Please enable them to use meeting features.'
+                : micOff
+                ? 'Microphone access is disabled in your settings. Please enable it to use audio.'
+                : 'Camera access is disabled in your settings. Please enable it to use video.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Later'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                openAppSettings(); // مؤقتًا لين تسوين Settings داخل التطبيق
+              },
+              child: const Text('Open Settings'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    session.removeListener(_onSessionChanged);
+    session.disposeSession();
+    super.dispose();
+  }
+
+  bool get _isHost => widget.user.role.toLowerCase() == 'host';
+
+  Future<void> _onMicPressed() async {
+    if (!widget.user.micAccessSettings) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Microphone is disabled in settings'),
+          action: SnackBarAction(label: 'Settings', onPressed: openAppSettings),
+        ),
+      );
+      return;
+    }
+
+    final before = session.isMicOn;
+    await session.toggleMic();
+
+    if (!before && !session.isMicOn) {
+      final st = await Permission.microphone.status;
+      if (st.isPermanentlyDenied && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Microphone permission is permanently denied. Enable it from settings.'),
+            action: SnackBarAction(label: 'Settings', onPressed: openAppSettings),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _onCameraPressed() async {
+    if (!widget.user.cameraAccessSettings) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Camera is disabled in settings'),
+          action: SnackBarAction(label: 'Settings', onPressed: openAppSettings),
+        ),
+      );
+      return;
+    }
+    await session.toggleCamera();
+  }
+
+  Future<void> _onFlipPressed() async {
+    if (!session.isCameraOn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Turn on camera first')),
+      );
+      return;
+    }
+    await session.flipCamera();
+  }
+
+  void _onShareScreenPressed() {
+    // UI فقط حالياً — ربط المشاركة فعلياً يحتاج SDK
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Share screen: Coming soon')),
+    );
+  }
+
+  Future<void> _onLeaveOrEndPressed() async {
+    final actionText = _isHost ? 'End meeting for everyone?' : 'Leave meeting?';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(_isHost ? 'End Meeting' : 'Leave Meeting'),
+        content: Text(actionText),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _isHost ? Colors.red : primaryOrange,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(_isHost ? 'End' : 'Leave'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // هنا لاحقًا: إذا Host ننادي MeetingController.endMeeting()
+    // وإذا Participant ننادي MeetingController.leaveMeeting()
+    if (!mounted) return;
+    Navigator.pop(context);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MeetingController>(
-      builder: (context, controller, child) {
-        final meeting = controller.meeting;
+    final camReady = session.isCameraOn &&
+        session.isCameraInitialized &&
+        session.cameraController != null;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Text("Meeting ID: ${meeting.meetingId}"),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.grey[900],
+        centerTitle: true, // ✅ العنوان بالمنتصف
+        title: Text(
+          widget.meeting.title,
+          style: const TextStyle(color: Colors.white), // ✅ نفس الأبيض
+        ),
+        iconTheme: const IconThemeData(color: Colors.white), // ✅ أيقونات بيضاء
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.people, color: Colors.white),
+            onPressed: () {
+              // later: participants panel
+            },
           ),
-          body: Column(
-            children: [
-              // -----------------------
-              // Participants List
-              // -----------------------
-              Expanded(
-                child: ListView.builder(
-                  itemCount: meeting.participants.length,
-                  itemBuilder: (context, index) {
-                    var user = meeting.participants[index];
-                    return ListTile(
-                      title: Text(user.name),
-                      subtitle: Text(
-                          "Mic: ${user.isMicrophoneOn ? "On" : "Muted"} | Camera: ${user.isCameraOn ? "On" : "Off"}"),
-                      trailing: user.isHandRaised
-                          ? const Icon(Icons.pan_tool, color: Colors.orange)
-                          : null,
-                    );
-                  },
+        ],
+      ),
+
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: _onLeaveOrEndPressed,
+                child: Text(
+                  _isHost ? 'End Meeting' : 'Leave Meeting',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
-
-              const Divider(),
-
-              // -----------------------
-              // Control Bar
-              // -----------------------
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Mic button
-                  IconButton(
-                    icon: Icon(
-                      currentUser.isMicrophoneOn ? Icons.mic : Icons.mic_off,
-                    ),
-                    onPressed: () {
-                      controller.toggleMicrophone(currentUser.userId);
-                    },
-                  ),
-
-                  // Camera button
-                  IconButton(
-                    icon: Icon(
-                      currentUser.isCameraOn
-                          ? Icons.videocam
-                          : Icons.videocam_off,
-                    ),
-                    onPressed: () {
-                      controller.toggleCamera(currentUser.userId);
-                    },
-                  ),
-
-                  // Raise hand button
-                  IconButton(
-                    icon: Icon(
-                      Icons.pan_tool,
-                      color: currentUser.isHandRaised
-                          ? Colors.orange
-                          : Colors.grey,
-                    ),
-                    onPressed: () {
-                      if (currentUser.isHandRaised) {
-                        controller.lowerHand(currentUser.userId);
-                      } else {
-                        controller.raiseHand(currentUser.userId);
-                      }
-                    },
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-            ],
+            ),
           ),
-        );
-      },
+
+          // 🎥 Video Area
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  color: Colors.black,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: camReady
+                            ? CameraPreview(session.cameraController!)
+                            : Center(
+                          child: CircleAvatar(
+                            radius: 42,
+                            backgroundColor: primaryOrange,
+                            child: Text(
+                              (widget.user.name.isNotEmpty
+                                  ? widget.user.name[0]
+                                  : 'U')
+                                  .toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 12,
+                        left: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _isHost ? '${widget.user.name} (Host)' : widget.user.name,
+                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // 🎛 Bottom Controls (فقط اللي طلبتيه)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+            decoration: const BoxDecoration(
+              color: darkBg,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _meetingIcon(
+                  icon: session.isMicOn ? Icons.mic : Icons.mic_off,
+                  label: 'Mic',
+                  isActive: session.isMicOn,
+                  activeColor: Colors.orange, // ✅ نفس hand
+                  onTap: _onMicPressed,
+                ),
+                _meetingIcon(
+                  icon: session.isCameraOn ? Icons.videocam : Icons.videocam_off,
+                  label: 'Camera',
+                  isActive: session.isCameraOn,
+                  activeColor: Colors.orange, // ✅ نفس hand
+                  onTap: _onCameraPressed,
+                ),
+                _meetingIcon(
+                  icon: Icons.cameraswitch,
+                  label: 'Flip',
+                  onTap: _onFlipPressed,
+                ),
+                _meetingIcon(
+                  icon: session.isHandRaised ? Icons.pan_tool : Icons.pan_tool_outlined,
+                  label: 'Hand',
+                  isActive: session.isHandRaised,
+                  activeColor: Colors.orange,
+                  onTap: session.toggleHand,
+                ),
+                _meetingIcon(
+                  icon: Icons.screen_share,
+                  label: 'Share',
+                  onTap: _onShareScreenPressed,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _meetingIcon({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onTap,
+    bool isActive = false,
+    Color? activeColor,
+  }) {
+    final bg = isActive ? (activeColor ?? primaryOrange) : Colors.grey.shade800;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: bg,
+            child: Icon(icon, color: Colors.white),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+        ],
+      ),
     );
   }
 }
