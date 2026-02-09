@@ -365,7 +365,7 @@ class _SettingsViewState extends State<SettingsView> {
         else
           Switch(
             value: value,
-            activeColor: primaryOrange,
+            activeThumbColor: primaryOrange,
             onChanged: onChanged,
           ),
       ],
