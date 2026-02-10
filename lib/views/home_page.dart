@@ -5,9 +5,7 @@ import '../views/widgets/AppBar.dart';
 import '../controllers/MeetingController.dart';
 import '../views/MeetingView.dart';
 import '../models/UserModel.dart';
-
-
-
+import '../views/SettingsView.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,6 +18,8 @@ class _HomePageState extends State<HomePage> {
   String _userName = '';
   bool _isLoading = true;
   int _currentIndex = 0;
+
+  UserModel? _userModel;
 
   @override
   void initState() {
@@ -42,6 +42,11 @@ class _HomePageState extends State<HomePage> {
               .collection('User')
               .doc(user.uid)
               .get();
+
+          final data = userDoc.data();
+          if (data != null) {
+            _userModel = UserModel.fromMap(data);
+          }
 
           if (userDoc.exists && mounted) {
             final firestoreName = userDoc.data()?['name'];
@@ -80,7 +85,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final userDoc = await FirebaseFirestore.instance
-          .collection('User') // نفس اسم الكولكشن عندك
+          .collection('User')
           .doc(firebaseUser.uid)
           .get();
 
@@ -89,7 +94,6 @@ class _HomePageState extends State<HomePage> {
       if (userDoc.exists && userDoc.data() != null) {
         userModel = UserModel.fromMap(userDoc.data()!);
       } else {
-        // fallback لو ما فيه بيانات في Firestore
         userModel = UserModel(
           userId: firebaseUser.uid,
           name: firebaseUser.displayName ?? 'User',
@@ -108,7 +112,6 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       debugPrint("Error loading user model: $e");
 
-      // fallback إذا صار خطأ
       final userModel = UserModel(
         userId: firebaseUser.uid,
         name: firebaseUser.displayName ?? 'User',
@@ -126,46 +129,160 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-
-
-  Future<void> _signOut() async {
-    try {
-      await FirebaseAuth.instance.signOut();
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
-      }
-    } catch (e) {
-      debugPrint("Error signing out: $e");
-    }
-  }
-
+  // ✅ تعديل بسيط: بدون Navigator.push
   void _onBottomNavTap(int index) {
     setState(() {
       _currentIndex = index;
     });
+  }
 
-    switch (index) {
-      case 0:
-        break;
-      case 1:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Files page - Coming soon'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  // ✅ نفس محتوى الهوم حقك (بدون تغيير)
+  Widget _homeTab() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+
+              // Header with greeting and profile
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome back,',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _userName,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2D3142),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ✅ تم حذف زر اللوق اوت من هنا فقط
+                ],
+              ),
+
+              const SizedBox(height: 40),
+
+              // Main meeting card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFB382), Color(0xFFFFD0A0)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFFB382).withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Icon
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.videocam_rounded,
+                        size: 50,
+                        color: Colors.white,
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    const Text(
+                      'Start a Meeting',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    Text(
+                      'Connect with your team instantly',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+
+                    const SizedBox(height: 28),
+
+                    // Start button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: _startMeeting,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFFFFB382),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.play_arrow_rounded, size: 28),
+                            SizedBox(width: 8),
+                            Text(
+                              'Start Now',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
+              const SizedBox(height: 100), // Bottom padding for nav bar
+            ],
           ),
-        );
-        break;
-      case 2:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Settings page - Coming soon'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-        break;
-    }
+        ),
+      ),
+    );
   }
 
   @override
@@ -178,170 +295,28 @@ class _HomePageState extends State<HomePage> {
           valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
         ),
       )
-          : SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-
-                // Header with greeting and profile
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Welcome back,',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey.shade600,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _userName,
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D3142),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Profile/Sign out button
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        onPressed: _signOut,
-                        icon: const Icon(Icons.logout_rounded),
-                        color: const Color(0xFFFFB382),
-                        iconSize: 24,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 40),
-
-                // Main meeting card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFFB382), Color(0xFFFFD0A0)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFFFB382).withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      // Icon
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.videocam_rounded,
-                          size: 50,
-                          color: Colors.white,
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      const Text(
-                        'Start a Meeting',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      Text(
-                        'Connect with your team instantly',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white.withOpacity(0.9),
-                        ),
-                      ),
-
-                      const SizedBox(height: 28),
-
-                      // Start button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: _startMeeting,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFFFFB382),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.play_arrow_rounded, size: 28),
-                              SizedBox(width: 8),
-                              Text(
-                                'Start Now',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-
-                const SizedBox(height: 100), // Bottom padding for nav bar
-              ],
+          : IndexedStack(
+        index: _currentIndex,
+        children: [
+          _homeTab(),
+          const Center(child: Text('Files page - Coming soon')),
+          _userModel == null
+              ? const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(
+                  Color(0xFFFFB382)),
             ),
+          )
+              : SettingsView(
+            user: _userModel!,
+            onUserUpdated: (updatedUser) {
+              setState(() {
+                _userModel = updatedUser;
+                _userName = updatedUser.name; // ✅ هذا المهم
+              });
+            },
           ),
-        ),
+        ],
       ),
       bottomNavigationBar: BottomBar(
         currentIndex: _currentIndex,
@@ -350,6 +325,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // تركت الدوال الإضافية زي ما هي عندك (ما لمستها)
   Widget _buildActionCard({
     required IconData icon,
     required String title,
@@ -452,40 +428,35 @@ class _HomePageState extends State<HomePage> {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF2D3142),
+                    color: Color(0xFF2D2F31),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.access_time_rounded, size: 14, color: Colors.grey.shade600),
+                    Icon(Icons.access_time_rounded,
+                        size: 14, color: Colors.grey.shade600),
                     const SizedBox(width: 4),
                     Text(
                       time,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
+                      style:
+                      TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
                     const SizedBox(width: 12),
-                    Icon(Icons.people_rounded, size: 14, color: Colors.grey.shade600),
+                    Icon(Icons.people_rounded,
+                        size: 14, color: Colors.grey.shade600),
                     const SizedBox(width: 4),
                     Text(
                       '$participants participants',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
+                      style:
+                      TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: Colors.grey.shade400,
-          ),
+          Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
         ],
       ),
     );

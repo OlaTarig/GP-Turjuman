@@ -44,6 +44,37 @@ class UserModel {
     this.isSpeechCaptioningOn = false,
     this.isHandAvatarOn = false,
   });
+  // ===== UML-like getters =====
+  bool getMicrophoneAccessSettings() => micAccessSettings;
+  bool getCameraAccessSettings() => cameraAccessSettings;
+
+  bool getMicrophonePermissionGranted() => micPermissionGranted;
+  bool getCameraPermissionGranted() => cameraPermissionGranted;
+
+  // ===== UML-like update methods (تعدل + ترجع Patch لفايرستور) =====
+  Map<String, dynamic> updateMicrophoneAccessSettings(bool enabled) {
+    micAccessSettings = enabled;
+    return {'micAccessSettings': micAccessSettings};
+  }
+
+  Map<String, dynamic> updateCameraAccessSettings(bool enabled) {
+    cameraAccessSettings = enabled;
+    return {'cameraAccessSettings': cameraAccessSettings};
+  }
+
+  Map<String, dynamic> updateMicrophonePermissionGranted(bool granted) {
+    micPermissionGranted = granted;
+    return {'micPermissionGranted': micPermissionGranted};
+  }
+
+  Map<String, dynamic> updateCameraPermissionGranted(bool granted) {
+    cameraPermissionGranted = granted;
+    return {'cameraPermissionGranted': cameraPermissionGranted};
+  }
+
+  // ===== Helper checks (اختياري لكنه مفيد للـMeetingView) =====
+  bool canUseMic() => micAccessSettings && micPermissionGranted;
+  bool canUseCamera() => cameraAccessSettings && cameraPermissionGranted;
 
   // ===== Convert UserModel to Firestore Map =====
   Map<String, dynamic> toMap() {
