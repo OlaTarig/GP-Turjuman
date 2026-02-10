@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/UserModel.dart';
 import '../controllers/SettingsController.dart';
 import '../views/ProfileView.dart';
-import '../views/login_screen.dart';
+import '../views/SignInView.dart';
 
 class SettingsView extends StatefulWidget {
   final UserModel user;

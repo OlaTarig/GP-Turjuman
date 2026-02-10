@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import '../views/welcome_screen.dart';
+import '../views/GUI.dart';
 import 'services/deep_link_service.dart';
 
 // ✅ نافيقيتور كي عشان نقدر نوجه من الـ deep link حتى لو ما عندك context

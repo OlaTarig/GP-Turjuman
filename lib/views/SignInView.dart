@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'home_page.dart';
-import 'signup_screen.dart';
+import 'HomePage.dart';
+import 'SignUpView.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -280,7 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(color: Colors.grey),
                           ),
                           const SizedBox(height: 40),
-                          _inputField("Email", "example@mail.com", _emailController),
+                          _inputField("Email", "example@mail.com", _emailController, Icons.email_outlined),
                           const SizedBox(height: 20),
                           _buildPasswordField(),
                           Align(

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'signup_screen.dart';
-import 'login_screen.dart';
+import 'SignUpView.dart';
+import 'SignInView.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
