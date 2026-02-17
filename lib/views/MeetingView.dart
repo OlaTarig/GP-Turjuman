@@ -8,6 +8,8 @@ import '../controllers/MeetingController.dart';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/services.dart';
+import '../controllers/ActiveMeetingStorage.dart';
+
 
 class MeetingView extends StatefulWidget {
   final MeetingModel meeting;
@@ -200,6 +202,7 @@ class _MeetingScreenState extends State<MeetingView> {
               backgroundColor: _isHost ? Colors.red : primaryOrange,
               foregroundColor: Colors.white,
             ),
+
             onPressed: () => Navigator.pop(context, true),
             child: Text(_isHost ? 'End' : 'Leave'),
           ),
@@ -216,6 +219,7 @@ class _MeetingScreenState extends State<MeetingView> {
     } else {
       await meetingController.leaveMeeting(widget.meeting.meetingId);
     }
+    await ActiveMeetingStorage.clear();
 
     if (!mounted) return;
     Navigator.pop(context);
@@ -242,8 +246,18 @@ class _MeetingScreenState extends State<MeetingView> {
           // ✅ سهم الرجوع ما يسوي Leave لأي أحد
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () async {
+              await ActiveMeetingStorage.set(widget.meeting.meetingId);
+
+              final saved = await ActiveMeetingStorage.get();
+              debugPrint("SAVED ID AFTER BACK = $saved");
+
+              if (!mounted) return;
+              Navigator.pop(context);
+            },
+
           ),
+
 
           title: Text(
             widget.meeting.title,
