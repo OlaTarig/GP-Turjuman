@@ -202,9 +202,13 @@ class _MeetingScreenState extends State<MeetingView> {
   }
 
   Future<void> _onFlipPressed() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Flip camera: Zego implementation coming next')),
-    );
+    if (!session.isCameraOn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Turn on camera first')),
+      );
+      return;
+    }
+    await session.flipCamera();
   }
 
   void _onShareScreenPressed() {
