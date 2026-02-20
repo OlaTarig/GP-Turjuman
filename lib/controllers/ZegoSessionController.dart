@@ -90,6 +90,13 @@ class ZegoSessionController extends ChangeNotifier {
     ZegoExpressEngine.instance.enableAEC(true); // echo cancellation
     ZegoExpressEngine.instance.enableAGC(true); // auto gain
     ZegoExpressEngine.instance.enableANS(true); // noise suppression
+    // ✅ ارفعي الجودة قبل startPreview/startPublishing
+    final config = ZegoVideoConfig.preset(ZegoVideoConfigPreset.Preset720P);
+// تقدرين ترفعينها أكثر لو تبين (1080p) لكن 720p غالبًا يكفي
+    config.fps = 15;
+    config.bitrate = 1800; // kbps (ارفعيها 2200 إذا شبكتكم قوية)
+
+    await ZegoExpressEngine.instance.setVideoConfig(config);
 
     // ✅ افتراضيًا OFF حسب متطلباتكم
     ZegoExpressEngine.instance.muteMicrophone(true);
