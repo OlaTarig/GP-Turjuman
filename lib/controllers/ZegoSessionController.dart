@@ -13,7 +13,6 @@ class ZegoSessionController extends ChangeNotifier {
 
   bool isMicOn = false;
   bool isCameraOn = false;
-
   bool isFrontCamera = true;
 
   String? currentRoomId;
@@ -29,6 +28,9 @@ class ZegoSessionController extends ChangeNotifier {
 
   String? _playingRemoteStreamId;
   String? _playingRemoteUserId;
+
+  // ✅ اجعلي streamId فريد للجلسة (أفضل لتجنب أي تعارض)
+  String? _myStreamId;
 
   Future<bool> ensurePermissions({
     required bool needMic,
@@ -47,6 +49,8 @@ class ZegoSessionController extends ChangeNotifier {
 
   Future<void> initialize() async {
     if (isInitialized) return;
+
+    // ✅ Logs (تشخيص)
     ZegoExpressEngine.onPublisherStateUpdate =
         (String streamID, ZegoPublisherState state, int errorCode, Map<String, dynamic> ext) {
       debugPrint("PUBLISH stream=$streamID state=$state error=$errorCode");
@@ -62,12 +66,6 @@ class ZegoSessionController extends ChangeNotifier {
       debugPrint("ROOM room=$roomID state=$state error=$errorCode");
     };
 
-    ZegoExpressEngine.onRoomStreamUpdate =
-        (String roomID, ZegoUpdateType updateType, List<ZegoStream> streamList, Map<String, dynamic> ext) {
-      debugPrint("STREAM_UPDATE room=$roomID type=$updateType streams=${streamList.map((s)=>'${s.streamID}/${s.user.userID}').toList()}");
-      // خلي كودك الحالي بعدها
-    };
-
     await ZegoExpressEngine.createEngineWithProfile(
       ZegoEngineProfile(
         appID,
@@ -75,45 +73,42 @@ class ZegoSessionController extends ChangeNotifier {
         appSign: appSign,
       ),
     );
-    // ✅ ثبّت جودة الفيديو (720p / 15fps / bitrate مناسب)
-    final videoConfig = ZegoVideoConfig.preset(ZegoVideoConfigPreset.Preset720P);
-    videoConfig.fps = 15;
-    videoConfig.bitrate = 1500; // kbps
-    ZegoExpressEngine.instance.setVideoConfig(videoConfig);
 
-// ✅ ثبّت إعدادات الصوت (وضوح أعلى)
+    // ✅ اضبطي جودة الفيديو مرة واحدة قبل preview/publish
+    final v = ZegoVideoConfig.preset(ZegoVideoConfigPreset.Preset720P);
+    v.fps = 15;
+    v.bitrate = 2200; // kbps (جربي 1800 لو شبكة ضعيفة)
+    await ZegoExpressEngine.instance.setVideoConfig(v);
+
+    // ✅ صوت أوضح
     ZegoExpressEngine.instance.setAudioConfig(
       ZegoAudioConfig.preset(ZegoAudioConfigPreset.StandardQualityStereo),
     );
+    ZegoExpressEngine.instance.enableAEC(true);
+    ZegoExpressEngine.instance.enableAGC(true);
+    ZegoExpressEngine.instance.enableANS(true);
 
-// ✅ تحسينات صوت (اختياري لكنها تعتبر ضمن نفس "ضبط الصوت")
-    ZegoExpressEngine.instance.enableAEC(true); // echo cancellation
-    ZegoExpressEngine.instance.enableAGC(true); // auto gain
-    ZegoExpressEngine.instance.enableANS(true); // noise suppression
-    // ✅ ارفعي الجودة قبل startPreview/startPublishing
-    final config = ZegoVideoConfig.preset(ZegoVideoConfigPreset.Preset720P);
-// تقدرين ترفعينها أكثر لو تبين (1080p) لكن 720p غالبًا يكفي
-    config.fps = 15;
-    config.bitrate = 1800; // kbps (ارفعيها 2200 إذا شبكتكم قوية)
-
-    await ZegoExpressEngine.instance.setVideoConfig(config);
-
-    // ✅ افتراضيًا OFF حسب متطلباتكم
+    // ✅ افتراضيًا OFF (مثل كودك)
     ZegoExpressEngine.instance.muteMicrophone(true);
     ZegoExpressEngine.instance.enableCamera(false);
     isMicOn = false;
     isCameraOn = false;
 
-    // ✅ تشغيل ريموت تلقائيًا (أول ستريم فقط)
+    // ✅ Callback واحد فقط: لوق + تشغيل ريموت
     ZegoExpressEngine.onRoomStreamUpdate =
         (String roomID, ZegoUpdateType updateType, List<ZegoStream> streamList,
         Map<String, dynamic> extendedData) async {
+      debugPrint(
+          "STREAM_UPDATE room=$roomID type=$updateType streams=${streamList.map((s) => '${s.streamID}/${s.user.userID}').toList()}");
+
       if (roomID != currentRoomId) return;
 
       if (updateType == ZegoUpdateType.Add) {
         for (final s in streamList) {
+          // لا تشغلي ستريم نفسك
           if (s.user.userID == currentUserId) continue;
 
+          // شغلي أول ستريم فقط (حسب تصميمك الحالي)
           if (_playingRemoteStreamId == null) {
             await startPlayingRemote(
               streamId: s.streamID,
@@ -149,6 +144,9 @@ class ZegoSessionController extends ChangeNotifier {
     currentUserId = userId;
     currentUserName = userName;
 
+    // ✅ streamId فريد للجلسة (أفضل تشخيص وتفادي تعارض)
+    _myStreamId = 'stream_${userId}_${DateTime.now().millisecondsSinceEpoch}';
+
     final user = ZegoUser(userId, userName);
 
     await ZegoExpressEngine.instance.loginRoom(
@@ -174,6 +172,7 @@ class ZegoSessionController extends ChangeNotifier {
     currentRoomId = null;
     currentUserId = null;
     currentUserName = null;
+    _myStreamId = null;
 
     notifyListeners();
   }
@@ -184,17 +183,15 @@ class ZegoSessionController extends ChangeNotifier {
     if (uid == null) return;
 
     // جهزي local canvas view مرة وحدة
-    localViewWidget ??=
-    await ZegoExpressEngine.instance.createCanvasView((viewID) {
+    localViewWidget ??= await ZegoExpressEngine.instance.createCanvasView((viewID) {
       _localViewID = viewID;
 
-      // preview على canvas
       final canvas = ZegoCanvas.view(viewID);
       ZegoExpressEngine.instance.startPreview(canvas: canvas);
     });
 
     // publish stream
-    final streamId = _streamIdFor(uid);
+    final streamId = _myStreamId ?? 'stream_$uid';
     ZegoExpressEngine.instance.startPublishingStream(streamId);
 
     notifyListeners();
@@ -212,8 +209,7 @@ class ZegoSessionController extends ChangeNotifier {
     _playingRemoteStreamId = streamId;
     _playingRemoteUserId = remoteUserId;
 
-    remoteViewWidget =
-    await ZegoExpressEngine.instance.createCanvasView((viewID) {
+    remoteViewWidget = await ZegoExpressEngine.instance.createCanvasView((viewID) {
       _remoteViewID = viewID;
 
       final canvas = ZegoCanvas.view(viewID);
@@ -251,7 +247,7 @@ class ZegoSessionController extends ChangeNotifier {
     return true;
   }
 
-  /// ✅ يحل مشكلة "تعليق آخر فريم" + يرجع preview عند التشغيل
+  /// ✅ stopPreview عند الإطفاء / startPreview عند التشغيل
   Future<bool> toggleCameraWithPermission() async {
     if (!isCameraOn) {
       final st = await Permission.camera.status;
@@ -266,10 +262,8 @@ class ZegoSessionController extends ChangeNotifier {
     await ZegoExpressEngine.instance.enableCamera(isCameraOn);
 
     if (!isCameraOn) {
-      // ✅ وقف preview عشان ما يعلق آخر فريم
       await ZegoExpressEngine.instance.stopPreview();
     } else {
-      // ✅ رجع preview على نفس canvas
       if (_localViewID != null) {
         final canvas = ZegoCanvas.view(_localViewID!);
         ZegoExpressEngine.instance.startPreview(canvas: canvas);
@@ -280,7 +274,6 @@ class ZegoSessionController extends ChangeNotifier {
     return true;
   }
 
-  /// ✅ Flip camera (front/back)
   Future<void> flipCamera() async {
     if (!isCameraOn) return;
 
@@ -307,6 +300,4 @@ class ZegoSessionController extends ChangeNotifier {
 
     notifyListeners();
   }
-
-  String _streamIdFor(String userId) => 'stream_$userId';
 }
