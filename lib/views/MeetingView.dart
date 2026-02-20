@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/MeetingModel.dart';
 import '../models/UserModel.dart';
@@ -64,11 +65,13 @@ class _MeetingScreenState extends State<MeetingView> {
       // ✅ initialize engine
       await session.initialize();
 
-      // ✅ login room (roomId = meetingId)
+      final fb = FirebaseAuth.instance.currentUser!;
+
+// ✅ login room (roomId = meetingId)
       await session.loginRoom(
         roomId: widget.meeting.meetingId,
-        userId: widget.user.userId,
-        userName: widget.user.name.isNotEmpty ? widget.user.name : widget.user.userId,
+        userId: fb.uid, // ✅ هذا المهم
+        userName: widget.user.name.isNotEmpty ? widget.user.name : fb.uid,
       );
 
       // ✅ publish local stream

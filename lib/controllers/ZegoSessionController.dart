@@ -47,6 +47,26 @@ class ZegoSessionController extends ChangeNotifier {
 
   Future<void> initialize() async {
     if (isInitialized) return;
+    ZegoExpressEngine.onPublisherStateUpdate =
+        (String streamID, ZegoPublisherState state, int errorCode, Map<String, dynamic> ext) {
+      debugPrint("PUBLISH stream=$streamID state=$state error=$errorCode");
+    };
+
+    ZegoExpressEngine.onPlayerStateUpdate =
+        (String streamID, ZegoPlayerState state, int errorCode, Map<String, dynamic> ext) {
+      debugPrint("PLAY stream=$streamID state=$state error=$errorCode");
+    };
+
+    ZegoExpressEngine.onRoomStateUpdate =
+        (String roomID, ZegoRoomState state, int errorCode, Map<String, dynamic> ext) {
+      debugPrint("ROOM room=$roomID state=$state error=$errorCode");
+    };
+
+    ZegoExpressEngine.onRoomStreamUpdate =
+        (String roomID, ZegoUpdateType updateType, List<ZegoStream> streamList, Map<String, dynamic> ext) {
+      debugPrint("STREAM_UPDATE room=$roomID type=$updateType streams=${streamList.map((s)=>'${s.streamID}/${s.user.userID}').toList()}");
+      // خلي كودك الحالي بعدها
+    };
 
     await ZegoExpressEngine.createEngineWithProfile(
       ZegoEngineProfile(
