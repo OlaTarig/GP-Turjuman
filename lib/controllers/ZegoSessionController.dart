@@ -5,9 +5,9 @@ import 'package:zego_express_engine/zego_express_engine.dart';
 
 class ZegoSessionController extends ChangeNotifier {
   // ✅ بياناتك من Zego Console
-  static const int appID = 802433530;
+  static const int appID = 2074378114;
   static const String appSign =
-      '2b558d4663aee85fd1be1f7b5329a007429f46d46fde51811fca1f5d05f9930b';
+      'bc7513ea95f678cdf0f6647bb845f230095caaa0d236ec0e28b375cce7137048';
 
   bool isInitialized = false;
 
