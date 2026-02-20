@@ -1,15 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 import '../models/MeetingModel.dart';
 import '../models/UserModel.dart';
-import '../controllers/MeetingSessionController.dart';
 import '../controllers/MeetingController.dart';
-import 'package:camera/camera.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter/services.dart';
 import '../controllers/ActiveMeetingStorage.dart';
-
+import '../controllers/ZegoSessionController.dart';
 
 class MeetingView extends StatefulWidget {
   final MeetingModel meeting;
@@ -22,26 +21,61 @@ class MeetingView extends StatefulWidget {
 }
 
 class _MeetingScreenState extends State<MeetingView> {
-  // نفس ألوان الهوم بيج
   static const Color primaryOrange = Color(0xFFFFB382);
   static const Color darkBg = Color(0xFF2D2F31);
 
-  late final MeetingSessionController session;
+  late final ZegoSessionController session;
 
   StreamSubscription<DocumentSnapshot>? _meetingSub;
   bool _endedDialogShown = false;
 
+  bool get _isHost => widget.user.role.toLowerCase() == 'host';
+
   @override
   void initState() {
     super.initState();
-    session = MeetingSessionController();
+
+    session = ZegoSessionController();
     session.addListener(_onSessionChanged);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       _checkAccessSettingsOnEntry();
+
+      // ✅ permissions حسب إعدادات اليوزر عندكم
+      final ok = await session.ensurePermissions(
+        needMic: widget.user.micAccessSettings,
+        needCamera: widget.user.cameraAccessSettings,
+      );
+
+      if (!ok) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Camera/Microphone permission is required'),
+            action: SnackBarAction(
+              label: 'Settings',
+              onPressed: openAppSettings,
+            ),
+          ),
+        );
+        return;
+      }
+
+      // ✅ initialize engine
+      await session.initialize();
+
+      // ✅ login room (roomId = meetingId)
+      await session.loginRoom(
+        roomId: widget.meeting.meetingId,
+        userId: widget.user.userId,
+        userName: widget.user.name.isNotEmpty ? widget.user.name : widget.user.userId,
+      );
+
+      // ✅ publish local stream
+      await session.startPublishing();
     });
 
-    // ✅ Listener: إذا الهوست أنهى الاجتماع، نطلع الجميع برسالة ونرجّعهم
+    // ✅ Listener: إذا الهوست أنهى الاجتماع
     _meetingSub = FirebaseFirestore.instance
         .collection('Meetings')
         .doc(widget.meeting.meetingId)
@@ -105,7 +139,7 @@ class _MeetingScreenState extends State<MeetingView> {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                openAppSettings(); // مؤقتًا لين تسوين Settings داخل التطبيق
+                openAppSettings();
               },
               child: const Text('Open Settings'),
             ),
@@ -123,8 +157,6 @@ class _MeetingScreenState extends State<MeetingView> {
     super.dispose();
   }
 
-  bool get _isHost => widget.user.role.toLowerCase() == 'host';
-
   Future<void> _onMicPressed() async {
     if (!widget.user.micAccessSettings) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -136,21 +168,14 @@ class _MeetingScreenState extends State<MeetingView> {
       return;
     }
 
-    final before = session.isMicOn;
-    await session.toggleMic();
-
-    if (!before && !session.isMicOn) {
-      final st = await Permission.microphone.status;
-      if (st.isPermanentlyDenied && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Microphone permission is permanently denied. Enable it from settings.',
-            ),
-            action: SnackBarAction(label: 'Settings', onPressed: openAppSettings),
-          ),
-        );
-      }
+    final ok = await session.toggleMicWithPermission();
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Microphone permission is required'),
+          action: SnackBarAction(label: 'Settings', onPressed: openAppSettings),
+        ),
+      );
     }
   }
 
@@ -164,21 +189,25 @@ class _MeetingScreenState extends State<MeetingView> {
       );
       return;
     }
-    await session.toggleCamera();
+
+    final ok = await session.toggleCameraWithPermission();
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Camera permission is required'),
+          action: SnackBarAction(label: 'Settings', onPressed: openAppSettings),
+        ),
+      );
+    }
   }
 
   Future<void> _onFlipPressed() async {
-    if (!session.isCameraOn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Turn on camera first')),
-      );
-      return;
-    }
-    await session.flipCamera();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Flip camera: Zego implementation coming next')),
+    );
   }
 
   void _onShareScreenPressed() {
-    // UI فقط حالياً — ربط المشاركة فعلياً يحتاج SDK
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Share screen: Coming soon')),
     );
@@ -202,7 +231,6 @@ class _MeetingScreenState extends State<MeetingView> {
               backgroundColor: _isHost ? Colors.red : primaryOrange,
               foregroundColor: Colors.white,
             ),
-
             onPressed: () => Navigator.pop(context, true),
             child: Text(_isHost ? 'End' : 'Leave'),
           ),
@@ -212,13 +240,13 @@ class _MeetingScreenState extends State<MeetingView> {
 
     if (confirmed != true) return;
 
-    // ✅ الخروج الفعلي هنا فقط
     final meetingController = MeetingController();
     if (_isHost) {
       await meetingController.endMeeting(widget.meeting.meetingId);
     } else {
       await meetingController.leaveMeeting(widget.meeting.meetingId);
     }
+
     await ActiveMeetingStorage.clear();
 
     if (!mounted) return;
@@ -227,23 +255,18 @@ class _MeetingScreenState extends State<MeetingView> {
 
   @override
   Widget build(BuildContext context) {
-    final camReady = session.isCameraOn &&
-        session.isCameraInitialized &&
-        session.cameraController != null;
+    final hasRemote = session.remoteViewWidget != null;
 
-    // ✅ زر رجوع الجهاز ما يعتبر Leave
     return PopScope(
       canPop: true,
       onPopInvoked: (_) async {
-        // لا شيء: رجوع طبيعي بدون Leave
+        // رجوع طبيعي بدون Leave
       },
       child: Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
           backgroundColor: Colors.grey[900],
-          centerTitle: true, // ✅ العنوان بالمنتصف
-
-          // ✅ سهم الرجوع ما يسوي Leave لأي أحد
+          centerTitle: true,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () async {
@@ -255,21 +278,22 @@ class _MeetingScreenState extends State<MeetingView> {
               if (!mounted) return;
               Navigator.pop(context);
             },
-
           ),
-
-
-          title: Text(
-            widget.meeting.title,
-            style: const TextStyle(color: Colors.white),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(widget.meeting.title, style: const TextStyle(color: Colors.white)),
+              Text(
+                "ID: ${widget.meeting.meetingId}",
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
           ),
           iconTheme: const IconThemeData(color: Colors.white),
           actions: [
             IconButton(
               icon: const Icon(Icons.people, color: Colors.white),
-              onPressed: () {
-                // later: participants panel
-              },
+              onPressed: _showParticipantsSheet,
             ),
             IconButton(
               icon: const Icon(Icons.link, color: Colors.white),
@@ -309,7 +333,6 @@ class _MeetingScreenState extends State<MeetingView> {
               ),
             ),
 
-            // 🎥 Video Area
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -319,18 +342,23 @@ class _MeetingScreenState extends State<MeetingView> {
                     color: Colors.black,
                     child: Stack(
                       children: [
+                        // ✅ Remote video
                         Positioned.fill(
-                          child: camReady
-                              ? CameraPreview(session.cameraController!)
+                          child: hasRemote
+                              ? FittedBox(
+                            fit: BoxFit.cover,
+                            child: SizedBox(
+                              width: 1,
+                              height: 1,
+                              child: session.remoteViewWidget!,
+                            ),
+                          )
                               : Center(
                             child: CircleAvatar(
                               radius: 42,
                               backgroundColor: primaryOrange,
                               child: Text(
-                                (widget.user.name.isNotEmpty
-                                    ? widget.user.name[0]
-                                    : 'U')
-                                    .toUpperCase(),
+                                (widget.user.name.isNotEmpty ? widget.user.name[0] : 'U').toUpperCase(),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 32,
@@ -340,26 +368,36 @@ class _MeetingScreenState extends State<MeetingView> {
                             ),
                           ),
                         ),
+
+                        // ✅ Local preview
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          width: 120,
+                          height: 160,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Container(
+                              color: Colors.black,
+                              child: session.localViewWidget == null
+                                  ? const Center(child: CircularProgressIndicator())
+                                  : session.localViewWidget!,
+                            ),
+                          ),
+                        ),
+
                         Positioned(
                           bottom: 12,
                           left: 12,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               color: Colors.black.withOpacity(0.5),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              _isHost
-                                  ? '${widget.user.name} (Host)'
-                                  : widget.user.name,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                              ),
+                              _isHost ? '${widget.user.name} (Host)' : widget.user.name,
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
                             ),
                           ),
                         ),
@@ -370,7 +408,6 @@ class _MeetingScreenState extends State<MeetingView> {
               ),
             ),
 
-            // 🎛 Bottom Controls
             Container(
               padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
               decoration: const BoxDecoration(
@@ -391,9 +428,7 @@ class _MeetingScreenState extends State<MeetingView> {
                     onTap: _onMicPressed,
                   ),
                   _meetingIcon(
-                    icon: session.isCameraOn
-                        ? Icons.videocam
-                        : Icons.videocam_off,
+                    icon: session.isCameraOn ? Icons.videocam : Icons.videocam_off,
                     label: 'Camera',
                     isActive: session.isCameraOn,
                     activeColor: Colors.orange,
@@ -405,13 +440,13 @@ class _MeetingScreenState extends State<MeetingView> {
                     onTap: _onFlipPressed,
                   ),
                   _meetingIcon(
-                    icon: session.isHandRaised
-                        ? Icons.pan_tool
-                        : Icons.pan_tool_outlined,
+                    icon: Icons.pan_tool_outlined,
                     label: 'Hand',
-                    isActive: session.isHandRaised,
-                    activeColor: Colors.orange,
-                    onTap: session.toggleHand,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Raise hand: Coming soon')),
+                      );
+                    },
                   ),
                   _meetingIcon(
                     icon: Icons.screen_share,
@@ -452,6 +487,97 @@ class _MeetingScreenState extends State<MeetingView> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showParticipantsSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('Meetings')
+              .doc(widget.meeting.meetingId)
+              .snapshots(),
+          builder: (context, snap) {
+            if (!snap.hasData || !snap.data!.exists) {
+              return const SizedBox(
+                height: 220,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            final data = snap.data!.data() as Map<String, dynamic>;
+            final ids = List<String>.from((data['participants'] as List?) ?? []);
+
+            return SizedBox(
+              height: 420,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'Participants (${ids.length})',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: ids.length,
+                      separatorBuilder: (_, __) => const Divider(color: Colors.white12, height: 1),
+                      itemBuilder: (context, i) {
+                        final uid = ids[i];
+                        final isMe = uid == widget.user.userId;
+                        final isHost = uid == widget.meeting.hostId;
+
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: isHost ? Colors.red : Colors.orange,
+                            child: Text(
+                              uid.isNotEmpty ? uid[0].toUpperCase() : '?',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          title: Text(
+                            isMe ? '$uid (You)' : uid,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          subtitle: Text(
+                            isHost ? 'Host' : 'Participant',
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

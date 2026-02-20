@@ -90,6 +90,108 @@ class _HomePageState extends State<HomePage> {
       });
     }
   }
+  Future<void> _showJoinDialog() async {
+    final controller = TextEditingController();
+
+    final meetingId = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Join Meeting'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'Enter Meeting ID',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.pop(context, controller.text.trim()),
+            child: const Text('Join'),
+          ),
+        ],
+      ),
+    );
+
+    if (meetingId == null || meetingId.isEmpty) return;
+
+    await _joinMeetingById(meetingId);
+  }
+  Future<void> _joinMeetingById(String meetingId) async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) return;
+
+    final meetingSnap = await FirebaseFirestore.instance
+        .collection('Meetings')
+        .doc(meetingId)
+        .get();
+
+    if (!meetingSnap.exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Meeting not found')),
+      );
+      return;
+    }
+
+    final data = meetingSnap.data()!;
+    final isActive = data['isActive'] as bool? ?? true;
+
+    if (!isActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Meeting already ended')),
+      );
+      return;
+    }
+
+    final meeting = MeetingModel.fromMap({
+      ...data,
+      'meetingId': meetingSnap.id,
+    });
+
+    // تحديث عدد المشاركين
+    await FirebaseFirestore.instance
+        .collection('Meetings')
+        .doc(meetingId)
+        .update({
+      'participants': FieldValue.arrayUnion([firebaseUser.uid]),
+      'numOfParticipants': FieldValue.increment(1),
+    });
+
+    final userDoc = await FirebaseFirestore.instance
+        .collection('User')
+        .doc(firebaseUser.uid)
+        .get();
+
+    UserModel userModel;
+
+    if (userDoc.exists && userDoc.data() != null) {
+      userModel = UserModel.fromMap(userDoc.data()!);
+    } else {
+      userModel = UserModel(
+        userId: firebaseUser.uid,
+        name: firebaseUser.displayName ?? 'User',
+        email: firebaseUser.email ?? '',
+        role: 'participant',
+      );
+    }
+
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MeetingView(
+          meeting: meeting,
+          user: userModel,
+        ),
+      ),
+    );
+  }
+
 
   Future<void> _startMeeting() async {
     final controller = MeetingController();
@@ -337,6 +439,30 @@ class _HomePageState extends State<HomePage> {
                         color: Colors.white,
                       ),
                     ),
+                    const SizedBox(height: 16),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: OutlinedButton(
+                        onPressed: _showJoinDialog,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFFFB382)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          'Join Meeting',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFFFB382),
+                          ),
+                        ),
+                      ),
+                    ),
+
 
                     const SizedBox(height: 8),
 

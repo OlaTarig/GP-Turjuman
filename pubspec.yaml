@@ -42,6 +42,8 @@ dependencies:
   firebase_core: ^4.4.0
   firebase_auth: ^6.1.4
   cloud_firestore: ^6.1.2  # Add this line
+  flutter_webrtc: ^0.12.7
+  zego_express_engine: ^3.17.0
 
   camera: ^0.10.5+5
   permission_handler: ^11.3.1
