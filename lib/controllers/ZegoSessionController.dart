@@ -75,6 +75,21 @@ class ZegoSessionController extends ChangeNotifier {
         appSign: appSign,
       ),
     );
+    // ✅ ثبّت جودة الفيديو (720p / 15fps / bitrate مناسب)
+    final videoConfig = ZegoVideoConfig.preset(ZegoVideoConfigPreset.Preset720P);
+    videoConfig.fps = 15;
+    videoConfig.bitrate = 1500; // kbps
+    ZegoExpressEngine.instance.setVideoConfig(videoConfig);
+
+// ✅ ثبّت إعدادات الصوت (وضوح أعلى)
+    ZegoExpressEngine.instance.setAudioConfig(
+      ZegoAudioConfig.preset(ZegoAudioConfigPreset.StandardQualityStereo),
+    );
+
+// ✅ تحسينات صوت (اختياري لكنها تعتبر ضمن نفس "ضبط الصوت")
+    ZegoExpressEngine.instance.enableAEC(true); // echo cancellation
+    ZegoExpressEngine.instance.enableAGC(true); // auto gain
+    ZegoExpressEngine.instance.enableANS(true); // noise suppression
 
     // ✅ افتراضيًا OFF حسب متطلباتكم
     ZegoExpressEngine.instance.muteMicrophone(true);
