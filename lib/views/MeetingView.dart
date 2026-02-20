@@ -67,10 +67,10 @@ class _MeetingScreenState extends State<MeetingView> {
 
       final fb = FirebaseAuth.instance.currentUser!;
 
-// ✅ login room (roomId = meetingId)
+      // ✅ login room (roomId = meetingId)
       await session.loginRoom(
         roomId: widget.meeting.meetingId,
-        userId: fb.uid, // ✅ هذا المهم
+        userId: fb.uid,
         userName: widget.user.name.isNotEmpty ? widget.user.name : fb.uid,
       );
 
@@ -289,7 +289,8 @@ class _MeetingScreenState extends State<MeetingView> {
           title: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(widget.meeting.title, style: const TextStyle(color: Colors.white)),
+              Text(widget.meeting.title,
+                  style: const TextStyle(color: Colors.white)),
               Text(
                 "ID: ${widget.meeting.meetingId}",
                 style: const TextStyle(color: Colors.white70, fontSize: 12),
@@ -339,7 +340,6 @@ class _MeetingScreenState extends State<MeetingView> {
                 ),
               ),
             ),
-
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -349,23 +349,19 @@ class _MeetingScreenState extends State<MeetingView> {
                     color: Colors.black,
                     child: Stack(
                       children: [
-                        // ✅ Remote video
+                        // ✅ Remote video (FIXED)
                         Positioned.fill(
                           child: hasRemote
-                              ? FittedBox(
-                            fit: BoxFit.cover,
-                            child: SizedBox(
-                              width: 1,
-                              height: 1,
-                              child: session.remoteViewWidget!,
-                            ),
-                          )
+                              ? session.remoteViewWidget!
                               : Center(
                             child: CircleAvatar(
                               radius: 42,
                               backgroundColor: primaryOrange,
                               child: Text(
-                                (widget.user.name.isNotEmpty ? widget.user.name[0] : 'U').toUpperCase(),
+                                (widget.user.name.isNotEmpty
+                                    ? widget.user.name[0]
+                                    : 'U')
+                                    .toUpperCase(),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 32,
@@ -387,7 +383,8 @@ class _MeetingScreenState extends State<MeetingView> {
                             child: Container(
                               color: Colors.black,
                               child: session.localViewWidget == null
-                                  ? const Center(child: CircularProgressIndicator())
+                                  ? const Center(
+                                  child: CircularProgressIndicator())
                                   : session.localViewWidget!,
                             ),
                           ),
@@ -397,14 +394,18 @@ class _MeetingScreenState extends State<MeetingView> {
                           bottom: 12,
                           left: 12,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               color: Colors.black.withOpacity(0.5),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              _isHost ? '${widget.user.name} (Host)' : widget.user.name,
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                              _isHost
+                                  ? '${widget.user.name} (Host)'
+                                  : widget.user.name,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 12),
                             ),
                           ),
                         ),
@@ -414,9 +415,9 @@ class _MeetingScreenState extends State<MeetingView> {
                 ),
               ),
             ),
-
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+              padding:
+              const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
               decoration: const BoxDecoration(
                 color: darkBg,
                 borderRadius: BorderRadius.only(
@@ -435,7 +436,9 @@ class _MeetingScreenState extends State<MeetingView> {
                     onTap: _onMicPressed,
                   ),
                   _meetingIcon(
-                    icon: session.isCameraOn ? Icons.videocam : Icons.videocam_off,
+                    icon: session.isCameraOn
+                        ? Icons.videocam
+                        : Icons.videocam_off,
                     label: 'Camera',
                     isActive: session.isCameraOn,
                     activeColor: Colors.orange,
@@ -553,7 +556,8 @@ class _MeetingScreenState extends State<MeetingView> {
                   Expanded(
                     child: ListView.separated(
                       itemCount: ids.length,
-                      separatorBuilder: (_, __) => const Divider(color: Colors.white12, height: 1),
+                      separatorBuilder: (_, __) =>
+                      const Divider(color: Colors.white12, height: 1),
                       itemBuilder: (context, i) {
                         final uid = ids[i];
                         final isMe = uid == widget.user.userId;
