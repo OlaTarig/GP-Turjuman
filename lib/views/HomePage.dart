@@ -6,7 +6,6 @@ import '../controllers/MeetingController.dart';
 import '../views/MeetingView.dart';
 import '../models/UserModel.dart';
 import '../views/SettingsView.dart';
-import '../controllers/ActiveMeetingStorage.dart';
 import '../models/MeetingModel.dart';
 
 class HomePage extends StatefulWidget {
@@ -21,8 +20,6 @@ class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
   int _currentIndex = 0;
 
-  String? _activeMeetingId;
-  bool _checkingActiveMeeting = true;
 
   UserModel? _userModel;
 
@@ -30,19 +27,10 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadUserData();
-    _loadActiveMeeting();
+
   }
 
-  Future<void> _loadActiveMeeting() async {
-    final id = await ActiveMeetingStorage.get();
-    debugPrint("ACTIVE MEETING ID = $id");
 
-    if (!mounted) return;
-    setState(() {
-      _activeMeetingId = (id != null && id.isNotEmpty) ? id : null;
-      _checkingActiveMeeting = false;
-    });
-  }
 
   Future<void> _loadUserData() async {
     try {
@@ -230,7 +218,7 @@ class _HomePageState extends State<HomePage> {
       );
 
       // ✅ بعد الرجوع من الميتنق حدّث البانر
-      await _loadActiveMeeting();
+
     } catch (e) {
       debugPrint("Error loading user model: $e");
 
@@ -250,90 +238,11 @@ class _HomePageState extends State<HomePage> {
       );
 
       // ✅ بعد الرجوع من الميتنق حدّث البانر
-      await _loadActiveMeeting();
+
     }
   }
 
-  Future<void> _resumeMeeting() async {
-    final meetingId = _activeMeetingId;
-    if (meetingId == null || meetingId.isEmpty) return;
 
-    final firebaseUser = FirebaseAuth.instance.currentUser;
-    if (firebaseUser == null) return;
-
-    try {
-      // 1) هات بيانات الميتنق
-      final meetingSnap = await FirebaseFirestore.instance
-          .collection('Meetings')
-          .doc(meetingId)
-          .get();
-
-      if (!meetingSnap.exists) {
-        // الميتنق محذوف/مو موجود
-        await ActiveMeetingStorage.clear();
-        if (!mounted) return;
-        setState(() => _activeMeetingId = null);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Meeting not found')),
-        );
-        return;
-      }
-
-      final meetingData = meetingSnap.data()!;
-      final isActive = meetingData['isActive'] as bool? ?? true;
-
-      if (!isActive) {
-        // الميتنق منتهي
-        await ActiveMeetingStorage.clear();
-        if (!mounted) return;
-        setState(() => _activeMeetingId = null);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Meeting already ended')),
-        );
-        return;
-      }
-
-      final data = meetingSnap.data()!;
-      final meeting = MeetingModel.fromMap({
-        ...data,
-        'meetingId': meetingSnap.id, // ✅ الأضمن
-      });
-
-      // 2) هات userModel مثل ما تسوين
-      final userDoc = await FirebaseFirestore.instance
-          .collection('User')
-          .doc(firebaseUser.uid)
-          .get();
-
-      UserModel userModel;
-      if (userDoc.exists && userDoc.data() != null) {
-        userModel = UserModel.fromMap(userDoc.data()!);
-      } else {
-        userModel = UserModel(
-          userId: firebaseUser.uid,
-          name: firebaseUser.displayName ?? 'User',
-          email: firebaseUser.email ?? '',
-        );
-      }
-
-      if (!mounted) return;
-
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => MeetingView(meeting: meeting, user: userModel),
-        ),
-      );
-
-      // ✅ بعد الرجوع من الميتنق حدّث البانر (لو المستخدم ضغط Leave/End)
-      await _loadActiveMeeting();
-    } catch (e) {
-      debugPrint("Error resuming meeting: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not resume meeting')),
-      );
-    }
-  }
 
   // ✅ تعديل بسيط: بدون Navigator.push
   void _onBottomNavTap(int index) {
@@ -345,8 +254,6 @@ class _HomePageState extends State<HomePage> {
   // ✅ نفس محتوى الهوم حقك (بدون تغيير)
   Widget _homeTab() {
     // ✅ عشان البانر الثابت ما يغطي الهيدر
-    final extraTopSpace =
-    (_checkingActiveMeeting || _activeMeetingId == null) ? 0.0 : 70.0;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -356,7 +263,7 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 20 + extraTopSpace),
+              SizedBox(height: 20 ),
 
               // Header with greeting and profile
               Row(
@@ -519,43 +426,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ✅ بانر ثابت فوق زي Zoom
-  Widget _resumeBanner() {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: GestureDetector(
-          onTap: _resumeMeeting,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2D8CFF), // Zoom Blue
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: const [
-                Icon(Icons.meeting_room, color: Colors.white),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'You are in a meeting — tap to return',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios,
-                    color: Colors.white, size: 16),
-                SizedBox(width: 6),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -595,11 +465,6 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
 
-          // ✅ البانر يظهر فقط في الهوم + لما نخلص checking + عندنا meetingId
-          if (_currentIndex == 0 &&
-              !_checkingActiveMeeting &&
-              _activeMeetingId != null)
-            _resumeBanner(),
         ],
       ),
       bottomNavigationBar: BottomBar(

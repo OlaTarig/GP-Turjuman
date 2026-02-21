@@ -4,11 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import '../models/MeetingModel.dart';
 import '../models/UserModel.dart';
 import '../controllers/MeetingController.dart';
-import '../controllers/ActiveMeetingStorage.dart';
 import '../controllers/ZegoSessionController.dart';
 
 class MeetingView extends StatefulWidget {
@@ -86,19 +84,7 @@ class _MeetingScreenState extends State<MeetingView> {
       await session.startPublishing();
     });
 
-    Future<void> _handleMeetingEnded() async {
-      if (!mounted) return;
 
-      await ActiveMeetingStorage.clear();
-
-      // سكري Zego (وممكن ينعاد عند dispose عادي)
-      try {
-        await session.disposeSession();
-      } catch (_) {}
-
-      if (!mounted) return;
-      Navigator.pop(context); // يطلع من MeetingView
-    }
 
     // ✅ Listener: إذا الهوست أنهى الاجتماع
     _meetingSub = FirebaseFirestore.instance
@@ -132,7 +118,12 @@ class _MeetingScreenState extends State<MeetingView> {
         );
 
         // بعد إغلاق الديالوج: نظّفي واطلعي
-        await _handleMeetingEnded();
+        try {
+          await session.disposeSession();
+        } catch (_) {}
+
+        if (!mounted) return;
+        Navigator.pop(context);
       }
     });
   }
@@ -279,7 +270,7 @@ class _MeetingScreenState extends State<MeetingView> {
       _meetingSub?.cancel();
 
       await meetingController.endMeeting(meetingId);
-      await ActiveMeetingStorage.clear();
+
 
       try {
         await session.disposeSession();
@@ -316,7 +307,7 @@ class _MeetingScreenState extends State<MeetingView> {
     if (confirmed != true) return;
 
     await meetingController.leaveMeeting(meetingId);
-    await ActiveMeetingStorage.clear();
+
 
     if (!mounted) return;
     Navigator.pop(context);
@@ -339,12 +330,7 @@ class _MeetingScreenState extends State<MeetingView> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () async {
-              await ActiveMeetingStorage.set(widget.meeting.meetingId);
 
-              final saved = await ActiveMeetingStorage.get();
-              debugPrint("SAVED ID AFTER BACK = $saved");
-
-              if (!mounted) return;
               Navigator.pop(context);
             },
           ),
