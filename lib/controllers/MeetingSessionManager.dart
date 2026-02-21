@@ -3,6 +3,7 @@ import '../controllers/ZegoSessionController.dart';
 import '../models/MeetingModel.dart';
 import '../models/UserModel.dart';
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MeetingSessionManager extends ChangeNotifier {
@@ -28,6 +29,7 @@ class MeetingSessionManager extends ChangeNotifier {
   Future<void> startOrJoin({
     required MeetingModel meeting,
     required UserModel user,
+
   }) async {
     // اذا نفس الميتنق شغال بالفعل، لا تعيدين تسجيل
     if (activeMeeting?.meetingId == meeting.meetingId && session.isInitialized) {
@@ -55,12 +57,14 @@ class MeetingSessionManager extends ChangeNotifier {
     }
 
     await session.initialize();
+    final fbUid = FirebaseAuth.instance.currentUser?.uid;
+    if (fbUid == null) throw Exception('No Firebase user');
 
     // مهم: userId المستخدم داخل room لازم يكون Firebase uid (زي ما سويتي)
     await session.loginRoom(
       roomId: meeting.meetingId,
-      userId: user.userId,
-      userName: user.name.isNotEmpty ? user.name : user.userId,
+      userId: fbUid,
+      userName: user.name.isNotEmpty ? user.name : fbUid,
     );
 
     await session.startPublishing();

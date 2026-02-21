@@ -257,10 +257,8 @@ class _MeetingScreenState extends State<MeetingView> {
 
       await meetingController.endMeeting(meetingId);
 
-
-      try {
-        await session.disposeSession();
-      } catch (_) {}
+// ✅ اقفلي الجلسة وشيلي البانر من المصدر (Manager)
+      await mgr.endAndDispose();
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -294,6 +292,8 @@ class _MeetingScreenState extends State<MeetingView> {
 
     await meetingController.leaveMeeting(meetingId);
 
+// ✅ اقفلي الجلسة وشيلي البانر
+    await mgr.endAndDispose();
 
     if (!mounted) return;
     Navigator.pop(context);
