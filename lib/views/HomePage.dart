@@ -7,6 +7,7 @@ import '../views/MeetingView.dart';
 import '../models/UserModel.dart';
 import '../views/SettingsView.dart';
 import '../models/MeetingModel.dart';
+import '../controllers/MeetingSessionManager.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -438,35 +439,102 @@ class _HomePageState extends State<HomePage> {
           AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
         ),
       )
-          : Stack(
+          :Stack(
         children: [
-          // ✅ نفس اللي كان عندك IndexedStack (ولا غيرته)
           IndexedStack(
             index: _currentIndex,
             children: [
               _homeTab(),
               const Center(child: Text('Files page - Coming soon')),
               _userModel == null
-                  ? const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFFFFB382)),
-                ),
-              )
+                  ? const Center(child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
+              ))
                   : SettingsView(
                 user: _userModel!,
                 onUserUpdated: (updatedUser) {
                   setState(() {
                     _userModel = updatedUser;
-                    _userName = updatedUser.name; // ✅ هذا المهم
+                    _userName = updatedUser.name;
                   });
                 },
               ),
             ],
           ),
 
+          // ✅ Active Meeting Banner (فوق كل شي)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AnimatedBuilder(
+              animation: MeetingSessionManager.instance,
+              builder: (context, _) {
+                final mgr = MeetingSessionManager.instance;
+                if (!mgr.hasActiveMeeting) return const SizedBox.shrink();
+
+                final meetingTitle = mgr.activeMeeting?.title ?? 'Meeting';
+                return SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                    child: Material(
+                      elevation: 6,
+                      borderRadius: BorderRadius.circular(14),
+                      color: const Color(0xFF2D2F31),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () async {
+                          final meeting = mgr.activeMeeting!;
+                          final user = mgr.activeUser!;
+                          if (!mounted) return;
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MeetingView(meeting: meeting, user: user),
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.circle, color: Colors.green, size: 12),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'In meeting: $meetingTitle',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                'Return',
+                                style: TextStyle(
+                                  color: Color(0xFFFFB382),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.arrow_forward_ios,
+                                  size: 14, color: Color(0xFFFFB382)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
+
       bottomNavigationBar: BottomBar(
         currentIndex: _currentIndex,
         onTap: _onBottomNavTap,

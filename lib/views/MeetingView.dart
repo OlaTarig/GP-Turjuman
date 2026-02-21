@@ -8,6 +8,7 @@ import '../models/MeetingModel.dart';
 import '../models/UserModel.dart';
 import '../controllers/MeetingController.dart';
 import '../controllers/ZegoSessionController.dart';
+import '../controllers/MeetingSessionManager.dart';
 
 class MeetingView extends StatefulWidget {
   final MeetingModel meeting;
@@ -23,7 +24,9 @@ class _MeetingScreenState extends State<MeetingView> {
   static const Color primaryOrange = Color(0xFFFFB382);
   static const Color darkBg = Color(0xFF2D2F31);
 
-  late final ZegoSessionController session;
+  late final MeetingSessionManager mgr;
+  ZegoSessionController get session => mgr.session;
+
 
   StreamSubscription<DocumentSnapshot>? _meetingSub;
   bool _endedDialogShown = false;
@@ -41,20 +44,16 @@ class _MeetingScreenState extends State<MeetingView> {
   @override
   void initState() {
     super.initState();
+    mgr = MeetingSessionManager.instance;
+    mgr.addListener(_onSessionChanged);
 
-    session = ZegoSessionController();
-    session.addListener(_onSessionChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _checkAccessSettingsOnEntry();
 
-      // ✅ permissions حسب إعدادات اليوزر عندكم
-      final ok = await session.ensurePermissions(
-        needMic: widget.user.micAccessSettings,
-        needCamera: widget.user.cameraAccessSettings,
-      );
-
-      if (!ok) {
+      try {
+        await mgr.startOrJoin(meeting: widget.meeting, user: widget.user);
+      } catch (_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -65,23 +64,7 @@ class _MeetingScreenState extends State<MeetingView> {
             ),
           ),
         );
-        return;
       }
-
-      // ✅ initialize engine
-      await session.initialize();
-
-      final fb = FirebaseAuth.instance.currentUser!;
-
-      // ✅ login room (roomId = meetingId)
-      await session.loginRoom(
-        roomId: widget.meeting.meetingId,
-        userId: fb.uid,
-        userName: widget.user.name.isNotEmpty ? widget.user.name : fb.uid,
-      );
-
-      // ✅ publish local stream
-      await session.startPublishing();
     });
 
 
@@ -170,8 +153,11 @@ class _MeetingScreenState extends State<MeetingView> {
   @override
   void dispose() {
     _meetingSub?.cancel();
-    session.removeListener(_onSessionChanged);
-    session.disposeSession();
+    mgr.removeListener(_onSessionChanged);
+
+    // ❌ لا تطفين الجلسة هنا
+    // session.disposeSession();
+
     super.dispose();
   }
 
