@@ -30,7 +30,15 @@ class _MeetingScreenState extends State<MeetingView> {
   StreamSubscription<DocumentSnapshot>? _meetingSub;
   bool _endedDialogShown = false;
 
-  bool get _isHost => widget.user.role.toLowerCase() == 'host';
+  bool get _isHost {
+    final fbUid = FirebaseAuth.instance.currentUser?.uid;
+    return (fbUid != null && fbUid == widget.meeting.hostId) ||
+        widget.user.userId == widget.meeting.hostId;
+  }
+  void _cancelMeetingListener() {
+    _meetingSub?.cancel();
+    _meetingSub = null;
+  }
 
   @override
   void initState() {
@@ -78,21 +86,37 @@ class _MeetingScreenState extends State<MeetingView> {
       await session.startPublishing();
     });
 
+    Future<void> _handleMeetingEnded() async {
+      if (!mounted) return;
+
+      await ActiveMeetingStorage.clear();
+
+      // سكري Zego (وممكن ينعاد عند dispose عادي)
+      try {
+        await session.disposeSession();
+      } catch (_) {}
+
+      if (!mounted) return;
+      Navigator.pop(context); // يطلع من MeetingView
+    }
+
     // ✅ Listener: إذا الهوست أنهى الاجتماع
     _meetingSub = FirebaseFirestore.instance
         .collection('Meetings')
         .doc(widget.meeting.meetingId)
         .snapshots()
-        .listen((snap) {
+        .listen((snap) async {
       if (!snap.exists) return;
 
-      final data = snap.data() as Map<String, dynamic>;
+      final data = snap.data() as Map<String, dynamic>?;
+      if (data == null) return;
+
       final isActive = data['isActive'] as bool? ?? true;
 
       if (!isActive && mounted && !_endedDialogShown) {
         _endedDialogShown = true;
 
-        showDialog(
+        await showDialog(
           context: context,
           barrierDismissible: false,
           builder: (_) => AlertDialog(
@@ -100,15 +124,15 @@ class _MeetingScreenState extends State<MeetingView> {
             content: const Text('The host has ended the meeting.'),
             actions: [
               ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context); // close dialog
-                  Navigator.pop(context); // exit MeetingView
-                },
+                onPressed: () => Navigator.pop(context), // close dialog فقط
                 child: const Text('OK'),
               ),
             ],
           ),
         );
+
+        // بعد إغلاق الديالوج: نظّفي واطلعي
+        await _handleMeetingEnded();
       }
     });
   }
@@ -221,13 +245,57 @@ class _MeetingScreenState extends State<MeetingView> {
   }
 
   Future<void> _onLeaveOrEndPressed() async {
-    final actionText = _isHost ? 'End meeting for everyone?' : 'Leave meeting?';
+    final meetingId = widget.meeting.meetingId;
+    final meetingController = MeetingController();
 
+    if (_isHost) {
+      // ✅ الهوست: فقط إنهاء الاجتماع
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('End Meeting'),
+          content: const Text('Are you sure you want to end the meeting for everyone?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('End Meeting'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      // ✅ نلغي الاستماع عشان ما يجيه إشعار "meeting ended"
+      _endedDialogShown = true;
+      _meetingSub?.cancel();
+
+      await meetingController.endMeeting(meetingId);
+      await ActiveMeetingStorage.clear();
+
+      try {
+        await session.disposeSession();
+      } catch (_) {}
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      return;
+    }
+
+    // ✅ Participant: يقدر يغادر عادي
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(_isHost ? 'End Meeting' : 'Leave Meeting'),
-        content: Text(actionText),
+        title: const Text('Leave Meeting'),
+        content: const Text('Leave meeting?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -235,11 +303,11 @@ class _MeetingScreenState extends State<MeetingView> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: _isHost ? Colors.red : primaryOrange,
+              backgroundColor: primaryOrange,
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: Text(_isHost ? 'End' : 'Leave'),
+            child: const Text('Leave'),
           ),
         ],
       ),
@@ -247,13 +315,7 @@ class _MeetingScreenState extends State<MeetingView> {
 
     if (confirmed != true) return;
 
-    final meetingController = MeetingController();
-    if (_isHost) {
-      await meetingController.endMeeting(widget.meeting.meetingId);
-    } else {
-      await meetingController.leaveMeeting(widget.meeting.meetingId);
-    }
-
+    await meetingController.leaveMeeting(meetingId);
     await ActiveMeetingStorage.clear();
 
     if (!mounted) return;
