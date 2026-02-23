@@ -349,6 +349,27 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 16),
 
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: OutlinedButton(
+                        onPressed: _showJoinDialog,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFFFB382)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          'Join Meeting',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFFFB382),
+                          ),
+                        ),
+                      ),
+                    ),
 
 
                     const SizedBox(height: 8),
