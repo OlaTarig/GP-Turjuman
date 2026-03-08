@@ -90,7 +90,6 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
         if (!participants.contains(uid)) {
           final currentNum =
               (data['numOfParticipants'] as int?) ?? participants.length;
-
           tx.update(meetingRef, {
             'participants': FieldValue.arrayUnion([uid]),
             'numOfParticipants': currentNum + 1,
@@ -123,17 +122,25 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
 
       if (!mounted) return;
 
-      // ── Step 8: ✅ FIXED — single navigation call ──
-      // Replace the entire stack with HomePage, then immediately push MeetingView
-      // on top of it inside the same builder so there's no race condition.
+      // ── Step 8: ✅ FIXED ──
+      // First clear stack and push HomePage so it's always underneath.
+      // Then push MeetingView on top after a short delay so HomePage
+      // finishes building first — no race condition, no black screen on leave.
       Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomePage()),
+            (route) => false,
+      );
+
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+
+      Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => MeetingView(
             meeting: updatedMeeting,
             user: user,
           ),
         ),
-            (route) => false, // clear everything — MeetingView's back button goes to HomePage via its own pop
       );
 
     } catch (e) {
