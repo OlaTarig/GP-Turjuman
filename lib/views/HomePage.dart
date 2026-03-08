@@ -9,7 +9,8 @@ import '../views/SettingsView.dart';
 import '../models/MeetingModel.dart';
 import '../controllers/MeetingSessionManager.dart';
 import 'package:turjuman/main.dart'; // ✅ deep link service
-
+import 'JoinMeetingView.dart'; // ✅ for deep link navigation
+import 'package:turjuman/main.dart'; // ✅ gives access to deepLinkService
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,8 +33,17 @@ class _HomePageState extends State<HomePage> {
 
     // ✅ If the app was opened via an invitation link, navigate to the meeting
     // once the home page is fully built and the user is confirmed logged in.
+    // ✅ If app was opened via invitation link, navigate to JoinMeetingScreen
+    // directly from HomePage (which is already in the stack as the base).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      deepLinkService.consumePendingLink();
+      final meetingId = deepLinkService.consumePendingLink();
+      if (meetingId != null && meetingId.isNotEmpty && mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => JoinMeetingScreen(meetingId: meetingId),
+          ),
+        );
+      }
     });
   }
 

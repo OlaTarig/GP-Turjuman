@@ -122,19 +122,11 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
 
       if (!mounted) return;
 
-      // ── Step 8: ✅ FIXED ──
-      // First clear stack and push HomePage so it's always underneath.
-      // Then push MeetingView on top after a short delay so HomePage
-      // finishes building first — no race condition, no black screen on leave.
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomePage()),
-            (route) => false,
-      );
-
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (!mounted) return;
-
-      Navigator.of(context).push(
+      // ── Step 8: ✅ Navigate to MeetingView ──
+      // HomePage is already in the stack (pushed us here).
+      // We just replace JoinMeetingScreen with MeetingView using pushReplacement.
+      // When user leaves meeting → pop() → lands on HomePage cleanly.
+      Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => MeetingView(
             meeting: updatedMeeting,

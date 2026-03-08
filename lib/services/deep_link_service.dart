@@ -7,14 +7,12 @@ class DeepLinkService {
   final AppLinks _appLinks = AppLinks();
   StreamSubscription? _sub;
 
-  // ✅ Stores meeting ID from cold start — does NOT navigate yet
   String? pendingMeetingId;
 
   DeepLinkService(this.navigatorKey);
 
   Future<void> start() async {
-    // 1. Cold start — store the ID only, do NOT navigate
-    //    (navigator is not mounted yet at this point)
+    // Cold start — store ID, do NOT navigate yet
     try {
       final initialUri = await _appLinks.getInitialLink();
       if (initialUri != null) {
@@ -25,7 +23,7 @@ class DeepLinkService {
       debugPrint('❌ DeepLinkService: error getting initial link: $e');
     }
 
-    // 2. Warm start — app already running, navigate immediately
+    // Warm start — app already open, navigate immediately
     _sub?.cancel();
     _sub = _appLinks.uriLinkStream.listen(
           (Uri uri) => _handleUri(uri),
@@ -33,15 +31,16 @@ class DeepLinkService {
     );
   }
 
-  /// ✅ Call this from HomePage.initState() after user is confirmed logged in.
-  /// Navigates to the meeting and clears the pending link.
-  void consumePendingLink() {
+  /// Called from HomePage.initState() ONCE.
+  /// Returns the pending meeting ID and clears it — caller handles navigation.
+  String? consumePendingLink() {
     if (pendingMeetingId != null) {
       final id = pendingMeetingId!;
       pendingMeetingId = null;
-      debugPrint('✅ Consuming pending deep link for meeting: $id');
-      _navigateToMeeting(id);
+      debugPrint('✅ Consuming pending deep link: $id');
+      return id;
     }
+    return null;
   }
 
   void _handleUri(Uri uri) {
