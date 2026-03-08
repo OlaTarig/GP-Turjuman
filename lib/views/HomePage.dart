@@ -29,6 +29,9 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadUserData();
+
+    // ✅ If the app was opened via an invitation link, navigate to the meeting
+    // once the home page is fully built and the user is confirmed logged in.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       deepLinkService.consumePendingLink();
     });

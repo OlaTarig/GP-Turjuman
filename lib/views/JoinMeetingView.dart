@@ -116,28 +116,26 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
       userData['userId'] = uid;
       final user = UserModel.fromMap(userData);
 
-      // ── Step 7: Fetch updated meeting (with this user added) ──
+      // ── Step 7: Fetch updated meeting ──
       final updatedMeetingDoc = await meetingRef.get();
       final updatedMeeting =
       MeetingModel.fromMap(updatedMeetingDoc.data() as Map<String, dynamic>);
 
       if (!mounted) return;
 
-      // ── Step 8: Navigate — clear stack, put HomePage first, MeetingView on top ──
-      // ✅ This ensures that when the user leaves/ends the meeting,
-      //    they always land on HomePage regardless of how they joined.
+      // ── Step 8: ✅ FIXED — single navigation call ──
+      // Replace the entire stack with HomePage, then immediately push MeetingView
+      // on top of it inside the same builder so there's no race condition.
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomePage()),
-            (route) => false, // remove everything (including JoinMeetingScreen)
-      );
-      Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => MeetingView(
             meeting: updatedMeeting,
             user: user,
           ),
         ),
+            (route) => false, // clear everything — MeetingView's back button goes to HomePage via its own pop
       );
+
     } catch (e) {
       debugPrint('❌ Error joining meeting: $e');
       if (mounted) {
@@ -240,11 +238,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.error_outline,
-            color: Colors.redAccent,
-            size: 56,
-          ),
+          const Icon(Icons.error_outline, color: Colors.redAccent, size: 56),
           const SizedBox(height: 16),
           const Text(
             'Unable to Join',
@@ -265,7 +259,6 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  // ✅ Go Back also goes to HomePage, not nowhere
                   onPressed: () => Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(builder: (_) => const HomePage()),
                         (route) => false,
