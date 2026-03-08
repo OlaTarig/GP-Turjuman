@@ -3,7 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import '../views/GUI.dart';
 import 'services/deep_link_service.dart';
-
+import 'views/JoinMeetingView.dart';
 // ✅ نافيقيتور كي عشان نقدر نوجه من الـ deep link حتى لو ما عندك context
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -66,12 +66,7 @@ class _MyAppState extends State<MyApp> {
           // إذا ما عندك JoinMeetingView جاهزة، خلّيها مؤقتًا WelcomeScreen
           // وانا أركب لك JoinMeetingView بعدين.
           return MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(title: const Text('Joining meeting')),
-              body: Center(
-                child: Text('Meeting ID: $meetingId'),
-              ),
-            ),
+            builder: (_) => JoinMeetingScreen(meetingId: meetingId),
           );
         }
 

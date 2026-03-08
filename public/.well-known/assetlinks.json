@@ -4,9 +4,7 @@
     "target": {
       "namespace": "android_app",
       "package_name": "com.example.turjuman",
-      "sha256_cert_fingerprints": [
-        "36:85:BB:E2:6D:C9:13:15:B9:26:37:38:98:87:CD:4E:D3:A7:D2:36:0B:25:0A:1B:E9:A2:8F:AA:F4:59:26:E7"
-      ]
+      "sha256_cert_fingerprints": ["F2:50:0B:E9:B8:D9:16:B3:47:4B:B5:31:D1:84:5C:E9:02:8D:D6:72:97:1D:F2:71:92:54:6F:82:7D:B4:E3:03"]
     }
   }
 ]

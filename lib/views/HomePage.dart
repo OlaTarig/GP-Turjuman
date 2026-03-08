@@ -8,6 +8,8 @@ import '../models/UserModel.dart';
 import '../views/SettingsView.dart';
 import '../models/MeetingModel.dart';
 import '../controllers/MeetingSessionManager.dart';
+import 'package:turjuman/main.dart'; // ✅ deep link service
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,17 +23,16 @@ class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
   int _currentIndex = 0;
 
-
   UserModel? _userModel;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
-
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      deepLinkService.consumePendingLink();
+    });
   }
-
-
 
   Future<void> _loadUserData() async {
     try {
@@ -79,6 +80,7 @@ class _HomePageState extends State<HomePage> {
       });
     }
   }
+
   Future<void> _showJoinDialog() async {
     final controller = TextEditingController();
 
@@ -98,8 +100,7 @@ class _HomePageState extends State<HomePage> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(context, controller.text.trim()),
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('Join'),
           ),
         ],
@@ -110,6 +111,7 @@ class _HomePageState extends State<HomePage> {
 
     await _joinMeetingById(meetingId);
   }
+
   Future<void> _joinMeetingById(String meetingId) async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
     if (firebaseUser == null) return;
@@ -141,7 +143,6 @@ class _HomePageState extends State<HomePage> {
       'meetingId': meetingSnap.id,
     });
 
-    // تحديث عدد المشاركين
     await FirebaseFirestore.instance
         .collection('Meetings')
         .doc(meetingId)
@@ -181,7 +182,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-
   Future<void> _startMeeting() async {
     final controller = MeetingController();
     final meeting = await controller.createMeeting("New Meeting");
@@ -217,9 +217,6 @@ class _HomePageState extends State<HomePage> {
           builder: (_) => MeetingView(meeting: meeting, user: userModel),
         ),
       );
-
-      // ✅ بعد الرجوع من الميتنق حدّث البانر
-
     } catch (e) {
       debugPrint("Error loading user model: $e");
 
@@ -237,25 +234,16 @@ class _HomePageState extends State<HomePage> {
           builder: (_) => MeetingView(meeting: meeting, user: userModel),
         ),
       );
-
-      // ✅ بعد الرجوع من الميتنق حدّث البانر
-
     }
   }
 
-
-
-  // ✅ تعديل بسيط: بدون Navigator.push
   void _onBottomNavTap(int index) {
     setState(() {
       _currentIndex = index;
     });
   }
 
-  // ✅ نفس محتوى الهوم حقك (بدون تغيير)
   Widget _homeTab() {
-    // ✅ عشان البانر الثابت ما يغطي الهيدر
-
     return SafeArea(
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -264,9 +252,8 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 20 ),
+              SizedBox(height: 20),
 
-              // Header with greeting and profile
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -294,14 +281,11 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
-
-                  // ✅ تم حذف زر اللوق اوت من هنا فقط
                 ],
               ),
 
               const SizedBox(height: 40),
 
-              // Main meeting card
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(32),
@@ -322,7 +306,6 @@ class _HomePageState extends State<HomePage> {
                 ),
                 child: Column(
                   children: [
-                    // Icon
                     Container(
                       width: 100,
                       height: 100,
@@ -371,7 +354,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
 
-
                     const SizedBox(height: 8),
 
                     Text(
@@ -384,7 +366,6 @@ class _HomePageState extends State<HomePage> {
 
                     const SizedBox(height: 28),
 
-                    // Start button
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -419,14 +400,13 @@ class _HomePageState extends State<HomePage> {
               ),
 
               const SizedBox(height: 32),
-              const SizedBox(height: 100), // Bottom padding for nav bar
+              const SizedBox(height: 100),
             ],
           ),
         ),
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -439,7 +419,7 @@ class _HomePageState extends State<HomePage> {
           AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
         ),
       )
-          :Stack(
+          : Stack(
         children: [
           IndexedStack(
             index: _currentIndex,
@@ -447,9 +427,12 @@ class _HomePageState extends State<HomePage> {
               _homeTab(),
               const Center(child: Text('Files page - Coming soon')),
               _userModel == null
-                  ? const Center(child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
-              ))
+                  ? const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFFFFB382)),
+                ),
+              )
                   : SettingsView(
                 user: _userModel!,
                 onUserUpdated: (updatedUser) {
@@ -462,7 +445,7 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
 
-          // ✅ Active Meeting Banner (فوق كل شي)
+          // ✅ Active Meeting Banner
           Positioned(
             top: 0,
             left: 0,
@@ -473,7 +456,8 @@ class _HomePageState extends State<HomePage> {
                 final mgr = MeetingSessionManager.instance;
                 if (!mgr.hasActiveMeeting) return const SizedBox.shrink();
 
-                final meetingTitle = mgr.activeMeeting?.title ?? 'Meeting';
+                final meetingTitle =
+                    mgr.activeMeeting?.title ?? 'Meeting';
                 return SafeArea(
                   bottom: false,
                   child: Padding(
@@ -491,15 +475,18 @@ class _HomePageState extends State<HomePage> {
                           await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => MeetingView(meeting: meeting, user: user),
+                              builder: (_) => MeetingView(
+                                  meeting: meeting, user: user),
                             ),
                           );
                         },
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
                           child: Row(
                             children: [
-                              const Icon(Icons.circle, color: Colors.green, size: 12),
+                              const Icon(Icons.circle,
+                                  color: Colors.green, size: 12),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
@@ -542,7 +529,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // تركت الدوال الإضافية زي ما هي عندك (ما لمستها)
   Widget _buildActionCard({
     required IconData icon,
     required String title,
@@ -656,8 +642,8 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(width: 4),
                     Text(
                       time,
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600),
+                      style:
+                      TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
                     const SizedBox(width: 12),
                     Icon(Icons.people_rounded,
@@ -665,8 +651,8 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(width: 4),
                     Text(
                       '$participants participants',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600),
+                      style:
+                      TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
                   ],
                 ),

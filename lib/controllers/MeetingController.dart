@@ -27,9 +27,13 @@ class MeetingController {
         maxCapacity: 100,
         numOfParticipants: 1,
         invitationLink: invitationLink,
+        screenShareAllowed: false, // ✅ always starts as false
       );
 
-      await _firestore.collection('Meetings').doc(meetingId).set(meeting.toMap());
+      await _firestore
+          .collection('Meetings')
+          .doc(meetingId)
+          .set(meeting.toMap());
 
       return meeting;
     } catch (e) {
@@ -56,7 +60,8 @@ class MeetingController {
         List<String>.from((data['participants'] as List?) ?? []);
         if (!participants.contains(user.uid)) return;
 
-        final currentNum = (data['numOfParticipants'] as int?) ?? participants.length;
+        final currentNum =
+            (data['numOfParticipants'] as int?) ?? participants.length;
         final nextNum = (currentNum - 1) < 0 ? 0 : (currentNum - 1);
 
         tx.update(ref, {
@@ -69,7 +74,8 @@ class MeetingController {
     }
   }
 
-  /// ✅ Host ends meeting: set isActive=false + endTime + clear participants + reset count
+  /// ✅ Host ends meeting: set isActive=false + endTime + clear participants
+  ///    + reset screenShareAllowed back to false
   Future<void> endMeeting(String meetingId) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -84,7 +90,6 @@ class MeetingController {
         final data = snap.data() as Map<String, dynamic>;
         final hostId = data['hostId'] as String?;
 
-        // فقط الهوست يقدر ينهي الاجتماع
         if (hostId == null || hostId != user.uid) return;
 
         tx.update(ref, {
@@ -92,6 +97,7 @@ class MeetingController {
           'endTime': Timestamp.now(),
           'participants': <String>[],
           'numOfParticipants': 0,
+          'screenShareAllowed': false, // ✅ reset on meeting end
         });
       });
     } catch (e) {

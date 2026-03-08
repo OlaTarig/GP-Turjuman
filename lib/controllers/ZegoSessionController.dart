@@ -4,7 +4,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:zego_express_engine/zego_express_engine.dart';
 
 class ZegoSessionController extends ChangeNotifier {
-  // ✅ بياناتك من Zego Console
   static const int appID = 2074378114;
   static const String appSign =
       'bc7513ea95f678cdf0f6647bb845f230095caaa0d236ec0e28b375cce7137048';
@@ -14,6 +13,9 @@ class ZegoSessionController extends ChangeNotifier {
   bool isMicOn = false;
   bool isCameraOn = false;
   bool isFrontCamera = true;
+
+  // ✅ Screen share state
+  bool isScreenSharing = false;
 
   String? currentRoomId;
   String? currentUserId;
@@ -29,8 +31,15 @@ class ZegoSessionController extends ChangeNotifier {
   String? _playingRemoteStreamId;
   String? _playingRemoteUserId;
 
-  // ✅ اجعلي streamId فريد للجلسة (أفضل لتجنب أي تعارض)
   String? _myStreamId;
+
+  // ✅ Separate stream ID for screen share
+  String? _myScreenStreamId;
+
+  // ✅ Remote screen share widget (shown when someone else is sharing)
+  Widget? remoteScreenWidget;
+  int? _remoteScreenViewID;
+  String? _playingRemoteScreenStreamId;
 
   Future<bool> ensurePermissions({
     required bool needMic,
@@ -50,7 +59,6 @@ class ZegoSessionController extends ChangeNotifier {
   Future<void> initialize() async {
     if (isInitialized) return;
 
-    // ✅ Logs (تشخيص)
     ZegoExpressEngine.onPublisherStateUpdate =
         (String streamID, ZegoPublisherState state, int errorCode, Map<String, dynamic> ext) {
       debugPrint("PUBLISH stream=$streamID state=$state error=$errorCode");
@@ -74,13 +82,11 @@ class ZegoSessionController extends ChangeNotifier {
       ),
     );
 
-    // ✅ اضبطي جودة الفيديو مرة واحدة قبل preview/publish
     final v = ZegoVideoConfig.preset(ZegoVideoConfigPreset.Preset720P);
     v.fps = 15;
-    v.bitrate = 2200; // kbps (جربي 1800 لو شبكة ضعيفة)
+    v.bitrate = 2200;
     await ZegoExpressEngine.instance.setVideoConfig(v);
 
-    // ✅ صوت أوضح
     ZegoExpressEngine.instance.setAudioConfig(
       ZegoAudioConfig.preset(ZegoAudioConfigPreset.StandardQualityStereo),
     );
@@ -88,13 +94,12 @@ class ZegoSessionController extends ChangeNotifier {
     ZegoExpressEngine.instance.enableAGC(true);
     ZegoExpressEngine.instance.enableANS(true);
 
-    // ✅ افتراضيًا OFF (مثل كودك)
     ZegoExpressEngine.instance.muteMicrophone(true);
     ZegoExpressEngine.instance.enableCamera(false);
     isMicOn = false;
     isCameraOn = false;
 
-    // ✅ Callback واحد فقط: لوق + تشغيل ريموت
+    // ✅ Stream update handler — distinguishes camera vs screen share streams
     ZegoExpressEngine.onRoomStreamUpdate =
         (String roomID, ZegoUpdateType updateType, List<ZegoStream> streamList,
         Map<String, dynamic> extendedData) async {
@@ -105,23 +110,32 @@ class ZegoSessionController extends ChangeNotifier {
 
       if (updateType == ZegoUpdateType.Add) {
         for (final s in streamList) {
-          // لا تشغلي ستريم نفسك
+          // Skip our own streams
           if (s.user.userID == currentUserId) continue;
 
-          // شغلي أول ستريم فقط (حسب تصميمك الحالي)
-          if (_playingRemoteStreamId == null) {
-            await startPlayingRemote(
-              streamId: s.streamID,
-              remoteUserId: s.user.userID,
-            );
-            break;
+          // ✅ Screen share streams are identified by the '_screen' suffix
+          if (s.streamID.endsWith('_screen')) {
+            if (_playingRemoteScreenStreamId == null) {
+              await _startPlayingRemoteScreen(streamId: s.streamID);
+            }
+          } else {
+            // Regular camera stream
+            if (_playingRemoteStreamId == null) {
+              await startPlayingRemote(
+                streamId: s.streamID,
+                remoteUserId: s.user.userID,
+              );
+            }
           }
         }
       } else if (updateType == ZegoUpdateType.Delete) {
         for (final s in streamList) {
           if (s.streamID == _playingRemoteStreamId) {
             stopPlayingRemote();
-            break;
+          }
+          // ✅ Stop remote screen share when it ends
+          if (s.streamID == _playingRemoteScreenStreamId) {
+            _stopPlayingRemoteScreen();
           }
         }
       }
@@ -144,8 +158,9 @@ class ZegoSessionController extends ChangeNotifier {
     currentUserId = userId;
     currentUserName = userName;
 
-    // ✅ streamId فريد للجلسة (أفضل تشخيص وتفادي تعارض)
     _myStreamId = 'stream_${userId}_${DateTime.now().millisecondsSinceEpoch}';
+    // ✅ Screen share stream ID — always ends with '_screen' so others can identify it
+    _myScreenStreamId = '${_myStreamId}_screen';
 
     final user = ZegoUser(userId, userName);
 
@@ -162,7 +177,13 @@ class ZegoSessionController extends ChangeNotifier {
     final roomId = currentRoomId;
     if (roomId == null) return;
 
+    // ✅ Stop screen share before logout
+    if (isScreenSharing) {
+      await stopScreenShare();
+    }
+
     stopPlayingRemote();
+    _stopPlayingRemoteScreen();
 
     ZegoExpressEngine.instance.stopPublishingStream();
     ZegoExpressEngine.instance.stopPreview();
@@ -173,31 +194,27 @@ class ZegoSessionController extends ChangeNotifier {
     currentUserId = null;
     currentUserName = null;
     _myStreamId = null;
+    _myScreenStreamId = null;
 
     notifyListeners();
   }
 
-  /// ✅ local preview + publish
   Future<void> startPublishing() async {
     final uid = currentUserId;
     if (uid == null) return;
 
-    // جهزي local canvas view مرة وحدة
     localViewWidget ??= await ZegoExpressEngine.instance.createCanvasView((viewID) {
       _localViewID = viewID;
-
       final canvas = ZegoCanvas.view(viewID);
       ZegoExpressEngine.instance.startPreview(canvas: canvas);
     });
 
-    // publish stream
     final streamId = _myStreamId ?? 'stream_$uid';
     ZegoExpressEngine.instance.startPublishingStream(streamId);
 
     notifyListeners();
   }
 
-  /// ✅ play remote
   Future<void> startPlayingRemote({
     required String streamId,
     required String remoteUserId,
@@ -211,7 +228,6 @@ class ZegoSessionController extends ChangeNotifier {
 
     remoteViewWidget = await ZegoExpressEngine.instance.createCanvasView((viewID) {
       _remoteViewID = viewID;
-
       final canvas = ZegoCanvas.view(viewID);
       ZegoExpressEngine.instance.startPlayingStream(streamId, canvas: canvas);
     });
@@ -225,12 +241,133 @@ class ZegoSessionController extends ChangeNotifier {
     }
     _playingRemoteStreamId = null;
     _playingRemoteUserId = null;
-
     remoteViewWidget = null;
     _remoteViewID = null;
+    notifyListeners();
+  }
+
+  // ─── Screen Share ─────────────────────────────────────────────────
+
+  // ✅ Holds the screen capture source instance
+  ZegoScreenCaptureSource? _screenCaptureSource;
+
+  /// ✅ Correct API for zego_express_engine ^3.17.0:
+  /// 1. createScreenCaptureSource() → get source instance
+  /// 2. setVideoSource(screen) → tell the Aux channel to use screen
+  /// 3. source.startCapture() → shows Android "Start recording?" dialog
+  /// 4. startPublishingStream on Aux channel
+  Future<bool> startScreenShare() async {
+    if (isScreenSharing) return true;
+    if (_myScreenStreamId == null) return false;
+
+    try {
+      // Step 1: Create screen capture source
+      _screenCaptureSource =
+      await ZegoExpressEngine.instance.createScreenCaptureSource();
+
+      if (_screenCaptureSource == null) {
+        debugPrint('❌ Failed to create screen capture source');
+        return false;
+      }
+
+      // Step 2: Tell Aux channel to use screen as its video source
+      await ZegoExpressEngine.instance.setVideoSource(
+        ZegoVideoSourceType.ScreenCapture,
+        channel: ZegoPublishChannel.Aux,
+      );
+
+      // Step 3: Start capture — triggers Android "Start recording?" system dialog
+      await _screenCaptureSource!.startCapture();
+
+      // Step 4: Publish screen stream on Aux channel
+      await ZegoExpressEngine.instance.startPublishingStream(
+        _myScreenStreamId!,
+        channel: ZegoPublishChannel.Aux,
+      );
+
+      isScreenSharing = true;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('❌ startScreenShare error: $e');
+      // Clean up on failure
+      await _cleanupScreenCapture();
+      return false;
+    }
+  }
+
+  /// ✅ Stop screen share and restore camera as video source
+  Future<void> stopScreenShare() async {
+    if (!isScreenSharing) return;
+
+    await _cleanupScreenCapture();
+
+    isScreenSharing = false;
+    notifyListeners();
+  }
+
+  Future<void> _cleanupScreenCapture() async {
+    try {
+      await _screenCaptureSource?.stopCapture();
+      await ZegoExpressEngine.instance.destroyScreenCaptureSource(
+          _screenCaptureSource!);
+      _screenCaptureSource = null;
+    } catch (_) {}
+
+    try {
+      ZegoExpressEngine.instance.stopPublishingStream(
+        channel: ZegoPublishChannel.Aux,
+      );
+    } catch (_) {}
+
+    try {
+      // Restore camera as the Aux channel video source (or reset to default)
+      await ZegoExpressEngine.instance.setVideoSource(
+        ZegoVideoSourceType.Camera,
+        channel: ZegoPublishChannel.Aux,
+      );
+    } catch (_) {}
+  }
+
+  /// ✅ Toggle screen share (called from UI)
+  Future<bool> toggleScreenShare() async {
+    if (isScreenSharing) {
+      await stopScreenShare();
+      return true;
+    } else {
+      return await startScreenShare();
+    }
+  }
+
+  // ─── Remote screen share playback ────────────────────────────────
+
+  Future<void> _startPlayingRemoteScreen({required String streamId}) async {
+    if (_playingRemoteScreenStreamId == streamId && remoteScreenWidget != null) return;
+
+    _stopPlayingRemoteScreen();
+
+    _playingRemoteScreenStreamId = streamId;
+
+    remoteScreenWidget = await ZegoExpressEngine.instance.createCanvasView((viewID) {
+      _remoteScreenViewID = viewID;
+      final canvas = ZegoCanvas.view(viewID);
+      ZegoExpressEngine.instance.startPlayingStream(streamId, canvas: canvas);
+    });
 
     notifyListeners();
   }
+
+  void _stopPlayingRemoteScreen() {
+    if (_playingRemoteScreenStreamId != null) {
+      ZegoExpressEngine.instance.stopPlayingStream(_playingRemoteScreenStreamId!);
+    }
+    _playingRemoteScreenStreamId = null;
+    remoteScreenWidget = null;
+    _remoteScreenViewID = null;
+    notifyListeners();
+  }
+
+  // ─── Mic / Camera / Flip ─────────────────────────────────────────
 
   Future<bool> toggleMicWithPermission() async {
     if (!isMicOn) {
@@ -240,14 +377,12 @@ class ZegoSessionController extends ChangeNotifier {
         if (!req.isGranted) return false;
       }
     }
-
     isMicOn = !isMicOn;
     ZegoExpressEngine.instance.muteMicrophone(!isMicOn);
     notifyListeners();
     return true;
   }
 
-  /// ✅ stopPreview عند الإطفاء / startPreview عند التشغيل
   Future<bool> toggleCameraWithPermission() async {
     if (!isCameraOn) {
       final st = await Permission.camera.status;
@@ -258,7 +393,6 @@ class ZegoSessionController extends ChangeNotifier {
     }
 
     isCameraOn = !isCameraOn;
-
     await ZegoExpressEngine.instance.enableCamera(isCameraOn);
 
     if (!isCameraOn) {
@@ -276,10 +410,8 @@ class ZegoSessionController extends ChangeNotifier {
 
   Future<void> flipCamera() async {
     if (!isCameraOn) return;
-
     isFrontCamera = !isFrontCamera;
     await ZegoExpressEngine.instance.useFrontCamera(isFrontCamera);
-
     notifyListeners();
   }
 
@@ -288,10 +420,14 @@ class ZegoSessionController extends ChangeNotifier {
       await logoutRoom();
     } catch (_) {}
 
+    await _cleanupScreenCapture();
+
     localViewWidget = null;
     remoteViewWidget = null;
+    remoteScreenWidget = null;
     _localViewID = null;
     _remoteViewID = null;
+    _remoteScreenViewID = null;
 
     if (isInitialized) {
       await ZegoExpressEngine.destroyEngine();
