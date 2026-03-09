@@ -122,11 +122,17 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
 
       if (!mounted) return;
 
-      // ── Step 8: ✅ Navigate to MeetingView ──
-      // HomePage is already in the stack (pushed us here).
-      // We just replace JoinMeetingScreen with MeetingView using pushReplacement.
-      // When user leaves meeting → pop() → lands on HomePage cleanly.
-      Navigator.of(context).pushReplacement(
+      // ── Step 8: ✅ Build clean stack: HomePage → MeetingView ──
+      // Clear everything first, put HomePage as base, then MeetingView on top.
+      // This guarantees leaving the meeting always lands on HomePage,
+      // regardless of how the user got here (link, manual join, etc).
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomePage()),
+            (route) => false,
+      );
+      await Future.delayed(const Duration(milliseconds: 150));
+      if (!mounted) return;
+      Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => MeetingView(
             meeting: updatedMeeting,

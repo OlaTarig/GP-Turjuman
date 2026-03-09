@@ -9,6 +9,7 @@ import '../models/UserModel.dart';
 import '../controllers/MeetingController.dart';
 import '../controllers/ZegoSessionController.dart';
 import '../controllers/MeetingSessionManager.dart';
+import 'HomePage.dart';
 
 class MeetingView extends StatefulWidget {
   final MeetingModel meeting;
@@ -115,7 +116,10 @@ class _MeetingScreenState extends State<MeetingView> {
         } catch (_) {}
 
         if (!mounted) return;
-        Navigator.of(context).pop();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomePage()),
+              (route) => false,
+        );
       }
     });
   }
@@ -682,7 +686,10 @@ class _MeetingScreenState extends State<MeetingView> {
       await mgr.endAndDispose();
 
       if (!mounted) return;
-      Navigator.of(context).pop();
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomePage()),
+            (route) => false,
+      );
       return;
     }
 
@@ -712,7 +719,10 @@ class _MeetingScreenState extends State<MeetingView> {
     await mgr.endAndDispose();
 
     if (!mounted) return;
-    Navigator.of(context).pop();
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomePage()),
+          (route) => false,
+    );
   }
 
   // ─── Build ────────────────────────────────────────────────────────
@@ -724,7 +734,7 @@ class _MeetingScreenState extends State<MeetingView> {
     final isSharingMyScreen = session.isScreenSharing;
 
     return PopScope(
-      canPop: true,
+      canPop: true, // ✅ allow back — just minimizes, does NOT end the meeting
       onPopInvoked: (_) async {},
       child: Scaffold(
         backgroundColor: Colors.black,
@@ -733,7 +743,7 @@ class _MeetingScreenState extends State<MeetingView> {
           centerTitle: true,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () async => Navigator.pop(context),
+            onPressed: () => Navigator.of(context).pop(), // ✅ minimize only
           ),
           title: Column(
             mainAxisSize: MainAxisSize.min,
