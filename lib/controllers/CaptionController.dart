@@ -121,6 +121,7 @@ class CaptionController extends ChangeNotifier {
       'captionsBuffer': [],
       'isCompleted': false,
       'format': 'pdf',
+      'activeSpeakerId': '', // ✅ tracks who is currently speaking
     }, SetOptions(merge: true));
 
     // 4. Listen to Firestore for live captions display
@@ -238,14 +239,55 @@ class CaptionController extends ChangeNotifier {
     }
   }
 
+  // ── Claim the mic slot in Firestore ───────────────────────────────
+  // Sets activeSpeakerId so other devices know someone is speaking
+  Future<void> _claimSpeakerSlot() async {
+    try {
+      await FirebaseFirestore.instance
+          .collection(kCaptionsCollection)
+          .doc(_currentMeetingId)
+          .update({'activeSpeakerId': _currentUserId});
+    } catch (_) {}
+  }
+
+  Future<void> _releaseSpeakerSlot() async {
+    try {
+      await FirebaseFirestore.instance
+          .collection(kCaptionsCollection)
+          .doc(_currentMeetingId)
+          .update({'activeSpeakerId': ''});
+    } catch (_) {}
+  }
+
   // ── Push recognized text to Firestore ─────────────────────────────
-  // Only called from THIS device's mic — so userName is always correct
+  // Checks activeSpeakerId to prevent two devices pushing at same time
   Future<void> updateCaption(String newText) async {
     if (newText.trim().isEmpty) return;
+    if (isMicMuted) return;
+
+    // ✅ Check if another user is already the active speaker
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection(kCaptionsCollection)
+          .doc(_currentMeetingId)
+          .get();
+
+      if (doc.exists) {
+        final activeSpeaker = doc.data()?['activeSpeakerId'] as String? ?? '';
+        // If someone else claimed the slot, don't push
+        if (activeSpeaker.isNotEmpty && activeSpeaker != _currentUserId) {
+          debugPrint('🔇 Another speaker active — skipping');
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // Claim the slot
+    await _claimSpeakerSlot();
 
     final entry = CaptionEntry(
       userId: _currentUserId,
-      userName: _currentUserName, // ✅ always this device's user
+      userName: _currentUserName,
       text: newText.trim(),
       timestamp: DateTime.now(),
     );
@@ -257,6 +299,7 @@ class CaptionController extends ChangeNotifier {
           .update({
         'captionsBuffer': FieldValue.arrayUnion([entry.toMap()]),
         'updatedAt': FieldValue.serverTimestamp(),
+        'activeSpeakerId': '', // release slot after pushing
       });
     } catch (e) {
       debugPrint('❌ Failed to push caption: $e');
