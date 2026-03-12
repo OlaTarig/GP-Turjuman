@@ -73,14 +73,42 @@ class CaptionController extends ChangeNotifier {
     }
   }
 
-  // ── Start listening to captions without mic (viewer mode) ──────────
-  // Call this when joining a meeting so you see others' captions
-  // even if you didn't press CC yourself
-  Future<void> startViewingCaptions(String meetingId) async {
+  // ── Store meeting ID and watch if anyone enables CC ─────────────────
+  // When any participant enables CC, everyone starts seeing captions
+  void setMeetingId(String meetingId) {
     _currentMeetingId = meetingId;
-    // ✅ Do NOT set _captionsVisible here — only listen silently
-    // The CC button state stays OFF until user presses it themselves
-    _listenToFirestore();
+    _watchForCaptionsEnabled();
+  }
+
+  // Watches Firestore — if captionsBuffer gets entries, show overlay
+  void _watchForCaptionsEnabled() {
+    _captionSub?.cancel();
+    _captionSub = FirebaseFirestore.instance
+        .collection(kCaptionsCollection)
+        .doc(_currentMeetingId)
+        .snapshots()
+        .listen((snap) {
+      if (!snap.exists) return;
+      final data = snap.data() as Map<String, dynamic>;
+      final entries = (data['captionsBuffer'] as List<dynamic>? ?? [])
+          .map((e) => CaptionEntry.fromMap(e as Map<String, dynamic>))
+          .toList();
+
+      // Always keep full transcript
+      _fullTranscript
+        ..clear()
+        ..addAll(entries);
+
+      // ✅ Only show live overlay if CC is actively ON for this user
+      if (_captionsVisible && entries.isNotEmpty) {
+        _liveCaptions
+          ..clear()
+          ..addAll(entries.length > 3
+              ? entries.sublist(entries.length - 3)
+              : entries);
+        notifyListeners();
+      }
+    });
   }
 
   // ── Start speaking (mic on + push to Firestore) ────────────────────
@@ -124,10 +152,7 @@ class CaptionController extends ChangeNotifier {
       'activeSpeakerId': '', // ✅ tracks who is currently speaking
     }, SetOptions(merge: true));
 
-    // 4. Listen to Firestore for live captions display
-    _listenToFirestore();
-
-    // 5. Start mic stream → Google Speech
+    // 4. Start mic stream → Google Speech
     await _startStreaming();
   }
 

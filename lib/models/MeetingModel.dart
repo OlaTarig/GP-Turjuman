@@ -13,6 +13,7 @@ class MeetingModel {
   final String invitationLink;
   // ✅ Global screen share permission flag
   final bool screenShareAllowed;
+  final List<String> allParticipants;
 
   MeetingModel({
     required this.meetingId,
@@ -25,7 +26,8 @@ class MeetingModel {
     required this.maxCapacity,
     required this.numOfParticipants,
     required this.invitationLink,
-    this.screenShareAllowed = false, // ✅ defaults to false
+    this.screenShareAllowed = false,
+    this.allParticipants = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -40,7 +42,8 @@ class MeetingModel {
       'maxCapacity': maxCapacity,
       'numOfParticipants': numOfParticipants,
       'invitationLink': invitationLink,
-      'screenShareAllowed': screenShareAllowed, // ✅ saved to Firestore
+      'screenShareAllowed': screenShareAllowed,
+      'allParticipants': allParticipants,
     };
   }
 
@@ -60,6 +63,7 @@ class MeetingModel {
       invitationLink: map['invitationLink'],
       // ✅ safe read — defaults to false if field doesn't exist yet
       screenShareAllowed: map['screenShareAllowed'] as bool? ?? false,
+      allParticipants: List<String>.from(map['allParticipants'] as List? ?? []),
     );
   }
 }

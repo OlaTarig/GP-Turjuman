@@ -67,8 +67,8 @@ class _MeetingScreenState extends State<MeetingView> {
 
       try {
         await mgr.startOrJoin(meeting: widget.meeting, user: widget.user);
-        // ✅ Start viewing captions (no mic) so all participants see captions
-        await _captionController.startViewingCaptions(widget.meeting.meetingId);
+        // ✅ Just store the meeting ID for captions — don't start anything yet
+        _captionController.setMeetingId(widget.meeting.meetingId);
       } catch (_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
