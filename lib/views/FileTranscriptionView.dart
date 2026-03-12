@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:printing/printing.dart';
 import '../controllers/FileTranscriptionController.dart';
@@ -16,6 +17,33 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
   static const Color primaryOrange = Color(0xFFFFB382);
   final FileTranscriptionController _controller =
       FileTranscriptionController.instance;
+
+  final String? _currentUserId =
+      FirebaseAuth.instance.currentUser?.uid;
+
+  // ── Check if current user was host or participant in a meeting ─────
+  Future<bool> _userWasInMeeting(String meetingId) async {
+    if (_currentUserId == null) return false;
+    try {
+      final meetingDoc = await FirebaseFirestore.instance
+          .collection('Meetings')
+          .doc(meetingId)
+          .get();
+
+      if (!meetingDoc.exists) return false;
+
+      final data = meetingDoc.data()!;
+      final hostId = data['hostId'] as String? ?? '';
+      final participants =
+      List<String>.from(data['participants'] as List? ?? []);
+
+      return hostId == _currentUserId ||
+          participants.contains(_currentUserId);
+    } catch (e) {
+      debugPrint('❌ _userWasInMeeting error: $e');
+      return false;
+    }
+  }
 
   // ── Display full transcription in a bottom sheet ───────────────────
   void displayDownloadedTranscription(
@@ -81,8 +109,10 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
 
               // Stats bar
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                margin: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
                   color: primaryOrange.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(14),
@@ -99,7 +129,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                     _statChip(
                       icon: Icons.people_outline,
                       label:
-                      '${model.captionsBuffer.map((e) => e.userName).toSet().length} speakers',
+                      '${model.captionsBuffer.map((e) => e.userName).where((n) => n.isNotEmpty).toSet().length} speakers',
                     ),
                     _statChip(
                       icon: Icons.access_time,
@@ -111,13 +141,14 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
 
               const Divider(height: 1),
 
-              // Caption entries list
+              // Caption entries
               Expanded(
                 child: model.captionsBuffer.isEmpty
                     ? const Center(
                   child: Text(
                     'No transcript available',
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                    style: TextStyle(
+                        color: Colors.grey, fontSize: 16),
                   ),
                 )
                     : ListView.builder(
@@ -131,20 +162,27 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                         '${entry.timestamp.minute.toString().padLeft(2, '0')}:'
                         '${entry.timestamp.second.toString().padLeft(2, '0')}';
 
-                    // ── Fix: fallback if userName is empty ──
                     final speakerName = entry.userName.isNotEmpty
                         ? entry.userName
                         : 'Unknown Speaker';
+
+                    // Highlight current user's entries
+                    final isMe = entry.userId == _currentUserId;
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isMe
+                            ? primaryOrange.withOpacity(0.05)
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(14),
                         border: Border(
                           left: BorderSide(
-                              color: primaryOrange, width: 3),
+                              color: isMe
+                                  ? primaryOrange
+                                  : Colors.grey.shade300,
+                              width: 3),
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -155,40 +193,47 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                         ],
                       ),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                        CrossAxisAlignment.start,
                         children: [
                           Row(
                             mainAxisAlignment:
                             MainAxisAlignment.spaceBetween,
                             children: [
-                              // Speaker name with avatar
                               Row(
                                 children: [
                                   CircleAvatar(
                                     radius: 12,
-                                    backgroundColor:
-                                    primaryOrange.withOpacity(0.2),
+                                    backgroundColor: isMe
+                                        ? primaryOrange
+                                        .withOpacity(0.2)
+                                        : Colors.grey.shade200,
                                     child: Text(
                                       speakerName[0].toUpperCase(),
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
-                                        color: primaryOrange,
+                                        color: isMe
+                                            ? primaryOrange
+                                            : Colors.grey.shade600,
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    speakerName,
-                                    style: const TextStyle(
+                                    isMe
+                                        ? '$speakerName (You)'
+                                        : speakerName,
+                                    style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: primaryOrange,
+                                      color: isMe
+                                          ? primaryOrange
+                                          : Colors.grey.shade700,
                                       fontSize: 13,
                                     ),
                                   ),
                                 ],
                               ),
-                              // Timestamp
                               Text(
                                 time,
                                 style: TextStyle(
@@ -213,7 +258,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                 ),
               ),
 
-              // ── Download PDF button ──────────────────────────────
+              // Download PDF button
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 child: ListenableBuilder(
@@ -226,9 +271,8 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                           model.captionsBuffer.isEmpty)
                           ? null
                           : () async {
-                        // ✅ Fixed download — generates PDF then opens share sheet
-                        final bytes =
-                        await _controller.generateTranscriptionFile(
+                        final bytes = await _controller
+                            .generateTranscriptionFile(
                           meetingId: model.meetingId,
                           entries: model.captionsBuffer,
                           meetingDate: model.createdAt,
@@ -241,9 +285,11 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                           );
                         } else if (mounted &&
                             _controller.lastError != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(
                             SnackBar(
-                              content: Text(_controller.lastError!),
+                              content:
+                              Text(_controller.lastError!),
                               backgroundColor: Colors.redAccent,
                             ),
                           );
@@ -280,11 +326,14 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
   // ── Main screen ────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    if (_currentUserId == null) {
+      return const Center(child: Text('Not logged in'));
+    }
+
     return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
             child: Column(
@@ -299,9 +348,9 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                   ),
                 ),
                 Text(
-                  'All your recorded meeting transcripts',
-                  style:
-                  TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                  'Your recorded meeting transcripts',
+                  style: TextStyle(
+                      fontSize: 14, color: Colors.grey.shade500),
                 ),
               ],
             ),
@@ -309,7 +358,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
 
           const SizedBox(height: 16),
 
-          // List from Firestore
+          // ── Stream all captions docs, then filter by user's meetings ──
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -320,8 +369,8 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(
                     child: CircularProgressIndicator(
-                      valueColor:
-                      AlwaysStoppedAnimation<Color>(primaryOrange),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                          primaryOrange),
                     ),
                   );
                 }
@@ -330,16 +379,36 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                   return _buildEmptyState();
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
-                  itemCount: snap.data!.docs.length,
-                  itemBuilder: (context, i) {
-                    final data =
-                    snap.data!.docs[i].data() as Map<String, dynamic>;
-                    final model =
-                    CaptionsAndTranscriptionModel.fromMap(data);
-                    return _buildTranscriptionCard(context, model);
+                final docs = snap.data!.docs;
+
+                // ── Filter: only show meetings user was part of ──
+                return FutureBuilder<List<CaptionsAndTranscriptionModel>>(
+                  future: _filterUserMeetings(docs),
+                  builder: (context, filterSnap) {
+                    if (filterSnap.connectionState ==
+                        ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              primaryOrange),
+                        ),
+                      );
+                    }
+
+                    final userMeetings = filterSnap.data ?? [];
+
+                    if (userMeetings.isEmpty) {
+                      return _buildEmptyState();
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      itemCount: userMeetings.length,
+                      itemBuilder: (context, i) =>
+                          _buildTranscriptionCard(
+                              context, userMeetings[i]),
+                    );
                   },
                 );
               },
@@ -350,18 +419,30 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
     );
   }
 
+  // ── Filter docs to only include meetings user was in ───────────────
+  Future<List<CaptionsAndTranscriptionModel>> _filterUserMeetings(
+      List<QueryDocumentSnapshot> docs) async {
+    final results = <CaptionsAndTranscriptionModel>[];
+    for (final doc in docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final meetingId = data['meetingId'] as String? ?? doc.id;
+      final wasInMeeting = await _userWasInMeeting(meetingId);
+      if (wasInMeeting) {
+        results.add(CaptionsAndTranscriptionModel.fromMap(data));
+      }
+    }
+    return results;
+  }
+
   // ── Transcription card ─────────────────────────────────────────────
   Widget _buildTranscriptionCard(
       BuildContext context, CaptionsAndTranscriptionModel model) {
     final entryCount = model.captionsBuffer.length;
     final date = model.createdAt.toString().substring(0, 16);
-
-    // ✅ Get unique speaker names (not empty)
     final speakers = model.captionsBuffer
         .map((e) => e.userName)
-        .where((name) => name.isNotEmpty)
+        .where((n) => n.isNotEmpty)
         .toSet();
-    final speakerCount = speakers.length;
 
     return GestureDetector(
       onTap: () => displayDownloadedTranscription(context, model),
@@ -409,7 +490,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$date  •  $entryCount sentences  •  $speakerCount speakers',
+                    '$date  •  $entryCount sentences  •  ${speakers.length} speakers',
                     style: TextStyle(
                         fontSize: 12, color: Colors.grey.shade500),
                   ),
@@ -426,12 +507,14 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                             horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: primaryOrange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius:
+                          BorderRadius.circular(20),
                         ),
                         child: Text(
                           name,
                           style: const TextStyle(
-                              fontSize: 11, color: primaryOrange),
+                              fontSize: 11,
+                              color: primaryOrange),
                         ),
                       ))
                           .toList(),
@@ -459,11 +542,12 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                     : const Icon(Icons.download,
                     color: primaryOrange, size: 26),
                 tooltip: 'Download PDF',
-                onPressed: entryCount == 0 || _controller.isDownloading
+                onPressed:
+                entryCount == 0 || _controller.isDownloading
                     ? null
                     : () async {
-                  final bytes =
-                  await _controller.generateTranscriptionFile(
+                  final bytes = await _controller
+                      .generateTranscriptionFile(
                     meetingId: model.meetingId,
                     entries: model.captionsBuffer,
                     meetingDate: model.createdAt,
@@ -476,9 +560,11 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                     );
                   } else if (mounted &&
                       _controller.lastError != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(
                       SnackBar(
-                        content: Text(_controller.lastError!),
+                        content:
+                        Text(_controller.lastError!),
                         backgroundColor: Colors.redAccent,
                       ),
                     );
@@ -549,9 +635,12 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
 
   Widget _statusBadge(bool isCompleted) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding:
+      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: isCompleted ? Colors.green.shade50 : Colors.orange.shade50,
+        color: isCompleted
+            ? Colors.green.shade50
+            : Colors.orange.shade50,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(

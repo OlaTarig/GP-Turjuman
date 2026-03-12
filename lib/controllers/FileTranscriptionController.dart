@@ -18,14 +18,14 @@ class FileTranscriptionController extends ChangeNotifier {
   bool isDownloading = false;
   String? lastError;
 
-  // ── Generate PDF bytes from caption entries ────────────────────────
+  // ── Generate PDF bytes ─────────────────────────────────────────────
   Future<Uint8List?> generateTranscriptionFile({
     required String meetingId,
     required List<CaptionEntry> entries,
     required DateTime meetingDate,
   }) async {
     if (entries.isEmpty) {
-      lastError = 'لا يوجد نص لتصديره';
+      lastError = 'No transcript to export';
       notifyListeners();
       return null;
     }
@@ -35,67 +35,53 @@ class FileTranscriptionController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final arabicFont = await PdfGoogleFonts.cairoRegular();
-      final arabicFontBold = await PdfGoogleFonts.cairoBold();
-
       final pdf = pw.Document();
+
+
+      final speakerCount =
+          entries.map((e) => e.userName).where((n) => n.isNotEmpty).toSet().length;
 
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
-          textDirection: pw.TextDirection.rtl,
-          margin: const pw.EdgeInsets.all(32),
-          theme: pw.ThemeData.withFont(
-            base: arabicFont,
-            bold: arabicFontBold,
-          ),
+          margin: const pw.EdgeInsets.all(36),
 
-          // Header
+          // ── Header ─────────────────────────────────────────────────
           header: (_) => pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
+                    'Meeting Transcript',
+                    style: pw.TextStyle(
+                      fontSize: 22,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromHex('#FFB382'),
+                    ),
+                  ),
+                  pw.Text(
                     meetingDate.toString().substring(0, 16),
                     style: pw.TextStyle(
-                        font: arabicFont,
-                        fontSize: 10,
-                        color: PdfColors.grey600),
-                  ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Text(
-                        'نسخة الاجتماع',
-                        style: pw.TextStyle(
-                          font: arabicFontBold,
-                          fontSize: 20,
-                          color: PdfColor.fromHex('#FFB382'),
-                        ),
-                        textDirection: pw.TextDirection.rtl,
-                      ),
-                      pw.Text(
-                        'رقم: $meetingId',
-                        style: pw.TextStyle(
-                            font: arabicFont,
-                            fontSize: 10,
-                            color: PdfColors.grey600),
-                        textDirection: pw.TextDirection.rtl,
-                      ),
-                    ],
+                        fontSize: 10, color: PdfColors.grey600),
                   ),
                 ],
               ),
-              pw.SizedBox(height: 6),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Meeting ID: $meetingId',
+                style: pw.TextStyle(
+                    fontSize: 10, color: PdfColors.grey500),
+              ),
+              pw.SizedBox(height: 8),
               pw.Divider(
                   color: PdfColor.fromHex('#FFB382'), thickness: 1.5),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 12),
             ],
           ),
 
-          // Footer
+          // ── Footer ─────────────────────────────────────────────────
           footer: (ctx) => pw.Column(
             children: [
               pw.Divider(color: PdfColors.grey300),
@@ -105,33 +91,26 @@ class FileTranscriptionController extends ChangeNotifier {
                 children: [
                   pw.Text('Turjuman',
                       style: pw.TextStyle(
-                          font: arabicFont,
-                          fontSize: 9,
-                          color: PdfColors.grey400)),
+                          fontSize: 9, color: PdfColors.grey400)),
                   pw.Text(
-                    'صفحة ${ctx.pageNumber} من ${ctx.pagesCount}',
+                    'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
                     style: pw.TextStyle(
-                        font: arabicFont,
-                        fontSize: 9,
-                        color: PdfColors.grey400),
-                    textDirection: pw.TextDirection.rtl,
+                        fontSize: 9, color: PdfColors.grey400),
                   ),
                 ],
               ),
             ],
           ),
 
-          // Content
+          // ── Content ────────────────────────────────────────────────
           build: (_) {
             final widgets = <pw.Widget>[];
 
             // Summary box
-            final speakerCount =
-                entries.map((e) => e.userName).toSet().length;
             widgets.add(
               pw.Container(
                 padding: const pw.EdgeInsets.all(12),
-                margin: const pw.EdgeInsets.only(bottom: 16),
+                margin: const pw.EdgeInsets.only(bottom: 20),
                 decoration: pw.BoxDecoration(
                   color: PdfColor.fromHex('#FFF9E3'),
                   borderRadius: pw.BorderRadius.circular(8),
@@ -141,32 +120,34 @@ class FileTranscriptionController extends ChangeNotifier {
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
                   children: [
-                    pw.Column(children: [
-                      pw.Text('${entries.length}',
-                          style: pw.TextStyle(
-                              font: arabicFontBold,
-                              fontSize: 18,
-                              color: PdfColor.fromHex('#FFB382'))),
-                      pw.Text('جملة',
-                          style: pw.TextStyle(
-                              font: arabicFont,
-                              fontSize: 10,
-                              color: PdfColors.grey600),
-                          textDirection: pw.TextDirection.rtl),
-                    ]),
-                    pw.Column(children: [
-                      pw.Text('$speakerCount',
-                          style: pw.TextStyle(
-                              font: arabicFontBold,
-                              fontSize: 18,
-                              color: PdfColor.fromHex('#FFB382'))),
-                      pw.Text('متحدث',
-                          style: pw.TextStyle(
-                              font: arabicFont,
-                              fontSize: 10,
-                              color: PdfColors.grey600),
-                          textDirection: pw.TextDirection.rtl),
-                    ]),
+                    pw.Column(
+                      children: [
+                        pw.Text('${entries.length}',
+                            style: pw.TextStyle(
+                              fontSize: 20,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColor.fromHex('#FFB382'),
+                            )),
+                        pw.Text('Sentences',
+                            style: pw.TextStyle(
+                                fontSize: 10,
+                                color: PdfColors.grey600)),
+                      ],
+                    ),
+                    pw.Column(
+                      children: [
+                        pw.Text('$speakerCount',
+                            style: pw.TextStyle(
+                              fontSize: 20,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColor.fromHex('#FFB382'),
+                            )),
+                        pw.Text('Speakers',
+                            style: pw.TextStyle(
+                                fontSize: 10,
+                                color: PdfColors.grey600)),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -179,6 +160,10 @@ class FileTranscriptionController extends ChangeNotifier {
                   '${entry.timestamp.minute.toString().padLeft(2, '0')}:'
                   '${entry.timestamp.second.toString().padLeft(2, '0')}';
 
+              final speakerName = entry.userName.isNotEmpty
+                  ? entry.userName
+                  : 'Unknown Speaker';
+
               widgets.add(
                 pw.Container(
                   margin: const pw.EdgeInsets.only(bottom: 10),
@@ -187,35 +172,40 @@ class FileTranscriptionController extends ChangeNotifier {
                     color: PdfColors.grey50,
                     border: pw.Border(
                       left: pw.BorderSide(
-                          color: PdfColor.fromHex('#FFB382'), width: 3),
+                          color: PdfColor.fromHex('#FFB382'),
+                          width: 3),
                     ),
                   ),
                   child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
+                      // Speaker + time row
                       pw.Row(
                         mainAxisAlignment:
                         pw.MainAxisAlignment.spaceBetween,
                         children: [
-                          pw.Text(time,
-                              style: pw.TextStyle(
-                                  font: arabicFont,
-                                  fontSize: 9,
-                                  color: PdfColors.grey500)),
-                          pw.Text(entry.userName,
-                              style: pw.TextStyle(
-                                font: arabicFontBold,
-                                fontSize: 11,
-                                color: PdfColor.fromHex('#FFB382'),
-                              ),
-                              textDirection: pw.TextDirection.rtl),
+                          pw.Text(
+                            speakerName,
+                            style: pw.TextStyle(
+                              fontSize: 11,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColor.fromHex('#FFB382'),
+                            ),
+                          ),
+                          pw.Text(
+                            time,
+                            style: pw.TextStyle(
+                                fontSize: 9,
+                                color: PdfColors.grey500),
+                          ),
                         ],
                       ),
                       pw.SizedBox(height: 6),
-                      pw.Text(entry.text,
-                          style:
-                          pw.TextStyle(font: arabicFont, fontSize: 13),
-                          textDirection: pw.TextDirection.rtl),
+                      // Text
+                      pw.Text(
+                        entry.text,
+                        style: const pw.TextStyle(fontSize: 13),
+                      ),
                     ],
                   ),
                 ),
@@ -229,29 +219,33 @@ class FileTranscriptionController extends ChangeNotifier {
 
       final bytes = await pdf.save();
 
-      // Save path back to Firestore
-      await FirebaseFirestore.instance
-          .collection(kCaptionsCollection)
-          .doc(meetingId)
-          .update({
-        'transcriptionFilePath': 'transcription_$meetingId.pdf',
-        'isCompleted': true,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      // Update Firestore
+      try {
+        await FirebaseFirestore.instance
+            .collection(kCaptionsCollection)
+            .doc(meetingId)
+            .update({
+          'transcriptionFilePath': 'transcript_$meetingId.pdf',
+          'isCompleted': true,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        debugPrint('Firestore update error (non-fatal): $e');
+      }
 
       isGenerating = false;
       notifyListeners();
       return bytes;
     } catch (e) {
-      lastError = 'فشل إنشاء الملف: $e';
+      lastError = 'Failed to generate PDF: $e';
       isGenerating = false;
-      notifyListeners();
       debugPrint('❌ generateTranscriptionFile error: $e');
+      notifyListeners();
       return null;
     }
   }
 
-  // ── Download: generate PDF then open system share sheet ───────────
+  // ── Share/download PDF via system share sheet ──────────────────────
   Future<void> downloadTranscription({
     required String meetingId,
     required List<CaptionEntry> entries,
@@ -269,12 +263,13 @@ class FileTranscriptionController extends ChangeNotifier {
 
     if (bytes != null) {
       try {
-        await Printing.layoutPdf(
-          onLayout: (_) async => bytes,
-          name: 'transcription_$meetingId.pdf',
+        // ✅ sharePdf opens the Android share sheet directly
+        await Printing.sharePdf(
+          bytes: bytes,
+          filename: 'transcript_${meetingId.substring(0, 8)}.pdf',
         );
       } catch (e) {
-        lastError = 'فشل التنزيل: $e';
+        lastError = 'Failed to share PDF: $e';
         debugPrint('❌ downloadTranscription error: $e');
       }
     }
