@@ -9,6 +9,7 @@ import '../models/UserModel.dart';
 import '../controllers/MeetingController.dart';
 import '../controllers/ZegoSessionController.dart';
 import '../controllers/MeetingSessionManager.dart';
+import '../controllers/CaptionController.dart';
 import 'HomePage.dart';
 
 class MeetingView extends StatefulWidget {
@@ -34,6 +35,9 @@ class _MeetingScreenState extends State<MeetingView> {
   // ✅ Single flag: host allows ALL participants to share or not
   bool _screenShareAllowedForAll = false;
 
+  // ✅ Caption controller
+  final CaptionController _captionController = CaptionController.instance;
+
   String get _currentUid =>
       FirebaseAuth.instance.currentUser?.uid ?? widget.user.userId;
 
@@ -56,6 +60,7 @@ class _MeetingScreenState extends State<MeetingView> {
     super.initState();
     mgr = MeetingSessionManager.instance;
     mgr.addListener(_onSessionChanged);
+    _captionController.addListener(_onSessionChanged); // reuse same rebuild
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _checkAccessSettingsOnEntry();
@@ -167,6 +172,7 @@ class _MeetingScreenState extends State<MeetingView> {
   void dispose() {
     _meetingSub?.cancel();
     mgr.removeListener(_onSessionChanged);
+    _captionController.removeListener(_onSessionChanged);
     super.dispose();
   }
 
@@ -237,6 +243,15 @@ class _MeetingScreenState extends State<MeetingView> {
       return;
     }
     await session.flipCamera();
+  }
+
+  // ✅ Toggle captions on/off
+  Future<void> _onCaptionsPressed() async {
+    await _captionController.handleEnableSpeechCaptioning(
+      _currentUid,
+      widget.meeting.meetingId,
+      widget.user.name,
+    );
   }
 
   // ✅ Share screen button logic:
@@ -684,6 +699,8 @@ class _MeetingScreenState extends State<MeetingView> {
 
       await meetingController.endMeeting(meetingId);
       await mgr.endAndDispose();
+      await _captionController.completeTranscription(); // ✅ mark done
+      await _captionController.resetForNewMeeting();    // ✅ clean up
 
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
@@ -717,6 +734,7 @@ class _MeetingScreenState extends State<MeetingView> {
 
     await meetingController.leaveMeeting(meetingId);
     await mgr.endAndDispose();
+    await _captionController.resetForNewMeeting(); // ✅ clean up
 
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
@@ -913,6 +931,53 @@ class _MeetingScreenState extends State<MeetingView> {
                             ),
                           ),
 
+                        // ✅ Live captions overlay
+                        if (_captionController.captionsEnabled &&
+                            _captionController.liveCaptions.isNotEmpty)
+                          Positioned(
+                            bottom: 60,
+                            left: 12,
+                            right: 12,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: _captionController.liveCaptions
+                                  .map(
+                                    (entry) => Container(
+                                  margin: const EdgeInsets.only(bottom: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.75),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: RichText(
+                                    textDirection: TextDirection.ltr,
+                                    text: TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: '${entry.userName}: ',
+                                          style: const TextStyle(
+                                            color: Color(0xFFFFB382),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: entry.text,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              )
+                                  .toList(),
+                            ),
+                          ),
+
                         // ── Name label ──
                         Positioned(
                           bottom: 12,
@@ -980,6 +1045,14 @@ class _MeetingScreenState extends State<MeetingView> {
                     label: 'Hand',
                     onTap: () => _showSnackBar('Raise hand: Coming soon',
                         Colors.orange, Icons.pan_tool_outlined),
+                  ),
+                  // ✅ CC button — enable/disable Arabic captions
+                  _meetingIcon(
+                    icon: Icons.closed_caption,
+                    label: 'CC',
+                    isActive: _captionController.captionsEnabled,
+                    activeColor: Colors.orange,
+                    onTap: _onCaptionsPressed,
                   ),
                   // ✅ Share screen: green when active, lock badge when not permitted
                   _meetingIcon(

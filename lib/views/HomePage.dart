@@ -10,7 +10,7 @@ import '../models/MeetingModel.dart';
 import '../controllers/MeetingSessionManager.dart';
 import 'package:turjuman/main.dart'; // ✅ deep link service
 import 'JoinMeetingView.dart'; // ✅ for deep link navigation
-import 'package:turjuman/main.dart'; // ✅ gives access to deepLinkService
+import 'FileTranscriptionView.dart'; // ✅ Files tab
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -438,7 +438,7 @@ class _HomePageState extends State<HomePage> {
             index: _currentIndex,
             children: [
               _homeTab(),
-              const Center(child: Text('Files page - Coming soon')),
+              const FileTranscriptionView(), // ✅ Files tab
               _userModel == null
                   ? const Center(
                 child: CircularProgressIndicator(
