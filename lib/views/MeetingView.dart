@@ -67,6 +67,8 @@ class _MeetingScreenState extends State<MeetingView> {
 
       try {
         await mgr.startOrJoin(meeting: widget.meeting, user: widget.user);
+        // ✅ Start viewing captions (no mic) so all participants see captions
+        await _captionController.startViewingCaptions(widget.meeting.meetingId);
       } catch (_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -222,6 +224,8 @@ class _MeetingScreenState extends State<MeetingView> {
       _showSnackBar(
           'Microphone permission is required', Colors.redAccent, Icons.mic_off);
     }
+    // ✅ Sync mic mute state with CaptionController
+    _captionController.isMicMuted = !session.isMicOn;
   }
 
   Future<void> _onCameraPressed() async {
@@ -1051,7 +1055,7 @@ class _MeetingScreenState extends State<MeetingView> {
                     icon: Icons.closed_caption,
                     label: 'CC',
                     isActive: _captionController.captionsEnabled,
-                    activeColor: Colors.orange,
+                    activeColor: Colors.blue,
                     onTap: _onCaptionsPressed,
                   ),
                   // ✅ Share screen: green when active, lock badge when not permitted

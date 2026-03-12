@@ -8,7 +8,6 @@ import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/CaptionsAndTranscriptionModel.dart';
 
-// Firestore collection name
 const String kCaptionsCollection = 'captionsFileTranscription';
 
 class CaptionController extends ChangeNotifier {
@@ -17,14 +16,17 @@ class CaptionController extends ChangeNotifier {
   CaptionController._internal();
 
   // ── State ──────────────────────────────────────────────────────────
-  bool _captionsEnabled = false;
-  bool _isListening = false;
+
+  // Whether THIS device's mic is actively recording and pushing captions
+  bool _isSpeaking = false;
+  bool isMicMuted = false; // ✅ set from MeetingView when mic is toggled
+
+  // Whether captions overlay is visible (either speaking or viewing)
+  bool _captionsVisible = false;
+
   String? lastError;
 
-  // Full transcript — never trimmed, used for PDF
   final List<CaptionEntry> _fullTranscript = [];
-
-  // Live captions — last 3 shown on screen
   final List<CaptionEntry> _liveCaptions = [];
 
   String _currentUserId = '';
@@ -38,12 +40,12 @@ class CaptionController extends ChangeNotifier {
   StreamSubscription<DocumentSnapshot>? _captionSub;
 
   // ── Getters ────────────────────────────────────────────────────────
-  bool get captionsEnabled => _captionsEnabled;
-  bool get isListening => _isListening;
+  bool get captionsEnabled => _captionsVisible;
+  bool get isSpeaking => _isSpeaking;
   List<CaptionEntry> get liveCaptions => List.unmodifiable(_liveCaptions);
   List<CaptionEntry> get fullTranscript => List.unmodifiable(_fullTranscript);
 
-  // ── Load credentials from assets/google_speech_credentials.json ───
+  // ── Load Google credentials ────────────────────────────────────────
   Future<ServiceAccount> _loadServiceAccount() async {
     final jsonString =
     await rootBundle.loadString('assets/google_speech_credentials.json');
@@ -51,49 +53,62 @@ class CaptionController extends ChangeNotifier {
     return ServiceAccount.fromString(json.encode(jsonMap));
   }
 
-  // ── Toggle captions ON / OFF ───────────────────────────────────────
+  // ── Toggle MY mic (speaking mode) ─────────────────────────────────
+  // Only call this when the CC button is pressed by THIS user
   Future<void> handleEnableSpeechCaptioning(
       String userId, String meetingId, String userName) async {
     _currentUserId = userId;
     _currentMeetingId = meetingId;
     _currentUserName = userName;
 
-    if (_captionsEnabled) {
-      await _disableCaptions();
+    if (_captionsVisible) {
+      // Turn OFF — stop mic and hide overlay
+      await _stopMic();
+      _isSpeaking = false;
+      _captionsVisible = false;
+      _liveCaptions.clear();
+      notifyListeners();
     } else {
-      await _enableCaptions();
+      await _startSpeaking();
     }
   }
 
-  // ── Enable ─────────────────────────────────────────────────────────
-  Future<void> _enableCaptions() async {
-    // 1. Microphone permission
+  // ── Start listening to captions without mic (viewer mode) ──────────
+  // Call this when joining a meeting so you see others' captions
+  // even if you didn't press CC yourself
+  Future<void> startViewingCaptions(String meetingId) async {
+    _currentMeetingId = meetingId;
+    // ✅ Do NOT set _captionsVisible here — only listen silently
+    // The CC button state stays OFF until user presses it themselves
+    _listenToFirestore();
+  }
+
+  // ── Start speaking (mic on + push to Firestore) ────────────────────
+  Future<void> _startSpeaking() async {
+    // 1. Mic permission
     final micStatus = await Permission.microphone.request();
     if (!micStatus.isGranted) {
-      lastError = 'يرجى منح إذن الميكروفون';
+      lastError = 'Please grant microphone permission';
       notifyListeners();
       return;
     }
 
-    // 2. Load Google Cloud credentials
+    // 2. Load credentials
     try {
       final serviceAccount = await _loadServiceAccount();
       _speechToText = SpeechToText.viaServiceAccount(serviceAccount);
     } catch (e) {
-      lastError = 'فشل تحميل بيانات الاعتماد: $e';
+      lastError = 'Failed to load credentials: $e';
       notifyListeners();
       debugPrint('❌ Failed to load credentials: $e');
       return;
     }
 
-    _captionsEnabled = true;
-    _isListening = true;
+    _isSpeaking = true;
+    _captionsVisible = true;
     notifyListeners();
 
-    // 3. Create Firestore document for this meeting
-    //    Collection: captionsFileTranscription
-    //    Fields: meetingId, transcriptionFilePath, createdAt, translatedSign,
-    //            captionsBuffer, isCompleted, updatedAt, format
+    // 3. Create Firestore doc for this meeting if not exists
     await FirebaseFirestore.instance
         .collection(kCaptionsCollection)
         .doc(_currentMeetingId)
@@ -108,7 +123,15 @@ class CaptionController extends ChangeNotifier {
       'format': 'pdf',
     }, SetOptions(merge: true));
 
-    // 4. Listen to Firestore — all participants see each other's captions
+    // 4. Listen to Firestore for live captions display
+    _listenToFirestore();
+
+    // 5. Start mic stream → Google Speech
+    await _startStreaming();
+  }
+
+  // ── Listen to Firestore captions (no mic) ─────────────────────────
+  void _listenToFirestore() {
     _captionSub?.cancel();
     _captionSub = FirebaseFirestore.instance
         .collection(kCaptionsCollection)
@@ -121,7 +144,13 @@ class CaptionController extends ChangeNotifier {
           .map((e) => CaptionEntry.fromMap(e as Map<String, dynamic>))
           .toList();
 
-      if (entries.isNotEmpty) {
+      // Always keep full transcript updated for PDF
+      _fullTranscript
+        ..clear()
+        ..addAll(entries);
+
+      // ✅ Only update live overlay if user explicitly enabled CC
+      if (_captionsVisible) {
         _liveCaptions
           ..clear()
           ..addAll(entries.length > 3
@@ -130,36 +159,18 @@ class CaptionController extends ChangeNotifier {
         notifyListeners();
       }
     });
-
-    // 5. Start streaming mic to Google Speech API
-    await _startStreaming();
   }
 
-  // ── Disable ────────────────────────────────────────────────────────
-  Future<void> _disableCaptions() async {
-    _captionsEnabled = false;
-    _isListening = false;
-
-    await _stopStreaming();
-    _captionSub?.cancel();
-    _liveCaptions.clear();
-
-    notifyListeners();
-    debugPrint('✅ Captions disabled');
-  }
-
-  // ── Stream mic audio → Google Speech API ──────────────────────────
+  // ── Stream mic → Google Speech API ────────────────────────────────
   Future<void> _startStreaming() async {
     try {
       final config = RecognitionConfig(
         encoding: AudioEncoding.LINEAR16,
         sampleRateHertz: 16000,
-        languageCode: 'ar-SA', // ✅ Arabic
+        languageCode: 'ar-SA',
         enableAutomaticPunctuation: true,
-        // model removed - not needed in v5
       );
 
-      // Start recording as raw PCM stream
       final audioStream = await _recorder.startStream(
         const RecordConfig(
           encoder: AudioEncoder.pcm16bits,
@@ -168,11 +179,10 @@ class CaptionController extends ChangeNotifier {
         ),
       );
 
-      // Send to Google Speech API
       final responseStream = _speechToText!.streamingRecognize(
         StreamingRecognitionConfig(
           config: config,
-          interimResults: false, // only final results
+          interimResults: false,
         ),
         audioStream,
       );
@@ -183,62 +193,63 @@ class CaptionController extends ChangeNotifier {
             if (result.isFinal) {
               final text = result.alternatives.first.transcript.trim();
               if (text.isNotEmpty) {
-                debugPrint('🎤 Recognized: $text');
-                updateCaption(text);
+                // ✅ Only push caption if mic is NOT muted
+                if (!isMicMuted) {
+                  debugPrint('🎤 [$_currentUserName] recognized: $text');
+                  updateCaption(text);
+                } else {
+                  debugPrint('🔇 Mic muted — caption suppressed');
+                }
               }
             }
           }
         },
         onError: (e) {
           debugPrint('❌ Speech stream error: $e');
-          if (_captionsEnabled) {
+          if (_isSpeaking) {
             Future.delayed(const Duration(seconds: 1), _startStreaming);
           }
         },
         onDone: () {
-          // Google closes the stream every ~5 min — restart automatically
           debugPrint('🔄 Speech stream ended — restarting...');
-          if (_captionsEnabled) {
+          if (_isSpeaking) {
             Future.delayed(
                 const Duration(milliseconds: 500), _startStreaming);
           }
         },
       );
 
-      debugPrint('✅ Google Speech streaming started');
+      debugPrint('✅ Google Speech streaming started for $_currentUserName');
     } catch (e) {
-      lastError = 'فشل بدء التسجيل: $e';
+      lastError = 'Failed to start recording: $e';
       debugPrint('❌ _startStreaming error: $e');
       notifyListeners();
     }
   }
 
-  // ── Stop streaming ─────────────────────────────────────────────────
-  Future<void> _stopStreaming() async {
+  // ── Stop mic only ──────────────────────────────────────────────────
+  Future<void> _stopMic() async {
     try {
       await _audioStreamSub?.cancel();
       _audioStreamSub = null;
       await _recorder.stop();
     } catch (e) {
-      debugPrint('❌ _stopStreaming error: $e');
+      debugPrint('❌ _stopMic error: $e');
     }
   }
 
   // ── Push recognized text to Firestore ─────────────────────────────
+  // Only called from THIS device's mic — so userName is always correct
   Future<void> updateCaption(String newText) async {
     if (newText.trim().isEmpty) return;
 
     final entry = CaptionEntry(
       userId: _currentUserId,
-      userName: _currentUserName,
+      userName: _currentUserName, // ✅ always this device's user
       text: newText.trim(),
       timestamp: DateTime.now(),
     );
 
-    // Add to full local transcript for PDF
-    _fullTranscript.add(entry);
-
-    // Push to Firestore captionsBuffer array
     try {
       await FirebaseFirestore.instance
           .collection(kCaptionsCollection)
@@ -262,7 +273,7 @@ class CaptionController extends ChangeNotifier {
 
   // ── Full text for PDF ──────────────────────────────────────────────
   String getTranscription() {
-    if (_fullTranscript.isEmpty) return 'لا يوجد نص متاح';
+    if (_fullTranscript.isEmpty) return 'No transcript available';
     return _fullTranscript
         .map((e) =>
     '[${_formatTime(e.timestamp)}] ${e.userName}:\n${e.text}\n')
@@ -287,7 +298,11 @@ class CaptionController extends ChangeNotifier {
 
   // ── Call when leaving meeting ──────────────────────────────────────
   Future<void> resetForNewMeeting() async {
-    await _disableCaptions();
+    _isSpeaking = false;
+    _captionsVisible = false;
+    await _stopMic();
+    _captionSub?.cancel();
+    _liveCaptions.clear();
     _fullTranscript.clear();
     _currentUserId = '';
     _currentUserName = '';
@@ -302,7 +317,7 @@ class CaptionController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _stopStreaming();
+    _stopMic();
     _captionSub?.cancel();
     super.dispose();
   }

@@ -92,12 +92,17 @@ class MeetingController {
 
         if (hostId == null || hostId != user.uid) return;
 
+        // ✅ Save participants snapshot before clearing
+        final currentParticipants = List<String>.from(
+            (data['participants'] as List?) ?? []);
+
         tx.update(ref, {
           'isActive': false,
           'endTime': Timestamp.now(),
+          'allParticipants': currentParticipants, // ✅ preserved for transcription check
           'participants': <String>[],
           'numOfParticipants': 0,
-          'screenShareAllowed': false, // ✅ reset on meeting end
+          'screenShareAllowed': false,
         });
       });
     } catch (e) {

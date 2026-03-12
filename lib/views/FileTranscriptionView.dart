@@ -36,9 +36,12 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
       final hostId = data['hostId'] as String? ?? '';
       final participants =
       List<String>.from(data['participants'] as List? ?? []);
+      final allParticipants =
+      List<String>.from(data['allParticipants'] as List? ?? []);
 
       return hostId == _currentUserId ||
-          participants.contains(_currentUserId);
+          participants.contains(_currentUserId) ||
+          allParticipants.contains(_currentUserId);
     } catch (e) {
       debugPrint('❌ _userWasInMeeting error: $e');
       return false;
