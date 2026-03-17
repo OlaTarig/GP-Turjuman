@@ -7,6 +7,7 @@ import 'package:google_speech/google_speech.dart';
 import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/CaptionsAndTranscriptionModel.dart';
+import 'SignCaptioningController.dart';
 
 const String kCaptionsCollection = 'captionsFileTranscription';
 
@@ -16,55 +17,104 @@ class CaptionController extends ChangeNotifier {
   CaptionController._internal();
 
   // ── State ──────────────────────────────────────────────────────────
-
-  // Whether THIS device's mic is actively recording and pushing captions
-  bool _isSpeaking = false;
-  bool isMicMuted = false; // ✅ set from MeetingView when mic is toggled
-
-  // Whether captions overlay is visible (either speaking or viewing)
+  bool _isSpeaking     = false;
+  bool isMicMuted      = false;
   bool _captionsVisible = false;
+
+  // ── Translate (sign) state ─────────────────────────────────────────
+  bool _translateActive = false;
+  bool get translateActive => _translateActive;
 
   String? lastError;
 
   final List<CaptionEntry> _fullTranscript = [];
-  final List<CaptionEntry> _liveCaptions = [];
+  final List<CaptionEntry> _liveCaptions   = [];
 
-  String _currentUserId = '';
-  String _currentUserName = '';
+  String _currentUserId    = '';
+  String _currentUserName  = '';
   String _currentMeetingId = '';
 
   // ── Google Speech ──────────────────────────────────────────────────
-  SpeechToText? _speechToText;
+  SpeechToText?  _speechToText;
   final AudioRecorder _recorder = AudioRecorder();
   StreamSubscription? _audioStreamSub;
   StreamSubscription<DocumentSnapshot>? _captionSub;
 
+  // ── Sign controller reference ──────────────────────────────────────
+  SignCaptioningController? _signController;
+
   // ── Getters ────────────────────────────────────────────────────────
   bool get captionsEnabled => _captionsVisible;
-  bool get isSpeaking => _isSpeaking;
-  List<CaptionEntry> get liveCaptions => List.unmodifiable(_liveCaptions);
+  bool get isSpeaking      => _isSpeaking;
+  List<CaptionEntry> get liveCaptions   => List.unmodifiable(_liveCaptions);
   List<CaptionEntry> get fullTranscript => List.unmodifiable(_fullTranscript);
+
+  // ── Sign controller attach / detach ───────────────────────────────
+
+  void attachSignController(SignCaptioningController controller) {
+    _signController = controller;
+    _signController!.addListener(_onSignLabel);
+  }
+
+  void detachSignController() {
+    _signController?.removeListener(_onSignLabel);
+    _signController = null;
+  }
+
+  /// Fires every time SignCaptioningController produces a new label.
+  /// Feeds the SAME captionsBuffer as speech — same overlay, same Firestore.
+  void _onSignLabel() {
+    if (!_translateActive) return;
+    final sign = _signController?.currentArabicSign;
+    if (sign == null || sign.isEmpty) return;
+    updateCaption(sign);
+  }
+
+  // ── Toggle Translate (sign captioning) ────────────────────────────
+
+  Future<void> handleEnableSignCaptioning(
+      String userId, String meetingId, String userName) async {
+    _currentUserId    = userId;
+    _currentMeetingId = meetingId;
+    _currentUserName  = userName;
+
+    if (_translateActive) {
+      await _signController?.disable();
+      _translateActive = false;
+      notifyListeners();
+    } else {
+      await _ensureFirestoreDoc();
+      await _signController?.enable();
+      _translateActive = true;
+
+      // Also open the Firestore listener so the overlay becomes visible
+      if (!_captionsVisible) {
+        _captionsVisible = true;
+        _watchForCaptionsEnabled();
+      }
+
+      notifyListeners();
+    }
+  }
 
   // ── Load Google credentials ────────────────────────────────────────
   Future<ServiceAccount> _loadServiceAccount() async {
-    final jsonString =
-    await rootBundle.loadString('assets/google_speech_credentials.json');
+    final jsonString = await rootBundle
+        .loadString('assets/google_speech_credentials.json');
     final jsonMap = json.decode(jsonString) as Map<String, dynamic>;
     return ServiceAccount.fromString(json.encode(jsonMap));
   }
 
-  // ── Toggle MY mic (speaking mode) ─────────────────────────────────
-  // Only call this when the CC button is pressed by THIS user
+  // ── Toggle CC (speech captioning) ─────────────────────────────────
   Future<void> handleEnableSpeechCaptioning(
       String userId, String meetingId, String userName) async {
-    _currentUserId = userId;
+    _currentUserId    = userId;
     _currentMeetingId = meetingId;
-    _currentUserName = userName;
+    _currentUserName  = userName;
 
     if (_captionsVisible) {
-      // Turn OFF — stop mic and hide overlay
       await _stopMic();
-      _isSpeaking = false;
+      _isSpeaking      = false;
       _captionsVisible = false;
       _liveCaptions.clear();
       notifyListeners();
@@ -73,14 +123,12 @@ class CaptionController extends ChangeNotifier {
     }
   }
 
-  // ── Store meeting ID and watch if anyone enables CC ─────────────────
-  // When any participant enables CC, everyone starts seeing captions
+  // ── Store meeting ID ───────────────────────────────────────────────
   void setMeetingId(String meetingId) {
     _currentMeetingId = meetingId;
     _watchForCaptionsEnabled();
   }
 
-  // Watches Firestore — if captionsBuffer gets entries, show overlay
   void _watchForCaptionsEnabled() {
     _captionSub?.cancel();
     _captionSub = FirebaseFirestore.instance
@@ -89,17 +137,15 @@ class CaptionController extends ChangeNotifier {
         .snapshots()
         .listen((snap) {
       if (!snap.exists) return;
-      final data = snap.data() as Map<String, dynamic>;
+      final data    = snap.data() as Map<String, dynamic>;
       final entries = (data['captionsBuffer'] as List<dynamic>? ?? [])
           .map((e) => CaptionEntry.fromMap(e as Map<String, dynamic>))
           .toList();
 
-      // Always keep full transcript
       _fullTranscript
         ..clear()
         ..addAll(entries);
 
-      // ✅ Only show live overlay if CC is actively ON for this user
       if (_captionsVisible && entries.isNotEmpty) {
         _liveCaptions
           ..clear()
@@ -111,9 +157,8 @@ class CaptionController extends ChangeNotifier {
     });
   }
 
-  // ── Start speaking (mic on + push to Firestore) ────────────────────
+  // ── Start speaking ─────────────────────────────────────────────────
   Future<void> _startSpeaking() async {
-    // 1. Mic permission
     final micStatus = await Permission.microphone.request();
     if (!micStatus.isGranted) {
       lastError = 'Please grant microphone permission';
@@ -121,7 +166,6 @@ class CaptionController extends ChangeNotifier {
       return;
     }
 
-    // 2. Load credentials
     try {
       final serviceAccount = await _loadServiceAccount();
       _speechToText = SpeechToText.viaServiceAccount(serviceAccount);
@@ -132,82 +176,53 @@ class CaptionController extends ChangeNotifier {
       return;
     }
 
-    _isSpeaking = true;
+    _isSpeaking      = true;
     _captionsVisible = true;
     notifyListeners();
 
-    // 3. Create Firestore doc for this meeting if not exists
+    await _ensureFirestoreDoc();
+    await _startStreaming();
+  }
+
+  // ── Ensure Firestore doc exists (shared by speech + sign) ─────────
+  Future<void> _ensureFirestoreDoc() async {
     await FirebaseFirestore.instance
         .collection(kCaptionsCollection)
         .doc(_currentMeetingId)
         .set({
-      'meetingId': _currentMeetingId,
+      'meetingId':             _currentMeetingId,
       'transcriptionFilePath': '',
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-      'translatedSign': [],
-      'captionsBuffer': [],
-      'isCompleted': false,
-      'format': 'pdf',
-      'activeSpeakerId': '', // ✅ tracks who is currently speaking
+      'createdAt':             FieldValue.serverTimestamp(),
+      'updatedAt':             FieldValue.serverTimestamp(),
+      'translatedSign':        [],
+      'captionsBuffer':        [],
+      'isCompleted':           false,
+      'format':                'pdf',
+      'activeSpeakerId':       '',
     }, SetOptions(merge: true));
-
-    // 4. Start mic stream → Google Speech
-    await _startStreaming();
-  }
-
-  // ── Listen to Firestore captions (no mic) ─────────────────────────
-  void _listenToFirestore() {
-    _captionSub?.cancel();
-    _captionSub = FirebaseFirestore.instance
-        .collection(kCaptionsCollection)
-        .doc(_currentMeetingId)
-        .snapshots()
-        .listen((snap) {
-      if (!snap.exists) return;
-      final data = snap.data() as Map<String, dynamic>;
-      final entries = (data['captionsBuffer'] as List<dynamic>? ?? [])
-          .map((e) => CaptionEntry.fromMap(e as Map<String, dynamic>))
-          .toList();
-
-      // Always keep full transcript updated for PDF
-      _fullTranscript
-        ..clear()
-        ..addAll(entries);
-
-      // ✅ Only update live overlay if user explicitly enabled CC
-      if (_captionsVisible) {
-        _liveCaptions
-          ..clear()
-          ..addAll(entries.length > 3
-              ? entries.sublist(entries.length - 3)
-              : entries);
-        notifyListeners();
-      }
-    });
   }
 
   // ── Stream mic → Google Speech API ────────────────────────────────
   Future<void> _startStreaming() async {
     try {
       final config = RecognitionConfig(
-        encoding: AudioEncoding.LINEAR16,
-        sampleRateHertz: 16000,
-        languageCode: 'ar-SA',
+        encoding:                   AudioEncoding.LINEAR16,
+        sampleRateHertz:            16000,
+        languageCode:               'ar-SA',
         enableAutomaticPunctuation: true,
       );
 
       final audioStream = await _recorder.startStream(
         const RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          sampleRate: 16000,
+          encoder:     AudioEncoder.pcm16bits,
+          sampleRate:  16000,
           numChannels: 1,
         ),
       );
 
       final responseStream = _speechToText!.streamingRecognize(
         StreamingRecognitionConfig(
-          config: config,
+          config:         config,
           interimResults: false,
         ),
         audioStream,
@@ -219,7 +234,6 @@ class CaptionController extends ChangeNotifier {
             if (result.isFinal) {
               final text = result.alternatives.first.transcript.trim();
               if (text.isNotEmpty) {
-                // ✅ Only push caption if mic is NOT muted
                 if (!isMicMuted) {
                   debugPrint('🎤 [$_currentUserName] recognized: $text');
                   updateCaption(text);
@@ -253,7 +267,7 @@ class CaptionController extends ChangeNotifier {
     }
   }
 
-  // ── Stop mic only ──────────────────────────────────────────────────
+  // ── Stop mic ───────────────────────────────────────────────────────
   Future<void> _stopMic() async {
     try {
       await _audioStreamSub?.cancel();
@@ -264,8 +278,7 @@ class CaptionController extends ChangeNotifier {
     }
   }
 
-  // ── Claim the mic slot in Firestore ───────────────────────────────
-  // Sets activeSpeakerId so other devices know someone is speaking
+  // ── Speaker slot management ────────────────────────────────────────
   Future<void> _claimSpeakerSlot() async {
     try {
       await FirebaseFirestore.instance
@@ -284,13 +297,12 @@ class CaptionController extends ChangeNotifier {
     } catch (_) {}
   }
 
-  // ── Push recognized text to Firestore ─────────────────────────────
-  // Checks activeSpeakerId to prevent two devices pushing at same time
+  // ── Push caption to Firestore ──────────────────────────────────────
+  // Used by BOTH speech and sign — single path, same captionsBuffer.
   Future<void> updateCaption(String newText) async {
     if (newText.trim().isEmpty) return;
     if (isMicMuted) return;
 
-    // ✅ Check if another user is already the active speaker
     try {
       final doc = await FirebaseFirestore.instance
           .collection(kCaptionsCollection)
@@ -298,22 +310,22 @@ class CaptionController extends ChangeNotifier {
           .get();
 
       if (doc.exists) {
-        final activeSpeaker = doc.data()?['activeSpeakerId'] as String? ?? '';
-        // If someone else claimed the slot, don't push
-        if (activeSpeaker.isNotEmpty && activeSpeaker != _currentUserId) {
+        final activeSpeaker =
+            doc.data()?['activeSpeakerId'] as String? ?? '';
+        if (activeSpeaker.isNotEmpty &&
+            activeSpeaker != _currentUserId) {
           debugPrint('🔇 Another speaker active — skipping');
           return;
         }
       }
     } catch (_) {}
 
-    // Claim the slot
     await _claimSpeakerSlot();
 
     final entry = CaptionEntry(
-      userId: _currentUserId,
-      userName: _currentUserName,
-      text: newText.trim(),
+      userId:    _currentUserId,
+      userName:  _currentUserName,
+      text:      newText.trim(),
       timestamp: DateTime.now(),
     );
 
@@ -322,9 +334,9 @@ class CaptionController extends ChangeNotifier {
           .collection(kCaptionsCollection)
           .doc(_currentMeetingId)
           .update({
-        'captionsBuffer': FieldValue.arrayUnion([entry.toMap()]),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'activeSpeakerId': '', // release slot after pushing
+        'captionsBuffer':  FieldValue.arrayUnion([entry.toMap()]),
+        'updatedAt':       FieldValue.serverTimestamp(),
+        'activeSpeakerId': '',
       });
     } catch (e) {
       debugPrint('❌ Failed to push caption: $e');
@@ -357,23 +369,29 @@ class CaptionController extends ChangeNotifier {
           .doc(_currentMeetingId)
           .update({
         'isCompleted': true,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt':   FieldValue.serverTimestamp(),
       });
     } catch (e) {
       debugPrint('❌ completeTranscription error: $e');
     }
   }
 
-  // ── Call when leaving meeting ──────────────────────────────────────
+  // ── Reset on meeting leave ─────────────────────────────────────────
   Future<void> resetForNewMeeting() async {
-    _isSpeaking = false;
+    if (_translateActive) {
+      await _signController?.disable();
+      _translateActive = false;
+    }
+    detachSignController();
+
+    _isSpeaking      = false;
     _captionsVisible = false;
     await _stopMic();
     _captionSub?.cancel();
     _liveCaptions.clear();
     _fullTranscript.clear();
-    _currentUserId = '';
-    _currentUserName = '';
+    _currentUserId    = '';
+    _currentUserName  = '';
     _currentMeetingId = '';
     notifyListeners();
   }
@@ -387,6 +405,7 @@ class CaptionController extends ChangeNotifier {
   void dispose() {
     _stopMic();
     _captionSub?.cancel();
+    detachSignController();
     super.dispose();
   }
 }

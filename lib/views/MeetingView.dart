@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/CaptionsAndTranscriptionModel.dart';
 import '../models/MeetingModel.dart';
 import '../models/UserModel.dart';
 import '../controllers/MeetingController.dart';
@@ -14,7 +15,7 @@ import 'HomePage.dart';
 
 class MeetingView extends StatefulWidget {
   final MeetingModel meeting;
-  final UserModel user;
+  final UserModel    user;
 
   const MeetingView({super.key, required this.meeting, required this.user});
 
@@ -24,7 +25,7 @@ class MeetingView extends StatefulWidget {
 
 class _MeetingScreenState extends State<MeetingView> {
   static const Color primaryOrange = Color(0xFFFFB382);
-  static const Color darkBg = Color(0xFF2D2F31);
+  static const Color darkBg        = Color(0xFF2D2F31);
 
   late final MeetingSessionManager mgr;
   ZegoSessionController get session => mgr.session;
@@ -32,10 +33,8 @@ class _MeetingScreenState extends State<MeetingView> {
   StreamSubscription<DocumentSnapshot>? _meetingSub;
   bool _endedDialogShown = false;
 
-  // ✅ Single flag: host allows ALL participants to share or not
   bool _screenShareAllowedForAll = false;
 
-  // ✅ Caption controller
   final CaptionController _captionController = CaptionController.instance;
 
   String get _currentUid =>
@@ -47,7 +46,6 @@ class _MeetingScreenState extends State<MeetingView> {
         widget.user.userId == widget.meeting.hostId;
   }
 
-  // ✅ Host always allowed; participants allowed only if host enabled it for all
   bool get _isAllowedToShare => _isHost || _screenShareAllowedForAll;
 
   void _cancelMeetingListener() {
@@ -60,14 +58,13 @@ class _MeetingScreenState extends State<MeetingView> {
     super.initState();
     mgr = MeetingSessionManager.instance;
     mgr.addListener(_onSessionChanged);
-    _captionController.addListener(_onSessionChanged); // reuse same rebuild
+    _captionController.addListener(_onSessionChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _checkAccessSettingsOnEntry();
 
       try {
         await mgr.startOrJoin(meeting: widget.meeting, user: widget.user);
-        // ✅ Just store the meeting ID for captions — don't start anything yet
         _captionController.setMeetingId(widget.meeting.meetingId);
       } catch (_) {
         if (!mounted) return;
@@ -75,7 +72,7 @@ class _MeetingScreenState extends State<MeetingView> {
           SnackBar(
             content: const Text('Camera/Microphone permission is required'),
             action: SnackBarAction(
-              label: 'Settings',
+              label:     'Settings',
               onPressed: openAppSettings,
             ),
           ),
@@ -89,15 +86,11 @@ class _MeetingScreenState extends State<MeetingView> {
         .snapshots()
         .listen((snap) async {
       if (!snap.exists) return;
-
       final data = snap.data() as Map<String, dynamic>?;
       if (data == null) return;
 
-      // ✅ Keep screen share permission flag in sync
       final allowed = data['screenShareAllowed'] as bool? ?? false;
-      if (mounted) {
-        setState(() => _screenShareAllowedForAll = allowed);
-      }
+      if (mounted) setState(() => _screenShareAllowedForAll = allowed);
 
       final isActive = data['isActive'] as bool? ?? true;
       if (!isActive && mounted && !_endedDialogShown) {
@@ -107,7 +100,7 @@ class _MeetingScreenState extends State<MeetingView> {
           context: context,
           barrierDismissible: false,
           builder: (_) => AlertDialog(
-            title: const Text('Meeting ended'),
+            title:   const Text('Meeting ended'),
             content: const Text('The host has ended the meeting.'),
             actions: [
               ElevatedButton(
@@ -147,10 +140,10 @@ class _MeetingScreenState extends State<MeetingView> {
           title: const Text('Access Required'),
           content: Text(
             micOff && camOff
-                ? 'Microphone and Camera access are disabled in your settings. Please enable them to use meeting features.'
+                ? 'Microphone and Camera access are disabled in your settings.'
                 : micOff
-                ? 'Microphone access is disabled in your settings. Please enable it to use audio.'
-                : 'Camera access is disabled in your settings. Please enable it to use video.',
+                ? 'Microphone access is disabled in your settings.'
+                : 'Camera access is disabled in your settings.',
           ),
           actions: [
             TextButton(
@@ -188,22 +181,20 @@ class _MeetingScreenState extends State<MeetingView> {
             Icon(icon, color: Colors.white, size: 24),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w500),
-              ),
+              child: Text(message,
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w500)),
             ),
           ],
         ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12)),
+        margin:   const EdgeInsets.all(16),
         duration: const Duration(seconds: 3),
         action: SnackBarAction(
-          label: 'OK',
+          label:     'OK',
           textColor: Colors.white,
           onPressed: () {},
         ),
@@ -211,45 +202,44 @@ class _MeetingScreenState extends State<MeetingView> {
     );
   }
 
-  // ─── Meeting controls ─────────────────────────────────────────────
+  // ─── Controls ────────────────────────────────────────────────────
 
   Future<void> _onMicPressed() async {
     if (!widget.user.micAccessSettings) {
-      _showSnackBar(
-          'Microphone is disabled in settings', Colors.orange, Icons.mic_off);
+      _showSnackBar('Microphone is disabled in settings',
+          Colors.orange, Icons.mic_off);
       return;
     }
     final ok = await session.toggleMicWithPermission();
     if (!ok && mounted) {
-      _showSnackBar(
-          'Microphone permission is required', Colors.redAccent, Icons.mic_off);
+      _showSnackBar('Microphone permission is required',
+          Colors.redAccent, Icons.mic_off);
     }
-    // ✅ Sync mic mute state with CaptionController
     _captionController.isMicMuted = !session.isMicOn;
   }
 
   Future<void> _onCameraPressed() async {
     if (!widget.user.cameraAccessSettings) {
-      _showSnackBar(
-          'Camera is disabled in settings', Colors.orange, Icons.videocam_off);
+      _showSnackBar('Camera is disabled in settings',
+          Colors.orange, Icons.videocam_off);
       return;
     }
     final ok = await session.toggleCameraWithPermission();
     if (!ok && mounted) {
-      _showSnackBar(
-          'Camera permission is required', Colors.redAccent, Icons.videocam_off);
+      _showSnackBar('Camera permission is required',
+          Colors.redAccent, Icons.videocam_off);
     }
   }
 
   Future<void> _onFlipPressed() async {
     if (!session.isCameraOn) {
-      _showSnackBar('Turn on camera first', Colors.orange, Icons.cameraswitch);
+      _showSnackBar(
+          'Turn on camera first', Colors.orange, Icons.cameraswitch);
       return;
     }
     await session.flipCamera();
   }
 
-  // ✅ Toggle captions on/off
   Future<void> _onCaptionsPressed() async {
     await _captionController.handleEnableSpeechCaptioning(
       _currentUid,
@@ -258,25 +248,43 @@ class _MeetingScreenState extends State<MeetingView> {
     );
   }
 
-  // ✅ Share screen button logic:
-  // - Host → shows two options: "Share My Screen" or "Manage Permissions"
-  // - Participant allowed → directly starts/stops screen share
-  // - Participant not allowed → shows snackbar
+  Future<void> _onTranslatePressed() async {
+    if (!widget.user.cameraAccessSettings) {
+      _showSnackBar(
+        'Camera is required for sign translation',
+        Colors.orange,
+        Icons.videocam_off,
+      );
+      return;
+    }
+
+    await _captionController.handleEnableSignCaptioning(
+      _currentUid,
+      widget.meeting.meetingId,
+      widget.user.name,
+    );
+
+    _showSnackBar(
+      _captionController.translateActive
+          ? 'Sign translation on'
+          : 'Sign translation off',
+      _captionController.translateActive ? Colors.purple : Colors.orange,
+      Icons.sign_language,
+    );
+  }
+
   Future<void> _onShareScreenPressed() async {
     if (_isHost) {
-      // If already sharing, just stop
       if (session.isScreenSharing) {
         await session.stopScreenShare();
-        _showSnackBar(
-            'Screen sharing stopped', Colors.orange, Icons.stop_screen_share);
+        _showSnackBar('Screen sharing stopped',
+            Colors.orange, Icons.stop_screen_share);
         return;
       }
-      // Show host options bottom sheet
       _showHostShareOptions();
       return;
     }
 
-    // Participant flow
     if (!_isAllowedToShare) {
       _showSnackBar(
         'You are not allowed to share screen.\nAsk the host to grant permission.',
@@ -288,15 +296,14 @@ class _MeetingScreenState extends State<MeetingView> {
 
     if (session.isScreenSharing) {
       await session.stopScreenShare();
-      _showSnackBar(
-          'Screen sharing stopped', Colors.orange, Icons.stop_screen_share);
+      _showSnackBar('Screen sharing stopped',
+          Colors.orange, Icons.stop_screen_share);
       return;
     }
 
     await _startMyScreenShare();
   }
 
-  // ✅ Bottom sheet shown to host when they tap Share
   void _showHostShareOptions() {
     showModalBottomSheet(
       context: context,
@@ -311,43 +318,40 @@ class _MeetingScreenState extends State<MeetingView> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 40,
-                  height: 4,
+                  width: 40, height: 4,
                   decoration: BoxDecoration(
                       color: Colors.white24,
                       borderRadius: BorderRadius.circular(99)),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Screen Share',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700),
-                ),
+                const Text('Screen Share',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700)),
                 const SizedBox(height: 20),
-
-                // Option 1: Share my screen
                 ListTile(
                   leading: CircleAvatar(
                     backgroundColor: Colors.green.shade700,
-                    child: const Icon(Icons.screen_share, color: Colors.white),
+                    child: const Icon(Icons.screen_share,
+                        color: Colors.white),
                   ),
                   title: const Text('Share My Screen',
                       style: TextStyle(color: Colors.white, fontSize: 16)),
                   subtitle: const Text(
                       'Broadcast your screen to all participants',
-                      style: TextStyle(color: Colors.white54, fontSize: 13)),
+                      style:
+                      TextStyle(color: Colors.white54, fontSize: 13)),
                   onTap: () {
                     Navigator.pop(context);
                     _startMyScreenShare();
                   },
                 ),
-
                 const Divider(
-                    color: Colors.white12, height: 1, indent: 16, endIndent: 16),
-
-                // Option 2: Allow/Disallow all participants to share
+                    color: Colors.white12,
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16),
                 ListTile(
                   leading: CircleAvatar(
                     backgroundColor: _screenShareAllowedForAll
@@ -364,21 +368,21 @@ class _MeetingScreenState extends State<MeetingView> {
                     _screenShareAllowedForAll
                         ? 'Disallow Participants to Share'
                         : 'Allow All Participants to Share',
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 16),
                   ),
                   subtitle: Text(
                     _screenShareAllowedForAll
                         ? 'Participants can currently share their screen'
                         : 'Let all participants share their screen',
-                    style:
-                    const TextStyle(color: Colors.white54, fontSize: 13),
+                    style: const TextStyle(
+                        color: Colors.white54, fontSize: 13),
                   ),
                   onTap: () async {
                     Navigator.pop(context);
                     await _toggleAllParticipantsSharePermission();
                   },
                 ),
-
                 const SizedBox(height: 8),
               ],
             ),
@@ -388,7 +392,6 @@ class _MeetingScreenState extends State<MeetingView> {
     );
   }
 
-  // ✅ Toggle screenShareAllowed for everyone in Firestore
   Future<void> _toggleAllParticipantsSharePermission() async {
     final newValue = !_screenShareAllowedForAll;
     try {
@@ -405,42 +408,38 @@ class _MeetingScreenState extends State<MeetingView> {
         newValue ? Icons.screen_share : Icons.stop_screen_share,
       );
     } catch (e) {
-      _showSnackBar(
-          'Failed to update permission', Colors.redAccent, Icons.error_outline);
+      _showSnackBar('Failed to update permission',
+          Colors.redAccent, Icons.error_outline);
     }
   }
 
-  // ✅ Shared logic for actually starting screen share (used by both host and participant)
   Future<void> _startMyScreenShare() async {
     _showSnackBar(
         'Starting screen share...', Colors.blueGrey, Icons.screen_share);
-
     final ok = await session.toggleScreenShare();
     if (!mounted) return;
-
     if (ok) {
       _showSnackBar(
           'Screen sharing started', Colors.green, Icons.screen_share);
     } else {
-      _showSnackBar(
-          'Failed to start screen share', Colors.redAccent, Icons.error_outline);
+      _showSnackBar('Failed to start screen share',
+          Colors.redAccent, Icons.error_outline);
     }
   }
 
-  // ─── HOST-ONLY: Invitation helpers ────────────────────────────────
+  // ─── Invitation helpers ───────────────────────────────────────────
 
   void _copyInvitationLink() {
-    final link = widget.meeting.invitationLink;
-    Clipboard.setData(ClipboardData(text: link));
+    Clipboard.setData(ClipboardData(text: widget.meeting.invitationLink));
     if (!mounted) return;
-    _showSnackBar('Invitation link copied to clipboard!', Colors.green,
-        Icons.check_circle_outline);
+    _showSnackBar('Invitation link copied to clipboard!',
+        Colors.green, Icons.check_circle_outline);
   }
 
   Future<void> _showSendEmailDialog() async {
-    final TextEditingController emailController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    bool isSending = false;
+    final emailController = TextEditingController();
+    final formKey         = GlobalKey<FormState>();
+    bool isSending        = false;
 
     await showDialog(
       context: context,
@@ -450,11 +449,10 @@ class _MeetingScreenState extends State<MeetingView> {
             return AlertDialog(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
-              title: const Text(
-                'Send Email Invitation',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, color: Color(0xFF1A1A2E)),
-              ),
+              title: const Text('Send Email Invitation',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A2E))),
               content: Form(
                 key: formKey,
                 child: Column(
@@ -462,33 +460,34 @@ class _MeetingScreenState extends State<MeetingView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Enter the participant\'s email address. An invitation will be sent to them automatically.',
+                      'Enter the participant\'s email address.',
                       style: TextStyle(color: Colors.grey, fontSize: 14),
                     ),
                     const SizedBox(height: 20),
                     TextFormField(
-                      controller: emailController,
+                      controller:   emailController,
                       keyboardType: TextInputType.emailAddress,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return 'Please enter an email address';
                         }
-                        if (!value.contains('@') || !value.contains('.')) {
+                        if (!value.contains('@') ||
+                            !value.contains('.')) {
                           return 'Please enter a valid email address';
                         }
                         return null;
                       },
                       decoration: InputDecoration(
-                        hintText: 'participant@mail.com',
-                        hintStyle:
-                        TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                        filled: true,
-                        fillColor: const Color(0xFFF8F9FA),
+                        hintText:   'participant@mail.com',
+                        hintStyle:  TextStyle(
+                            color: Colors.grey.shade400, fontSize: 14),
+                        filled:     true,
+                        fillColor:  const Color(0xFFF8F9FA),
                         prefixIcon: const Icon(Icons.email_outlined,
                             color: Colors.orange),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(15),
-                          borderSide: BorderSide.none,
+                          borderSide:   BorderSide.none,
                         ),
                         errorBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(15),
@@ -509,8 +508,9 @@ class _MeetingScreenState extends State<MeetingView> {
               ),
               actions: [
                 TextButton(
-                  onPressed:
-                  isSending ? null : () => Navigator.pop(dialogContext),
+                  onPressed: isSending
+                      ? null
+                      : () => Navigator.pop(dialogContext),
                   child: const Text('Cancel',
                       style: TextStyle(color: Colors.grey)),
                 ),
@@ -521,11 +521,12 @@ class _MeetingScreenState extends State<MeetingView> {
                     if (!formKey.currentState!.validate()) return;
                     setDialogState(() => isSending = true);
 
-                    final recipientEmail = emailController.text.trim();
-                    final link = widget.meeting.invitationLink;
+                    final recipientEmail =
+                    emailController.text.trim();
+                    final link         = widget.meeting.invitationLink;
                     final meetingTitle = widget.meeting.title;
-                    final meetingId = widget.meeting.meetingId;
-                    final hostName = widget.user.name;
+                    final meetingId    = widget.meeting.meetingId;
+                    final hostName     = widget.user.name;
 
                     try {
                       await FirebaseFirestore.instance
@@ -550,10 +551,10 @@ class _MeetingScreenState extends State<MeetingView> {
     <div style="text-align: center; margin: 30px 0;">
       <a href="$link" style="background: linear-gradient(135deg, #FDBB84, #FFD98F); color: white; padding: 14px 40px; border-radius: 25px; text-decoration: none; font-size: 16px; font-weight: bold; display: inline-block;">Join Meeting</a>
     </div>
-    <p style="font-size: 14px; color: #999; text-align: center;">Or copy this link: <br/><a href="$link" style="color: #FFB382;">$link</a></p>
+    <p style="font-size: 14px; color: #999; text-align: center;">Or copy this link:<br/><a href="$link" style="color: #FFB382;">$link</a></p>
   </div>
   <div style="border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-    <p style="font-size: 12px; color: #999;">This invitation was sent from Turjuman Meeting App.</p>
+    <p style="font-size: 12px; color: #999;">Sent from Turjuman Meeting App.</p>
   </div>
 </div>''',
                         },
@@ -572,7 +573,7 @@ class _MeetingScreenState extends State<MeetingView> {
                       if (!context.mounted) return;
                       Navigator.pop(dialogContext);
                       _showSnackBar(
-                          'Failed to send invitation. Please try again.',
+                          'Failed to send invitation.',
                           Colors.redAccent,
                           Icons.error_outline);
                     }
@@ -585,8 +586,7 @@ class _MeetingScreenState extends State<MeetingView> {
                   ),
                   child: isSending
                       ? const SizedBox(
-                      width: 20,
-                      height: 20,
+                      width: 20, height: 20,
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2))
                       : const Text('Send'),
@@ -613,8 +613,7 @@ class _MeetingScreenState extends State<MeetingView> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 40,
-                  height: 4,
+                  width: 40, height: 4,
                   decoration: BoxDecoration(
                       color: Colors.white24,
                       borderRadius: BorderRadius.circular(99)),
@@ -629,11 +628,14 @@ class _MeetingScreenState extends State<MeetingView> {
                 ListTile(
                   leading: CircleAvatar(
                       backgroundColor: primaryOrange,
-                      child: const Icon(Icons.copy, color: Colors.white)),
+                      child:
+                      const Icon(Icons.copy, color: Colors.white)),
                   title: const Text('Copy Invitation Link',
-                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                      style:
+                      TextStyle(color: Colors.white, fontSize: 16)),
                   subtitle: const Text('Copy the link and share it manually',
-                      style: TextStyle(color: Colors.white54, fontSize: 13)),
+                      style:
+                      TextStyle(color: Colors.white54, fontSize: 13)),
                   onTap: () {
                     Navigator.pop(context);
                     _copyInvitationLink();
@@ -650,10 +652,12 @@ class _MeetingScreenState extends State<MeetingView> {
                       child: const Icon(Icons.email_outlined,
                           color: Colors.white)),
                   title: const Text('Send Invitation by Email',
-                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                      style:
+                      TextStyle(color: Colors.white, fontSize: 16)),
                   subtitle: const Text(
                       'Send the invitation directly to their inbox',
-                      style: TextStyle(color: Colors.white54, fontSize: 13)),
+                      style:
+                      TextStyle(color: Colors.white54, fontSize: 13)),
                   onTap: () {
                     Navigator.pop(context);
                     _showSendEmailDialog();
@@ -671,14 +675,14 @@ class _MeetingScreenState extends State<MeetingView> {
   // ─── Leave / End ──────────────────────────────────────────────────
 
   Future<void> _onLeaveOrEndPressed() async {
-    final meetingId = widget.meeting.meetingId;
+    final meetingId         = widget.meeting.meetingId;
     final meetingController = MeetingController();
 
     if (_isHost) {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Text('End Meeting'),
+          title:   const Text('End Meeting'),
           content: const Text(
               'Are you sure you want to end the meeting for everyone?'),
           actions: [
@@ -688,7 +692,8 @@ class _MeetingScreenState extends State<MeetingView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red, foregroundColor: Colors.white),
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white),
               onPressed: () => Navigator.pop(context, true),
               child: const Text('End Meeting'),
             ),
@@ -703,8 +708,8 @@ class _MeetingScreenState extends State<MeetingView> {
 
       await meetingController.endMeeting(meetingId);
       await mgr.endAndDispose();
-      await _captionController.completeTranscription(); // ✅ mark done
-      await _captionController.resetForNewMeeting();    // ✅ clean up
+      await _captionController.completeTranscription();
+      await _captionController.resetForNewMeeting();
 
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
@@ -717,7 +722,7 @@ class _MeetingScreenState extends State<MeetingView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Leave Meeting'),
+        title:   const Text('Leave Meeting'),
         content: const Text('Leave meeting?'),
         actions: [
           TextButton(
@@ -726,7 +731,8 @@ class _MeetingScreenState extends State<MeetingView> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: primaryOrange, foregroundColor: Colors.white),
+                backgroundColor: primaryOrange,
+                foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Leave'),
           ),
@@ -738,7 +744,7 @@ class _MeetingScreenState extends State<MeetingView> {
 
     await meetingController.leaveMeeting(meetingId);
     await mgr.endAndDispose();
-    await _captionController.resetForNewMeeting(); // ✅ clean up
+    await _captionController.resetForNewMeeting();
 
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
@@ -751,12 +757,12 @@ class _MeetingScreenState extends State<MeetingView> {
 
   @override
   Widget build(BuildContext context) {
-    final hasRemote = session.remoteViewWidget != null;
-    final hasRemoteScreen = session.remoteScreenWidget != null;
+    final hasRemote         = session.remoteViewWidget != null;
+    final hasRemoteScreen   = session.remoteScreenWidget != null;
     final isSharingMyScreen = session.isScreenSharing;
 
     return PopScope(
-      canPop: true, // ✅ allow back — just minimizes, does NOT end the meeting
+      canPop: true,
       onPopInvoked: (_) async {},
       child: Scaffold(
         backgroundColor: Colors.black,
@@ -764,8 +770,8 @@ class _MeetingScreenState extends State<MeetingView> {
           backgroundColor: Colors.grey[900],
           centerTitle: true,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.of(context).pop(), // ✅ minimize only
+            icon:      const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
           ),
           title: Column(
             mainAxisSize: MainAxisSize.min,
@@ -773,31 +779,31 @@ class _MeetingScreenState extends State<MeetingView> {
               Text(widget.meeting.title,
                   style: const TextStyle(color: Colors.white)),
               Text("ID: ${widget.meeting.meetingId}",
-                  style:
-                  const TextStyle(color: Colors.white70, fontSize: 12)),
+                  style: const TextStyle(
+                      color: Colors.white70, fontSize: 12)),
             ],
           ),
           iconTheme: const IconThemeData(color: Colors.white),
           actions: [
-            // ✅ Live "Sharing" badge in AppBar when screen share is active
             if (isSharingMyScreen)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Chip(
                   label: const Text('Sharing',
-                      style: TextStyle(color: Colors.white, fontSize: 11)),
+                      style:
+                      TextStyle(color: Colors.white, fontSize: 11)),
                   backgroundColor: Colors.green.shade700,
-                  padding: EdgeInsets.zero,
+                  padding:       EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
                 ),
               ),
             IconButton(
-              icon: const Icon(Icons.people, color: Colors.white),
+              icon:      const Icon(Icons.people, color: Colors.white),
               onPressed: _showParticipantsSheet,
             ),
             if (_isHost)
               IconButton(
-                icon: const Icon(Icons.link, color: Colors.white),
+                icon:      const Icon(Icons.link, color: Colors.white),
                 onPressed: _copyInvitationLink,
               ),
           ],
@@ -808,7 +814,7 @@ class _MeetingScreenState extends State<MeetingView> {
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
               child: SizedBox(
-                width: double.infinity,
+                width:  double.infinity,
                 height: 48,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -837,7 +843,6 @@ class _MeetingScreenState extends State<MeetingView> {
                       children: [
 
                         // ── Main video area ──
-                        // Priority: remote screen share > remote camera > avatar
                         Positioned.fill(
                           child: hasRemoteScreen
                               ? _buildScreenShareView(
@@ -856,41 +861,40 @@ class _MeetingScreenState extends State<MeetingView> {
                                 style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 32,
-                                    fontWeight: FontWeight.bold),
+                                    fontWeight:
+                                    FontWeight.bold),
                               ),
                             ),
                           ),
                         ),
 
-                        // ── Local camera preview (top-right) ──
+                        // ── Local camera preview ──
                         Positioned(
-                          top: 12,
-                          right: 12,
-                          width: 120,
-                          height: 160,
+                          top: 12, right: 12,
+                          width: 120, height: 160,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(14),
                             child: Container(
                               color: Colors.black,
                               child: session.localViewWidget == null
                                   ? const Center(
-                                  child: CircularProgressIndicator())
+                                  child:
+                                  CircularProgressIndicator())
                                   : session.localViewWidget!,
                             ),
                           ),
                         ),
 
-                        // ✅ "You are sharing" green label
+                        // ── "You are sharing" label ──
                         if (isSharingMyScreen)
                           Positioned(
-                            top: 12,
-                            left: 12,
+                            top: 12, left: 12,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color:
-                                Colors.green.shade700.withOpacity(0.9),
+                                color: Colors.green.shade700
+                                    .withOpacity(0.9),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Row(
@@ -908,16 +912,16 @@ class _MeetingScreenState extends State<MeetingView> {
                             ),
                           ),
 
-                        // ✅ "Screen share" label when viewing someone else's screen
+                        // ── Remote screen share label ──
                         if (hasRemoteScreen && !isSharingMyScreen)
                           Positioned(
-                            top: 12,
-                            left: 12,
+                            top: 12, left: 12,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: Colors.blueGrey.withOpacity(0.85),
+                                color:
+                                Colors.blueGrey.withOpacity(0.85),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Row(
@@ -935,57 +939,26 @@ class _MeetingScreenState extends State<MeetingView> {
                             ),
                           ),
 
-                        // ✅ Live captions overlay
-                        if (_captionController.captionsEnabled &&
+                        // ── Captions overlay ──
+                        // CC (speech) and Translate (sign) both feed
+                        // liveCaptions via the same captionsBuffer.
+                        if ((_captionController.captionsEnabled ||
+                            _captionController.translateActive) &&
                             _captionController.liveCaptions.isNotEmpty)
                           Positioned(
-                            bottom: 60,
-                            left: 12,
-                            right: 12,
+                            bottom: 60, left: 12, right: 12,
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              crossAxisAlignment:
+                              CrossAxisAlignment.stretch,
                               children: _captionController.liveCaptions
-                                  .map(
-                                    (entry) => Container(
-                                  margin: const EdgeInsets.only(bottom: 4),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.75),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: RichText(
-                                    textDirection: TextDirection.ltr,
-                                    text: TextSpan(
-                                      children: [
-                                        TextSpan(
-                                          text: '${entry.userName}: ',
-                                          style: const TextStyle(
-                                            color: Color(0xFFFFB382),
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: entry.text,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              )
+                                  .map((entry) => _captionBubble(entry))
                                   .toList(),
                             ),
                           ),
 
                         // ── Name label ──
                         Positioned(
-                          bottom: 12,
-                          left: 12,
+                          bottom: 12, left: 12,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),
@@ -1016,7 +989,7 @@ class _MeetingScreenState extends State<MeetingView> {
               decoration: const BoxDecoration(
                 color: darkBg,
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
+                  topLeft:  Radius.circular(24),
                   topRight: Radius.circular(24),
                 ),
               ),
@@ -1024,50 +997,60 @@ class _MeetingScreenState extends State<MeetingView> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _meetingIcon(
-                    icon: session.isMicOn ? Icons.mic : Icons.mic_off,
-                    label: 'Mic',
-                    isActive: session.isMicOn,
+                    icon:        session.isMicOn
+                        ? Icons.mic
+                        : Icons.mic_off,
+                    label:       'Mic',
+                    isActive:    session.isMicOn,
                     activeColor: Colors.orange,
-                    onTap: _onMicPressed,
+                    onTap:       _onMicPressed,
                   ),
                   _meetingIcon(
-                    icon: session.isCameraOn
+                    icon:        session.isCameraOn
                         ? Icons.videocam
                         : Icons.videocam_off,
-                    label: 'Camera',
-                    isActive: session.isCameraOn,
+                    label:       'Camera',
+                    isActive:    session.isCameraOn,
                     activeColor: Colors.orange,
-                    onTap: _onCameraPressed,
+                    onTap:       _onCameraPressed,
                   ),
                   _meetingIcon(
-                    icon: Icons.cameraswitch,
+                    icon:  Icons.cameraswitch,
                     label: 'Flip',
                     onTap: _onFlipPressed,
                   ),
                   _meetingIcon(
-                    icon: Icons.pan_tool_outlined,
+                    icon:  Icons.pan_tool_outlined,
                     label: 'Hand',
                     onTap: () => _showSnackBar('Raise hand: Coming soon',
                         Colors.orange, Icons.pan_tool_outlined),
                   ),
-                  // ✅ CC button — enable/disable Arabic captions
+                  // CC — speech captions
                   _meetingIcon(
-                    icon: Icons.closed_caption,
-                    label: 'CC',
-                    isActive: _captionController.captionsEnabled,
+                    icon:        Icons.closed_caption,
+                    label:       'CC',
+                    isActive:    _captionController.captionsEnabled,
                     activeColor: Colors.blue,
-                    onTap: _onCaptionsPressed,
+                    onTap:       _onCaptionsPressed,
                   ),
-                  // ✅ Share screen: green when active, lock badge when not permitted
+                  // Translate — sign captioning
                   _meetingIcon(
-                    icon: session.isScreenSharing
+                    icon:        Icons.sign_language,
+                    label:       'Translate',
+                    isActive:    _captionController.translateActive,
+                    activeColor: Colors.purple,
+                    onTap:       _onTranslatePressed,
+                  ),
+                  // Share
+                  _meetingIcon(
+                    icon:        session.isScreenSharing
                         ? Icons.stop_screen_share
                         : Icons.screen_share,
-                    label: session.isScreenSharing ? 'Stop' : 'Share',
-                    isActive: session.isScreenSharing,
+                    label:       session.isScreenSharing ? 'Stop' : 'Share',
+                    isActive:    session.isScreenSharing,
                     activeColor: Colors.green,
-                    onTap: _onShareScreenPressed,
-                    locked: !_isAllowedToShare,
+                    onTap:       _onShareScreenPressed,
+                    locked:      !_isAllowedToShare,
                   ),
                 ],
               ),
@@ -1078,15 +1061,44 @@ class _MeetingScreenState extends State<MeetingView> {
     );
   }
 
-  // ✅ Wrapper for remote screen share view with bottom label
+  // ── Caption bubble ────────────────────────────────────────────────
+  Widget _captionBubble(CaptionEntry entry) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding:
+      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.75),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: RichText(
+        textDirection: TextDirection.rtl,
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: '${entry.userName}: ',
+              style: const TextStyle(
+                color:      Color(0xFFFFB382),
+                fontWeight: FontWeight.bold,
+                fontSize:   13,
+              ),
+            ),
+            TextSpan(
+              text:  entry.text,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildScreenShareView(Widget screenWidget) {
     return Stack(
       children: [
         Positioned.fill(child: screenWidget),
         Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
+          bottom: 0, left: 0, right: 0,
           child: Container(
             color: Colors.black.withOpacity(0.4),
             padding: const EdgeInsets.symmetric(vertical: 6),
@@ -1106,14 +1118,13 @@ class _MeetingScreenState extends State<MeetingView> {
     );
   }
 
-  // ✅ Icon widget with optional lock badge
   Widget _meetingIcon({
-    required IconData icon,
-    required String label,
+    required IconData      icon,
+    required String        label,
     required VoidCallback? onTap,
-    bool isActive = false,
+    bool   isActive    = false,
     Color? activeColor,
-    bool locked = false,
+    bool   locked      = false,
   }) {
     final bg =
     isActive ? (activeColor ?? primaryOrange) : Colors.grey.shade800;
@@ -1125,14 +1136,13 @@ class _MeetingScreenState extends State<MeetingView> {
           Stack(
             children: [
               CircleAvatar(
-                radius: 22,
+                radius:          22,
                 backgroundColor: bg,
                 child: Icon(icon, color: Colors.white),
               ),
               if (locked)
                 Positioned(
-                  right: 0,
-                  bottom: 0,
+                  right: 0, bottom: 0,
                   child: Container(
                     padding: const EdgeInsets.all(2),
                     decoration: const BoxDecoration(
@@ -1145,8 +1155,8 @@ class _MeetingScreenState extends State<MeetingView> {
           ),
           const SizedBox(height: 4),
           Text(label,
-              style:
-              const TextStyle(color: Colors.white, fontSize: 12)),
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 12)),
         ],
       ),
     );
@@ -1159,7 +1169,8 @@ class _MeetingScreenState extends State<MeetingView> {
       context: context,
       backgroundColor: Colors.grey[900],
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          borderRadius:
+          BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) {
         return StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
@@ -1170,13 +1181,13 @@ class _MeetingScreenState extends State<MeetingView> {
             if (!snap.hasData || !snap.data!.exists) {
               return const SizedBox(
                   height: 220,
-                  child: Center(child: CircularProgressIndicator()));
+                  child: Center(
+                      child: CircularProgressIndicator()));
             }
 
             final data = snap.data!.data() as Map<String, dynamic>;
-            final ids =
-            List<String>.from((data['participants'] as List?) ?? []);
-            // ✅ Read global screen share flag
+            final ids  = List<String>.from(
+                (data['participants'] as List?) ?? []);
             final screenShareAllowed =
                 data['screenShareAllowed'] as bool? ?? false;
 
@@ -1188,8 +1199,7 @@ class _MeetingScreenState extends State<MeetingView> {
                   const SizedBox(height: 12),
                   Center(
                     child: Container(
-                      width: 40,
-                      height: 4,
+                      width: 40, height: 4,
                       decoration: BoxDecoration(
                           color: Colors.white24,
                           borderRadius: BorderRadius.circular(99)),
@@ -1197,17 +1207,17 @@ class _MeetingScreenState extends State<MeetingView> {
                   ),
                   const SizedBox(height: 12),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Participants (${ids.length})',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700),
-                        ),
+                        Text('Participants (${ids.length})',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700)),
                         if (_isHost)
                           GestureDetector(
                             onTap: () {
@@ -1219,7 +1229,8 @@ class _MeetingScreenState extends State<MeetingView> {
                                   horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                   color: primaryOrange,
-                                  borderRadius: BorderRadius.circular(20)),
+                                  borderRadius:
+                                  BorderRadius.circular(20)),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: const [
@@ -1230,7 +1241,8 @@ class _MeetingScreenState extends State<MeetingView> {
                                       style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 14,
-                                          fontWeight: FontWeight.w600)),
+                                          fontWeight:
+                                          FontWeight.w600)),
                                 ],
                               ),
                             ),
@@ -1238,8 +1250,6 @@ class _MeetingScreenState extends State<MeetingView> {
                       ],
                     ),
                   ),
-
-                  // ✅ Global screen share status banner
                   Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 8),
@@ -1266,7 +1276,7 @@ class _MeetingScreenState extends State<MeetingView> {
                           const SizedBox(width: 8),
                           Text(
                             screenShareAllowed
-                                ? 'Screen sharing is ON for all participants'
+                                ? 'Screen sharing is ON for all'
                                 : 'Screen sharing is OFF for participants',
                             style: TextStyle(
                               color: screenShareAllowed
@@ -1279,18 +1289,20 @@ class _MeetingScreenState extends State<MeetingView> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 4),
                   Expanded(
                     child: ListView.separated(
                       itemCount: ids.length,
-                      separatorBuilder: (_, __) =>
-                      const Divider(color: Colors.white12, height: 1),
+                      separatorBuilder: (_, __) => const Divider(
+                          color: Colors.white12, height: 1),
                       itemBuilder: (context, i) {
-                        final uid = ids[i];
-                        final isMe = uid == widget.user.userId ||
-                            uid == FirebaseAuth.instance.currentUser?.uid;
-                        final isHostUid = uid == widget.meeting.hostId;
+                        final uid       = ids[i];
+                        final isMe      = uid == widget.user.userId ||
+                            uid ==
+                                FirebaseAuth
+                                    .instance.currentUser?.uid;
+                        final isHostUid =
+                            uid == widget.meeting.hostId;
 
                         return FutureBuilder<DocumentSnapshot>(
                           future: FirebaseFirestore.instance
@@ -1299,16 +1311,20 @@ class _MeetingScreenState extends State<MeetingView> {
                               .get(),
                           builder: (context, userSnap) {
                             String displayName = uid;
-                            if (userSnap.hasData && userSnap.data!.exists) {
-                              final userData = userSnap.data!.data()
+                            if (userSnap.hasData &&
+                                userSnap.data!.exists) {
+                              final userData =
+                              userSnap.data!.data()
                               as Map<String, dynamic>?;
-                              displayName = userData?['name'] ?? uid;
+                              displayName =
+                                  userData?['name'] ?? uid;
                             }
 
                             return ListTile(
                               leading: CircleAvatar(
-                                backgroundColor:
-                                isHostUid ? Colors.red : Colors.orange,
+                                backgroundColor: isHostUid
+                                    ? Colors.red
+                                    : Colors.orange,
                                 child: Text(
                                   displayName.isNotEmpty
                                       ? displayName[0].toUpperCase()
@@ -1318,9 +1334,11 @@ class _MeetingScreenState extends State<MeetingView> {
                                 ),
                               ),
                               title: Text(
-                                isMe ? '$displayName (You)' : displayName,
-                                style:
-                                const TextStyle(color: Colors.white),
+                                isMe
+                                    ? '$displayName (You)'
+                                    : displayName,
+                                style: const TextStyle(
+                                    color: Colors.white),
                               ),
                               subtitle: Text(
                                 isHostUid ? 'Host' : 'Participant',
