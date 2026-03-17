@@ -26,7 +26,7 @@ communication differences no longer preclude appropriate engagement in the digit
 4. Cloud Functions
 
 #### AI & Machine Learning
-1. CNN + ViT model for sign recognition
+1. TCN model for sign recognition
 2. On-edge device ai model built using tensorflow lite framework
 
 #### External APIs
