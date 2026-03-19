@@ -1055,7 +1055,7 @@ class _MeetingScreenState extends State<MeetingView> {
                     icon: Icons.closed_caption,
                     label: 'CC',
                     isActive: _captionController.captionsEnabled,
-                    activeColor: Colors.orange,
+                    activeColor: Colors.blue,
                     onTap: _onCaptionsPressed,
                   ),
                   // ✅ Share screen: green when active, lock badge when not permitted
