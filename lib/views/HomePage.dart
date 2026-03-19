@@ -8,9 +8,9 @@ import '../models/UserModel.dart';
 import '../views/SettingsView.dart';
 import '../models/MeetingModel.dart';
 import '../controllers/MeetingSessionManager.dart';
-import 'package:turjuman/main.dart'; // ✅ deep link service
-import 'JoinMeetingView.dart'; // ✅ for deep link navigation
-import 'FileTranscriptionView.dart'; // ✅ Files tab
+import 'package:turjuman/main.dart';
+import 'JoinMeetingView.dart';
+import 'FileTranscriptionView.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -29,22 +29,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    // Deep link consumption is handled at the END of _loadUserData(),
+    // after the user is confirmed loaded. Do NOT call consumePendingLink() here.
     _loadUserData();
-
-    // ✅ If the app was opened via an invitation link, navigate to the meeting
-    // once the home page is fully built and the user is confirmed logged in.
-    // ✅ If app was opened via invitation link, navigate to JoinMeetingScreen
-    // directly from HomePage (which is already in the stack as the base).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final meetingId = deepLinkService.consumePendingLink();
-      if (meetingId != null && meetingId.isNotEmpty && mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => JoinMeetingScreen(meetingId: meetingId),
-          ),
-        );
-      }
-    });
   }
 
   Future<void> _loadUserData() async {
@@ -92,6 +79,20 @@ class _HomePageState extends State<HomePage> {
         _isLoading = false;
       });
     }
+
+    // ✅ Deep link check — runs AFTER user data is loaded, so _userModel is ready.
+    // addPostFrameCallback ensures the widget tree is fully built before navigating.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final meetingId = deepLinkService.consumePendingLink();
+      if (meetingId != null && meetingId.isNotEmpty) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => JoinMeetingScreen(meetingId: meetingId),
+          ),
+        );
+      }
+    });
   }
 
   Future<void> _showJoinDialog() async {
@@ -135,6 +136,7 @@ class _HomePageState extends State<HomePage> {
         .get();
 
     if (!meetingSnap.exists) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Meeting not found')),
       );
@@ -145,6 +147,7 @@ class _HomePageState extends State<HomePage> {
     final isActive = data['isActive'] as bool? ?? true;
 
     if (!isActive) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Meeting already ended')),
       );
@@ -265,7 +268,7 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
 
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -351,7 +354,7 @@ class _HomePageState extends State<HomePage> {
                       child: OutlinedButton(
                         onPressed: _showJoinDialog,
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFFFB382)),
+                          side: const BorderSide(color: Colors.white),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -361,7 +364,7 @@ class _HomePageState extends State<HomePage> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFFFFB382),
+                            color: Colors.white,
                           ),
                         ),
                       ),
@@ -428,8 +431,7 @@ class _HomePageState extends State<HomePage> {
       body: _isLoading
           ? const Center(
         child: CircularProgressIndicator(
-          valueColor:
-          AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
         ),
       )
           : Stack(
@@ -438,7 +440,7 @@ class _HomePageState extends State<HomePage> {
             index: _currentIndex,
             children: [
               _homeTab(),
-              const FileTranscriptionView(), // ✅ Files tab
+              const FileTranscriptionView(),
               _userModel == null
                   ? const Center(
                 child: CircularProgressIndicator(
@@ -538,142 +540,6 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: BottomBar(
         currentIndex: _currentIndex,
         onTap: _onBottomNavTap,
-      ),
-    );
-  }
-
-  Widget _buildActionCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFB382).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: const Color(0xFFFFB382),
-                size: 28,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2D3142),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentMeetingCard({
-    required String title,
-    required String time,
-    required int participants,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFB382).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.videocam_rounded,
-              color: Color(0xFFFFB382),
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF2D2F31),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.access_time_rounded,
-                        size: 14, color: Colors.grey.shade600),
-                    const SizedBox(width: 4),
-                    Text(
-                      time,
-                      style:
-                      TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(Icons.people_rounded,
-                        size: 14, color: Colors.grey.shade600),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$participants participants',
-                      style:
-                      TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
-        ],
       ),
     );
   }

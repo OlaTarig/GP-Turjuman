@@ -44,6 +44,7 @@ class CaptionsAndTranscriptionModel {
   final List<CaptionEntry> captionsBuffer;
   final bool isCompleted;
   final String format;
+  final List<String> attendees;
 
   CaptionsAndTranscriptionModel({
     required this.meetingId,
@@ -54,6 +55,7 @@ class CaptionsAndTranscriptionModel {
     this.captionsBuffer = const [],
     this.isCompleted = false,
     this.format = 'pdf',
+    this.attendees = const [],
   });
 
   factory CaptionsAndTranscriptionModel.fromMap(Map<String, dynamic> map) {
@@ -75,6 +77,7 @@ class CaptionsAndTranscriptionModel {
           .toList(),
       isCompleted: map['isCompleted'] ?? false,
       format: map['format'] ?? 'pdf',
+      attendees: List<String>.from(map['attendees'] as List? ?? []),
     );
   }
 
@@ -87,5 +90,6 @@ class CaptionsAndTranscriptionModel {
     'captionsBuffer': captionsBuffer.map((e) => e.toMap()).toList(),
     'isCompleted': isCompleted,
     'format': format,
+    'attendees': attendees,
   };
 }

@@ -19,7 +19,7 @@ class CaptionController extends ChangeNotifier {
 
   // Whether THIS device's mic is actively recording and pushing captions
   bool _isSpeaking = false;
-  bool isMicMuted = false; // ✅ set from MeetingView when mic is toggled
+  bool isMicMuted = true; // starts muted — MeetingView syncs real state in initState
 
   // Whether captions overlay is visible (either speaking or viewing)
   bool _captionsVisible = false;
@@ -136,7 +136,7 @@ class CaptionController extends ChangeNotifier {
     _captionsVisible = true;
     notifyListeners();
 
-    // 3. Create Firestore doc for this meeting if not exists
+    // 3. Create/update Firestore doc — add this user to attendees list
     await FirebaseFirestore.instance
         .collection(kCaptionsCollection)
         .doc(_currentMeetingId)
@@ -149,7 +149,9 @@ class CaptionController extends ChangeNotifier {
       'captionsBuffer': [],
       'isCompleted': false,
       'format': 'pdf',
-      'activeSpeakerId': '', // ✅ tracks who is currently speaking
+      'activeSpeakerId': '',
+      // ✅ Track every user who enabled CC — survives meeting end
+      'attendees': FieldValue.arrayUnion([_currentUserId]),
     }, SetOptions(merge: true));
 
     // 4. Start mic stream → Google Speech
@@ -352,13 +354,14 @@ class CaptionController extends ChangeNotifier {
   Future<void> completeTranscription() async {
     if (_currentMeetingId.isEmpty) return;
     try {
+      // Use set+merge so this is a no-op if CC was never enabled (doc doesn't exist)
       await FirebaseFirestore.instance
           .collection(kCaptionsCollection)
           .doc(_currentMeetingId)
-          .update({
+          .set({
         'isCompleted': true,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
     } catch (e) {
       debugPrint('❌ completeTranscription error: $e');
     }

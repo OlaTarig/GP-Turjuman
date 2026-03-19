@@ -35,16 +35,28 @@ class FileTranscriptionController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // ── Load Arabic-supporting font (Cairo) from Google Fonts ──────
+      // Cairo supports Arabic, Latin and most Unicode characters
+      final cairoRegular = await PdfGoogleFonts.cairoRegular();
+      final cairoBold = await PdfGoogleFonts.cairoBold();
+
+      final regularStyle = pw.TextStyle(font: cairoRegular);
+      final boldStyle = pw.TextStyle(font: cairoBold, fontWeight: pw.FontWeight.bold);
+
       final pdf = pw.Document();
 
-
-      final speakerCount =
-          entries.map((e) => e.userName).where((n) => n.isNotEmpty).toSet().length;
+      final speakerCount = entries
+          .map((e) => e.userName)
+          .where((n) => n.isNotEmpty)
+          .toSet()
+          .length;
 
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(36),
+          // ── RTL support for Arabic text ────────────────────────────
+          textDirection: pw.TextDirection.rtl,
 
           // ── Header ─────────────────────────────────────────────────
           header: (_) => pw.Column(
@@ -55,15 +67,14 @@ class FileTranscriptionController extends ChangeNotifier {
                 children: [
                   pw.Text(
                     'Meeting Transcript',
-                    style: pw.TextStyle(
+                    style: boldStyle.copyWith(
                       fontSize: 22,
-                      fontWeight: pw.FontWeight.bold,
                       color: PdfColor.fromHex('#FFB382'),
                     ),
                   ),
                   pw.Text(
                     meetingDate.toString().substring(0, 16),
-                    style: pw.TextStyle(
+                    style: regularStyle.copyWith(
                         fontSize: 10, color: PdfColors.grey600),
                   ),
                 ],
@@ -71,12 +82,11 @@ class FileTranscriptionController extends ChangeNotifier {
               pw.SizedBox(height: 4),
               pw.Text(
                 'Meeting ID: $meetingId',
-                style: pw.TextStyle(
+                style: regularStyle.copyWith(
                     fontSize: 10, color: PdfColors.grey500),
               ),
               pw.SizedBox(height: 8),
-              pw.Divider(
-                  color: PdfColor.fromHex('#FFB382'), thickness: 1.5),
+              pw.Divider(color: PdfColor.fromHex('#FFB382'), thickness: 1.5),
               pw.SizedBox(height: 12),
             ],
           ),
@@ -90,11 +100,11 @@ class FileTranscriptionController extends ChangeNotifier {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text('Turjuman',
-                      style: pw.TextStyle(
+                      style: regularStyle.copyWith(
                           fontSize: 9, color: PdfColors.grey400)),
                   pw.Text(
                     'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
-                    style: pw.TextStyle(
+                    style: regularStyle.copyWith(
                         fontSize: 9, color: PdfColors.grey400),
                   ),
                 ],
@@ -123,29 +133,25 @@ class FileTranscriptionController extends ChangeNotifier {
                     pw.Column(
                       children: [
                         pw.Text('${entries.length}',
-                            style: pw.TextStyle(
+                            style: boldStyle.copyWith(
                               fontSize: 20,
-                              fontWeight: pw.FontWeight.bold,
                               color: PdfColor.fromHex('#FFB382'),
                             )),
                         pw.Text('Sentences',
-                            style: pw.TextStyle(
-                                fontSize: 10,
-                                color: PdfColors.grey600)),
+                            style: regularStyle.copyWith(
+                                fontSize: 10, color: PdfColors.grey600)),
                       ],
                     ),
                     pw.Column(
                       children: [
                         pw.Text('$speakerCount',
-                            style: pw.TextStyle(
+                            style: boldStyle.copyWith(
                               fontSize: 20,
-                              fontWeight: pw.FontWeight.bold,
                               color: PdfColor.fromHex('#FFB382'),
                             )),
                         pw.Text('Speakers',
-                            style: pw.TextStyle(
-                                fontSize: 10,
-                                color: PdfColors.grey600)),
+                            style: regularStyle.copyWith(
+                                fontSize: 10, color: PdfColors.grey600)),
                       ],
                     ),
                   ],
@@ -164,6 +170,9 @@ class FileTranscriptionController extends ChangeNotifier {
                   ? entry.userName
                   : 'Unknown Speaker';
 
+              // Detect if text contains Arabic characters
+              final isArabic = RegExp(r'[\u0600-\u06FF]').hasMatch(entry.text);
+
               widgets.add(
                 pw.Container(
                   margin: const pw.EdgeInsets.only(bottom: 10),
@@ -172,39 +181,45 @@ class FileTranscriptionController extends ChangeNotifier {
                     color: PdfColors.grey50,
                     border: pw.Border(
                       left: pw.BorderSide(
-                          color: PdfColor.fromHex('#FFB382'),
-                          width: 3),
+                          color: PdfColor.fromHex('#FFB382'), width: 3),
                     ),
                   ),
                   child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    crossAxisAlignment: isArabic
+                        ? pw.CrossAxisAlignment.end
+                        : pw.CrossAxisAlignment.start,
                     children: [
                       // Speaker + time row
                       pw.Row(
-                        mainAxisAlignment:
-                        pw.MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
                           pw.Text(
                             speakerName,
-                            style: pw.TextStyle(
+                            style: boldStyle.copyWith(
                               fontSize: 11,
-                              fontWeight: pw.FontWeight.bold,
                               color: PdfColor.fromHex('#FFB382'),
                             ),
                           ),
                           pw.Text(
                             time,
-                            style: pw.TextStyle(
-                                fontSize: 9,
-                                color: PdfColors.grey500),
+                            style: regularStyle.copyWith(
+                                fontSize: 9, color: PdfColors.grey500),
                           ),
                         ],
                       ),
                       pw.SizedBox(height: 6),
-                      // Text
-                      pw.Text(
-                        entry.text,
-                        style: const pw.TextStyle(fontSize: 13),
+                      // Transcript text — RTL direction for Arabic
+                      pw.Directionality(
+                        textDirection: isArabic
+                            ? pw.TextDirection.rtl
+                            : pw.TextDirection.ltr,
+                        child: pw.Text(
+                          entry.text,
+                          style: regularStyle.copyWith(fontSize: 13),
+                          textDirection: isArabic
+                              ? pw.TextDirection.rtl
+                              : pw.TextDirection.ltr,
+                        ),
                       ),
                     ],
                   ),
@@ -263,7 +278,6 @@ class FileTranscriptionController extends ChangeNotifier {
 
     if (bytes != null) {
       try {
-        // ✅ sharePdf opens the Android share sheet directly
         await Printing.sharePdf(
           bytes: bytes,
           filename: 'transcript_${meetingId.substring(0, 8)}.pdf',

@@ -25,151 +25,210 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
     _joinMeeting();
   }
 
+  // Always go to HomePage — never check currentUser here because
+  // Firebase Auth may not have restored the session yet on cold start
+  void _goBack() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomePage()),
+          (route) => false,
+    );
+  }
+
   Future<void> _joinMeeting() async {
-    try {
-      // ── Step 1: Check if user is logged in ──
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'You need to log in first to join a meeting.';
-        });
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    const maxAttempts = 3;
+    int attempts = 0;
+
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        debugPrint('🔄 Join attempt $attempts of $maxAttempts...');
+        await _tryJoin();
         return;
-      }
+      } catch (e) {
+        debugPrint('❌ Join attempt $attempts failed: $e');
 
-      final uid = currentUser.uid;
+        if (!mounted) return;
 
-      // ── Step 2: Fetch the meeting document ──
-      final meetingDoc = await FirebaseFirestore.instance
-          .collection('Meetings')
-          .doc(widget.meetingId)
-          .get();
-
-      if (!meetingDoc.exists) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Meeting not found. The link may be invalid or expired.';
-        });
-        return;
-      }
-
-      final meetingData = meetingDoc.data() as Map<String, dynamic>;
-      final meeting = MeetingModel.fromMap(meetingData);
-
-      // ── Step 3: Check if meeting is still active ──
-      if (!meeting.isActive) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'This meeting has already ended.';
-        });
-        return;
-      }
-
-      // ── Step 4: Check capacity ──
-      if (meeting.numOfParticipants >= meeting.maxCapacity) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'This meeting is full. Maximum capacity reached.';
-        });
-        return;
-      }
-
-      // ── Step 5: Add user to participants (if not already in) ──
-      final meetingRef = FirebaseFirestore.instance
-          .collection('Meetings')
-          .doc(widget.meetingId);
-
-      await FirebaseFirestore.instance.runTransaction((tx) async {
-        final snap = await tx.get(meetingRef);
-        if (!snap.exists) return;
-
-        final data = snap.data() as Map<String, dynamic>;
-        final participants =
-        List<String>.from((data['participants'] as List?) ?? []);
-
-        if (!participants.contains(uid)) {
-          final currentNum =
-              (data['numOfParticipants'] as int?) ?? participants.length;
-          tx.update(meetingRef, {
-            'participants': FieldValue.arrayUnion([uid]),
-            'numOfParticipants': currentNum + 1,
+        if (attempts >= maxAttempts) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage =
+            'Network error. Please check your connection and tap Retry.';
           });
+          return;
         }
-      });
 
-      // ── Step 6: Fetch user data ──
-      final userDoc = await FirebaseFirestore.instance
-          .collection('User')
-          .doc(uid)
-          .get();
-
-      if (!userDoc.exists) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'User profile not found. Please complete your profile.';
-        });
-        return;
-      }
-
-      final userData = userDoc.data() as Map<String, dynamic>;
-      userData['userId'] = uid;
-      final user = UserModel.fromMap(userData);
-
-      // ── Step 7: Fetch updated meeting ──
-      final updatedMeetingDoc = await meetingRef.get();
-      final updatedMeeting =
-      MeetingModel.fromMap(updatedMeetingDoc.data() as Map<String, dynamic>);
-
-      if (!mounted) return;
-
-      // ── Step 8: ✅ Build clean stack: HomePage → MeetingView ──
-      // Clear everything first, put HomePage as base, then MeetingView on top.
-      // This guarantees leaving the meeting always lands on HomePage,
-      // regardless of how the user got here (link, manual join, etc).
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomePage()),
-            (route) => false,
-      );
-      await Future.delayed(const Duration(milliseconds: 150));
-      if (!mounted) return;
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => MeetingView(
-            meeting: updatedMeeting,
-            user: user,
-          ),
-        ),
-      );
-
-    } catch (e) {
-      debugPrint('❌ Error joining meeting: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Something went wrong. Please try again.';
-        });
+        await Future.delayed(Duration(seconds: attempts * 2));
       }
     }
   }
 
+  Future<void> _tryJoin() async {
+    // ── Step 1: Check if user is logged in ──
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'You need to log in first to join a meeting.';
+        });
+      }
+      return;
+    }
+
+    final uid = currentUser.uid;
+
+    // ── Step 2: Fetch the meeting document ──
+    final meetingDoc = await FirebaseFirestore.instance
+        .collection('Meetings')
+        .doc(widget.meetingId)
+        .get();
+
+    if (!meetingDoc.exists) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage =
+          'Meeting not found. The link may be invalid or expired.';
+        });
+      }
+      return;
+    }
+
+    final meetingData = {
+      ...meetingDoc.data() as Map<String, dynamic>,
+      'meetingId': meetingDoc.id,
+    };
+    final meeting = MeetingModel.fromMap(meetingData);
+
+    // ── Step 3: Check if meeting is still active ──
+    if (!meeting.isActive) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'This meeting has already ended.';
+        });
+      }
+      return;
+    }
+
+    // ── Step 4: Check capacity ──
+    if (meeting.numOfParticipants >= meeting.maxCapacity) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'This meeting is full. Maximum capacity reached.';
+        });
+      }
+      return;
+    }
+
+    // ── Step 5: Add user to participants (if not already in) ──
+    final meetingRef = FirebaseFirestore.instance
+        .collection('Meetings')
+        .doc(widget.meetingId);
+
+    await FirebaseFirestore.instance.runTransaction((tx) async {
+      final snap = await tx.get(meetingRef);
+      if (!snap.exists) return;
+
+      final data = snap.data() as Map<String, dynamic>;
+      final participants =
+      List<String>.from((data['participants'] as List?) ?? []);
+
+      if (!participants.contains(uid)) {
+        final currentNum =
+            (data['numOfParticipants'] as int?) ?? participants.length;
+        tx.update(meetingRef, {
+          'participants': FieldValue.arrayUnion([uid]),
+          'numOfParticipants': currentNum + 1,
+        });
+      }
+    });
+
+    // ── Step 6: Fetch user data ──
+    final userDoc = await FirebaseFirestore.instance
+        .collection('User')
+        .doc(uid)
+        .get();
+
+    if (!userDoc.exists) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage =
+          'User profile not found. Please complete your profile.';
+        });
+      }
+      return;
+    }
+
+    final userData = userDoc.data() as Map<String, dynamic>;
+    userData['userId'] = uid;
+    final user = UserModel.fromMap(userData);
+
+    // ── Step 7: Fetch updated meeting ──
+    final updatedMeetingDoc = await meetingRef.get();
+    final updatedMeeting = MeetingModel.fromMap({
+      ...updatedMeetingDoc.data() as Map<String, dynamic>,
+      'meetingId': updatedMeetingDoc.id,
+    });
+
+    if (!mounted) return;
+
+    // ── Step 8: Build clean stack: HomePage → MeetingView ──
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomePage()),
+          (route) => false,
+    );
+    await Future.delayed(const Duration(milliseconds: 150));
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MeetingView(
+          meeting: updatedMeeting,
+          user: user,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFF9E3), Color(0xFFFFD98F), Color(0xFFFFB382)],
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) _goBack();
+      },
+      child: Scaffold(
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFFFF9E3),
+                Color(0xFFFFD98F),
+                Color(0xFFFFB382),
+              ],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
-              child: _isLoading ? _buildLoading() : _buildError(),
+          child: SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 30),
+                child: _isLoading ? _buildLoading() : _buildError(),
+              ),
             ),
           ),
         ),
@@ -194,9 +253,9 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
               ),
             ],
           ),
-          child: Column(
+          child: const Column(
             mainAxisSize: MainAxisSize.min,
-            children: const [
+            children: [
               SizedBox(
                 width: 48,
                 height: 48,
@@ -264,10 +323,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const HomePage()),
-                        (route) => false,
-                  ),
+                  onPressed: _goBack,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF1A1A2E),
                     side: const BorderSide(color: Color(0xFFFFB382)),
@@ -282,13 +338,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _isLoading = true;
-                      _errorMessage = null;
-                    });
-                    _joinMeeting();
-                  },
+                  onPressed: _joinMeeting,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFFB382),
                     foregroundColor: Colors.white,
