@@ -10,6 +10,7 @@ import '../controllers/MeetingController.dart';
 import '../controllers/ZegoSessionController.dart';
 import '../controllers/MeetingSessionManager.dart';
 import '../controllers/CaptionController.dart';
+import '../models/CaptionsAndTranscriptionModel.dart';
 import 'HomePage.dart';
 
 class MeetingView extends StatefulWidget {
@@ -67,8 +68,9 @@ class _MeetingScreenState extends State<MeetingView> {
 
       try {
         await mgr.startOrJoin(meeting: widget.meeting, user: widget.user);
-        // ✅ Just store the meeting ID for captions — don't start anything yet
+        // ✅ Store meeting ID and sync initial mic state
         _captionController.setMeetingId(widget.meeting.meetingId);
+        _captionController.isMicMuted = !session.isMicOn;
       } catch (_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -224,7 +226,7 @@ class _MeetingScreenState extends State<MeetingView> {
       _showSnackBar(
           'Microphone permission is required', Colors.redAccent, Icons.mic_off);
     }
-    // ✅ Sync mic mute state with CaptionController
+    // ✅ Sync mic state with CaptionController
     _captionController.isMicMuted = !session.isMicOn;
   }
 
@@ -936,49 +938,66 @@ class _MeetingScreenState extends State<MeetingView> {
                           ),
 
                         // ✅ Live captions overlay
-                        if (_captionController.captionsEnabled &&
-                            _captionController.liveCaptions.isNotEmpty)
+                        // Uses StreamBuilder directly on Firestore so captions
+                        // always update regardless of CaptionController state
+                        if (_captionController.captionsEnabled)
                           Positioned(
                             bottom: 60,
                             left: 12,
                             right: 12,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: _captionController.liveCaptions
-                                  .map(
-                                    (entry) => Container(
-                                  margin: const EdgeInsets.only(bottom: 4),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.75),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: RichText(
-                                    textDirection: TextDirection.ltr,
-                                    text: TextSpan(
-                                      children: [
-                                        TextSpan(
-                                          text: '${entry.userName}: ',
-                                          style: const TextStyle(
-                                            color: Color(0xFFFFB382),
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: entry.text,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
+                            child: StreamBuilder<DocumentSnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection(kCaptionsCollection)
+                                  .doc(widget.meeting.meetingId)
+                                  .snapshots(),
+                              builder: (context, snap) {
+                                if (!snap.hasData || !snap.data!.exists) {
+                                  return const SizedBox.shrink();
+                                }
+                                final data = snap.data!.data() as Map<String, dynamic>;
+                                final allEntries = (data['captionsBuffer'] as List<dynamic>? ?? [])
+                                    .map((e) => CaptionEntry.fromMap(e as Map<String, dynamic>))
+                                    .toList();
+                                if (allEntries.isEmpty) return const SizedBox.shrink();
+                                // Show last 3 entries
+                                final entries = allEntries.length > 3
+                                    ? allEntries.sublist(allEntries.length - 3)
+                                    : allEntries;
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: entries.map((entry) => Container(
+                                    margin: const EdgeInsets.only(bottom: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.75),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
-                                  ),
-                                ),
-                              )
-                                  .toList(),
+                                    child: RichText(
+                                      textDirection: TextDirection.rtl,
+                                      text: TextSpan(
+                                        children: [
+                                          TextSpan(
+                                            text: '${entry.userName}: ',
+                                            style: const TextStyle(
+                                              color: Color(0xFFFFB382),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          TextSpan(
+                                            text: entry.text,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )).toList(),
+                                );
+                              },
                             ),
                           ),
 
@@ -1055,7 +1074,7 @@ class _MeetingScreenState extends State<MeetingView> {
                     icon: Icons.closed_caption,
                     label: 'CC',
                     isActive: _captionController.captionsEnabled,
-                    activeColor: Colors.blue,
+                    activeColor: Colors.orange,
                     onTap: _onCaptionsPressed,
                   ),
                   // ✅ Share screen: green when active, lock badge when not permitted
