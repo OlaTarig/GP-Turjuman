@@ -34,17 +34,7 @@ class _SettingsViewState extends State<SettingsView> {
     super.initState();
     _user = widget.user;
     _controller = SettingsController();
-    _refreshSystemPermissionFlags();
-  }
-
-  Future<void> _refreshSystemPermissionFlags() async {
-    final micSt = await Permission.microphone.status;
-    final camSt = await Permission.camera.status;
-
-    setState(() {
-      _user.micPermissionGranted = micSt.isGranted;
-      _user.cameraPermissionGranted = camSt.isGranted;
-    });
+    // ✅ شلنا ريفرش الصلاحيات هنا لأنه كان يخبّص على صلاحيات الهوست
   }
 
   Future<void> _openProfile() async {
@@ -64,13 +54,17 @@ class _SettingsViewState extends State<SettingsView> {
     try {
       _user = await _controller.setMicrophoneEnabled(_user, enable);
 
-      if (enable && !_user.micPermissionGranted && mounted) {
-        await _permissionDialog(
-          title: 'Microphone permission needed',
-          message:
-          'Permission was not granted. If it is permanently denied, enable it from system settings.',
-          permission: Permission.microphone,
-        );
+      // ✅ لا نعتمد على micPermissionGranted لأنه للهوست
+      if (enable && mounted) {
+        final st = await Permission.microphone.status;
+        if (!st.isGranted) {
+          await _permissionDialog(
+            title: 'Microphone permission needed',
+            message:
+            'Permission was not granted. If it is permanently denied, enable it from system settings.',
+            permission: Permission.microphone,
+          );
+        }
       }
 
       if (mounted) setState(() {});
@@ -84,13 +78,17 @@ class _SettingsViewState extends State<SettingsView> {
     try {
       _user = await _controller.setCameraEnabled(_user, enable);
 
-      if (enable && !_user.cameraPermissionGranted && mounted) {
-        await _permissionDialog(
-          title: 'Camera permission needed',
-          message:
-          'Permission was not granted. If it is permanently denied, enable it from system settings.',
-          permission: Permission.camera,
-        );
+      // ✅ لا نعتمد على cameraPermissionGranted لأنه للهوست
+      if (enable && mounted) {
+        final st = await Permission.camera.status;
+        if (!st.isGranted) {
+          await _permissionDialog(
+            title: 'Camera permission needed',
+            message:
+            'Permission was not granted. If it is permanently denied, enable it from system settings.',
+            permission: Permission.camera,
+          );
+        }
       }
 
       if (mounted) setState(() {});
@@ -198,43 +196,22 @@ class _SettingsViewState extends State<SettingsView> {
             children: [
               _switchRow(
                 title: 'Microphone (App)',
-                subtitle: 'OFF disables mic in app. ON requests system permission.',
+                subtitle:
+                'OFF disables mic in app. ON requests system permission.',
                 value: _user.micAccessSettings,
                 loading: _loadingMic,
                 onChanged: _toggleMic,
               ),
-              if (!_user.micAccessSettings && _user.micPermissionGranted)
-                _hintRevoke(
-                    'Mic is OFF in-app, but system permission is still granted.'),
+              // ✅ نفس التنبيه موجود، بس بدون ربطه بصلاحيات الهوست
+              // (لو تبغى نشيله بالكامل قلّي)
               const Divider(height: 24),
               _switchRow(
                 title: 'Camera (App)',
-                subtitle: 'OFF disables camera in app. ON requests system permission.',
+                subtitle:
+                'OFF disables camera in app. ON requests system permission.',
                 value: _user.cameraAccessSettings,
                 loading: _loadingCam,
                 onChanged: _toggleCamera,
-              ),
-              if (!_user.cameraAccessSettings && _user.cameraPermissionGranted)
-                _hintRevoke(
-                    'Camera is OFF in-app, but system permission is still granted.'),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          _card(
-            title: 'System permission status',
-            children: [
-              _statusLine('Mic permission:',
-                  _user.micPermissionGranted ? 'Granted' : 'Not granted'),
-              _statusLine('Camera permission:',
-                  _user.cameraPermissionGranted ? 'Granted' : 'Not granted'),
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: _refreshSystemPermissionFlags,
-                  child: const Text('Refresh'),
-                ),
               ),
             ],
           ),
@@ -325,8 +302,7 @@ class _SettingsViewState extends State<SettingsView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style:
-              const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 10),
           ...children,
         ],
@@ -392,18 +368,6 @@ class _SettingsViewState extends State<SettingsView> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _statusLine(String k, String v) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Expanded(child: Text(k, style: TextStyle(color: Colors.grey.shade700))),
-          Text(v, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
       ),
     );
   }

@@ -283,6 +283,33 @@ class ZegoSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// ✅ يستخدم لما الهوست يسحب الصلاحية
+  Future<void> forceMicOff() async {
+    if (!isMicOn) return;
+
+    isMicOn = false;
+
+    try {
+      ZegoExpressEngine.instance.muteMicrophone(true);
+    } catch (_) {}
+
+    notifyListeners();
+  }
+
+  /// ✅ يستخدم لما الهوست يسحب صلاحية الكاميرا
+  Future<void> forceCameraOff() async {
+    if (!isCameraOn) return;
+
+    isCameraOn = false;
+
+    try {
+      await ZegoExpressEngine.instance.enableCamera(false);
+      await ZegoExpressEngine.instance.stopPreview();
+    } catch (_) {}
+
+    notifyListeners();
+  }
+
   Future<void> disposeSession() async {
     try {
       await logoutRoom();

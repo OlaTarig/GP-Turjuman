@@ -98,4 +98,83 @@ class MeetingController {
       print("Error ending meeting: $e");
     }
   }
+  Future<void> initializeUserMeetingSession({
+    required String meetingId,
+    required String hostId,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final isHost = user.uid == hostId;
+
+    await _firestore.collection('User').doc(user.uid).set({
+      'currentMeetingId': meetingId,
+      'isHandRaised': false,
+      'handRaisedAt': null,
+      'micPermissionGranted': isHost,     // host=true participant=false
+      'cameraPermissionGranted': isHost,  // host=true participant=false
+    }, SetOptions(merge: true));
+  }
+
+  /// ✅ Req (19): Raise hand
+  Future<void> raiseHand(String meetingId) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _firestore.collection('User').doc(user.uid).set({
+      'currentMeetingId': meetingId,
+      'isHandRaised': true,
+      'handRaisedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  /// ✅ Req (20): Lower hand
+  Future<void> lowerHand() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _firestore.collection('User').doc(user.uid).set({
+      'isHandRaised': false,
+      'handRaisedAt': null,
+    }, SetOptions(merge: true));
+  }
+
+  /// ✅ Req (21): Ordered raised hands list (for this meeting)
+  Stream<QuerySnapshot<Map<String, dynamic>>> raisedHandsStream(String meetingId) {
+    return _firestore
+        .collection('User')
+        .where('currentMeetingId', isEqualTo: meetingId)
+        .where('isHandRaised', isEqualTo: true)
+        .orderBy('handRaisedAt', descending: false)
+        .snapshots();
+  }
+
+  /// ✅ Host approves Mic+Cam (يعطي الصلاحية)
+  Future<void> approveMicCam({
+    required String meetingId,
+    required String targetUid,
+  }) async {
+    final host = _auth.currentUser;
+    if (host == null) return;
+
+    // safety: تأكد انه داخل نفس الميتنق قبل الموافقة
+    final snap = await _firestore.collection('User').doc(targetUid).get();
+    final data = snap.data() ?? {};
+    if (data['currentMeetingId'] != meetingId) return;
+
+    await _firestore.collection('User').doc(targetUid).set({
+      'micPermissionGranted': true,
+      'cameraPermissionGranted': true,
+      'isHandRaised': false,
+      'handRaisedAt': null,
+    }, SetOptions(merge: true));
+  }
+
+  /// ✅ Host rejects (بس ينزل اليد)
+  Future<void> rejectHand({required String targetUid}) async {
+    await _firestore.collection('User').doc(targetUid).set({
+      'isHandRaised': false,
+      'handRaisedAt': null,
+    }, SetOptions(merge: true));
+  }
 }

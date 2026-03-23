@@ -9,6 +9,7 @@ import '../models/UserModel.dart';
 import '../controllers/MeetingController.dart';
 import '../controllers/ZegoSessionController.dart';
 import '../controllers/MeetingSessionManager.dart';
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 
 class MeetingView extends StatefulWidget {
   final MeetingModel meeting;
@@ -27,8 +28,9 @@ class _MeetingScreenState extends State<MeetingView> {
   late final MeetingSessionManager mgr;
   ZegoSessionController get session => mgr.session;
 
-
   StreamSubscription<DocumentSnapshot>? _meetingSub;
+  StreamSubscription<DocumentSnapshot>? _userSub;
+
   bool _endedDialogShown = false;
 
   bool get _isHost {
@@ -36,20 +38,64 @@ class _MeetingScreenState extends State<MeetingView> {
     return (fbUid != null && fbUid == widget.meeting.hostId) ||
         widget.user.userId == widget.meeting.hostId;
   }
+
   void _cancelMeetingListener() {
     _meetingSub?.cancel();
     _meetingSub = null;
   }
 
+  // ✅ إضافة بسيطة: تفعيل حماية الشاشة داخل صفحة الاجتماع
+  Future<void> _enableSecureScreen() async {
+    await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
+  }
+
+  // ✅ إزالة الحماية عند الخروج من الصفحة
+  Future<void> _disableSecureScreen() async {
+    await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
+  }
+
   @override
   void initState() {
     super.initState();
+
+    // ✅ تفعيل الشاشة الآمنة
+    _enableSecureScreen();
+
     mgr = MeetingSessionManager.instance;
     mgr.addListener(_onSessionChanged);
 
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _userSub = FirebaseFirestore.instance
+          .collection('User')
+          .doc(uid)
+          .snapshots()
+          .listen((snap) async {
+        final data = snap.data() as Map<String, dynamic>? ?? {};
+        final micGranted = data['micPermissionGranted'] == true;
+        final camGranted = data['cameraPermissionGranted'] == true;
+
+        // إذا انسحبت الصلاحية: طفي فورًا
+        if (!(micGranted && camGranted)) {
+          if (session.isMicOn) {
+            await session.forceMicOff();
+          }
+          if (session.isCameraOn) {
+            await session.forceCameraOff();
+          }
+          if (mounted) setState(() {});
+        }
+      });
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _checkAccessSettingsOnEntry();
+
+      final meetingController = MeetingController();
+      await meetingController.initializeUserMeetingSession(
+        meetingId: widget.meeting.meetingId,
+        hostId: widget.meeting.hostId,
+      );
 
       try {
         await mgr.startOrJoin(meeting: widget.meeting, user: widget.user);
@@ -66,8 +112,6 @@ class _MeetingScreenState extends State<MeetingView> {
         );
       }
     });
-
-
 
     // ✅ Listener: إذا الهوست أنهى الاجتماع
     _meetingSub = FirebaseFirestore.instance
@@ -152,13 +196,31 @@ class _MeetingScreenState extends State<MeetingView> {
 
   @override
   void dispose() {
+    // ✅ إزالة FLAG_SECURE عند مغادرة الصفحة
+    _disableSecureScreen();
+
     _meetingSub?.cancel();
+    _userSub?.cancel();
     mgr.removeListener(_onSessionChanged);
 
     // ❌ لا تطفين الجلسة هنا
     // session.disposeSession();
 
     super.dispose();
+  }
+
+  Future<Map<String, bool>> _getHostPermissionFlags() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return {'mic': false, 'cam': false};
+
+    final snap =
+    await FirebaseFirestore.instance.collection('User').doc(uid).get();
+    final data = snap.data() ?? {};
+
+    final micGranted = data['micPermissionGranted'] == true;
+    final camGranted = data['cameraPermissionGranted'] == true;
+
+    return {'mic': micGranted, 'cam': camGranted};
   }
 
   Future<void> _onMicPressed() async {
@@ -168,6 +230,15 @@ class _MeetingScreenState extends State<MeetingView> {
           content: const Text('Microphone is disabled in settings'),
           action: SnackBarAction(label: 'Settings', onPressed: openAppSettings),
         ),
+      );
+      return;
+    }
+
+    // ✅ شرط موافقة الهوست (Mic+Cam مع بعض)
+    final flags = await _getHostPermissionFlags();
+    if (!(flags['mic'] == true && flags['cam'] == true)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Raise hand to request host permission')),
       );
       return;
     }
@@ -190,6 +261,15 @@ class _MeetingScreenState extends State<MeetingView> {
           content: const Text('Camera is disabled in settings'),
           action: SnackBarAction(label: 'Settings', onPressed: openAppSettings),
         ),
+      );
+      return;
+    }
+
+    // ✅ شرط موافقة الهوست (Mic+Cam مع بعض)
+    final flags = await _getHostPermissionFlags();
+    if (!(flags['mic'] == true && flags['cam'] == true)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Raise hand to request host permission')),
       );
       return;
     }
@@ -221,9 +301,37 @@ class _MeetingScreenState extends State<MeetingView> {
     );
   }
 
+  //Raise Hand *******************************************
+  Future<void> _onHandPressed() async {
+    final meetingController = MeetingController();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final snap =
+    await FirebaseFirestore.instance.collection('User').doc(uid).get();
+    final data = snap.data() ?? {};
+    final isRaised = data['isHandRaised'] == true;
+
+    if (isRaised) {
+      await meetingController.lowerHand();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hand lowered')),
+      );
+    } else {
+      await meetingController.raiseHand(widget.meeting.meetingId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hand raised')),
+      );
+    }
+  }
+
   Future<void> _onLeaveOrEndPressed() async {
     final meetingId = widget.meeting.meetingId;
     final meetingController = MeetingController();
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
 
     if (_isHost) {
       // ✅ الهوست: فقط إنهاء الاجتماع
@@ -257,7 +365,18 @@ class _MeetingScreenState extends State<MeetingView> {
 
       await meetingController.endMeeting(meetingId);
 
-// ✅ اقفلي الجلسة وشيلي البانر من المصدر (Manager)
+      // ✅ Reset host permissions/hand after meeting end
+      if (uid != null) {
+        await FirebaseFirestore.instance.collection('User').doc(uid).set({
+          'micPermissionGranted': false,
+          'cameraPermissionGranted': false,
+          'isHandRaised': false,
+          'handRaisedAt': null,
+          'currentMeetingId': null,
+        }, SetOptions(merge: true));
+      }
+
+      // ✅ اقفلي الجلسة وشيلي البانر من المصدر (Manager)
       await mgr.endAndDispose();
 
       if (!mounted) return;
@@ -292,7 +411,18 @@ class _MeetingScreenState extends State<MeetingView> {
 
     await meetingController.leaveMeeting(meetingId);
 
-// ✅ اقفلي الجلسة وشيلي البانر
+    // ✅ Reset participant permissions/hand after leaving
+    if (uid != null) {
+      await FirebaseFirestore.instance.collection('User').doc(uid).set({
+        'micPermissionGranted': false,
+        'cameraPermissionGranted': false,
+        'isHandRaised': false,
+        'handRaisedAt': null,
+        'currentMeetingId': null,
+      }, SetOptions(merge: true));
+    }
+
+    // ✅ اقفلي الجلسة وشيلي البانر
     await mgr.endAndDispose();
 
     if (!mounted) return;
@@ -316,7 +446,6 @@ class _MeetingScreenState extends State<MeetingView> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () async {
-
               Navigator.pop(context);
             },
           ),
@@ -486,11 +615,7 @@ class _MeetingScreenState extends State<MeetingView> {
                   _meetingIcon(
                     icon: Icons.pan_tool_outlined,
                     label: 'Hand',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Raise hand: Coming soon')),
-                      );
-                    },
+                    onTap: _onHandPressed,
                   ),
                   _meetingIcon(
                     icon: Icons.screen_share,
@@ -587,6 +712,95 @@ class _MeetingScreenState extends State<MeetingView> {
                     ),
                   ),
                   const SizedBox(height: 10),
+
+                  // ================= Raised Hands Section =================
+                  StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: FirebaseFirestore.instance
+                        .collection('User')
+                        .where('currentMeetingId',
+                        isEqualTo: widget.meeting.meetingId)
+                        .where('isHandRaised', isEqualTo: true)
+                        .orderBy('handRaisedAt', descending: false)
+                        .snapshots(),
+                    builder: (context, handsSnap) {
+                      if (!handsSnap.hasData) {
+                        return const SizedBox();
+                      }
+
+                      final docs = handsSnap.data!.docs;
+
+                      if (docs.isEmpty) {
+                        return const SizedBox();
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'Raised Hands',
+                              style: TextStyle(
+                                color: Colors.orange,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ...docs.map((d) {
+                            final uid = d.id;
+
+                            return ListTile(
+                              dense: true,
+                              leading: const Icon(Icons.pan_tool_outlined,
+                                  color: Colors.orange),
+                              title: Text(
+                                uid,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                              trailing: _isHost
+                                  ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  TextButton(
+                                    onPressed: () async {
+                                      await FirebaseFirestore.instance
+                                          .collection('User')
+                                          .doc(uid)
+                                          .set({
+                                        'micPermissionGranted': true,
+                                        'cameraPermissionGranted': true,
+                                        'isHandRaised': false,
+                                        'handRaisedAt': null,
+                                      }, SetOptions(merge: true));
+                                    },
+                                    child: const Text('Approve'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () async {
+                                      await FirebaseFirestore.instance
+                                          .collection('User')
+                                          .doc(uid)
+                                          .set({
+                                        'isHandRaised': false,
+                                        'handRaisedAt': null,
+                                      }, SetOptions(merge: true));
+                                    },
+                                    child: const Text('Reject'),
+                                  ),
+                                ],
+                              )
+                                  : null,
+                            );
+                          }).toList(),
+                          const Divider(color: Colors.white12),
+                        ],
+                      );
+                    },
+                  ),
+                  // ================= End Raised Hands =================
+
                   Expanded(
                     child: ListView.separated(
                       itemCount: ids.length,
@@ -599,7 +813,8 @@ class _MeetingScreenState extends State<MeetingView> {
 
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: isHost ? Colors.red : Colors.orange,
+                            backgroundColor:
+                            isHost ? Colors.red : Colors.orange,
                             child: Text(
                               uid.isNotEmpty ? uid[0].toUpperCase() : '?',
                               style: const TextStyle(color: Colors.white),
