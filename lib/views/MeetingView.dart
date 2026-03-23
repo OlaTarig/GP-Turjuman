@@ -4,12 +4,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
+
 import '../models/MeetingModel.dart';
 import '../models/UserModel.dart';
 import '../controllers/MeetingController.dart';
 import '../controllers/ZegoSessionController.dart';
 import '../controllers/MeetingSessionManager.dart';
-import 'package:flutter_windowmanager/flutter_windowmanager.dart';
+import '../controllers/CaptionController.dart';
+import '../models/CaptionsAndTranscriptionModel.dart';
+import 'HomePage.dart';
 
 class MeetingView extends StatefulWidget {
   final MeetingModel meeting;
@@ -33,23 +37,30 @@ class _MeetingScreenState extends State<MeetingView> {
 
   bool _endedDialogShown = false;
 
+  bool _screenShareAllowedForAll = false;
+
+  final CaptionController _captionController = CaptionController.instance;
+
+  String get _currentUid =>
+      FirebaseAuth.instance.currentUser?.uid ?? widget.user.userId;
+
   bool get _isHost {
     final fbUid = FirebaseAuth.instance.currentUser?.uid;
     return (fbUid != null && fbUid == widget.meeting.hostId) ||
         widget.user.userId == widget.meeting.hostId;
   }
 
+  bool get _isAllowedToShare => _isHost || _screenShareAllowedForAll;
+
   void _cancelMeetingListener() {
     _meetingSub?.cancel();
     _meetingSub = null;
   }
 
-  // ✅ إضافة بسيطة: تفعيل حماية الشاشة داخل صفحة الاجتماع
   Future<void> _enableSecureScreen() async {
     await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
   }
 
-  // ✅ إزالة الحماية عند الخروج من الصفحة
   Future<void> _disableSecureScreen() async {
     await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
   }
@@ -58,11 +69,11 @@ class _MeetingScreenState extends State<MeetingView> {
   void initState() {
     super.initState();
 
-    // ✅ تفعيل الشاشة الآمنة
     _enableSecureScreen();
 
     mgr = MeetingSessionManager.instance;
     mgr.addListener(_onSessionChanged);
+    _captionController.addListener(_onSessionChanged);
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
@@ -75,7 +86,6 @@ class _MeetingScreenState extends State<MeetingView> {
         final micGranted = data['micPermissionGranted'] == true;
         final camGranted = data['cameraPermissionGranted'] == true;
 
-        // إذا انسحبت الصلاحية: طفي فورًا
         if (!(micGranted && camGranted)) {
           if (session.isMicOn) {
             await session.forceMicOff();
@@ -99,6 +109,8 @@ class _MeetingScreenState extends State<MeetingView> {
 
       try {
         await mgr.startOrJoin(meeting: widget.meeting, user: widget.user);
+        _captionController.setMeetingId(widget.meeting.meetingId);
+        _captionController.isMicMuted = !session.isMicOn;
       } catch (_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -113,7 +125,6 @@ class _MeetingScreenState extends State<MeetingView> {
       }
     });
 
-    // ✅ Listener: إذا الهوست أنهى الاجتماع
     _meetingSub = FirebaseFirestore.instance
         .collection('Meetings')
         .doc(widget.meeting.meetingId)
@@ -124,8 +135,12 @@ class _MeetingScreenState extends State<MeetingView> {
       final data = snap.data() as Map<String, dynamic>?;
       if (data == null) return;
 
-      final isActive = data['isActive'] as bool? ?? true;
+      final allowed = data['screenShareAllowed'] as bool? ?? false;
+      if (mounted) {
+        setState(() => _screenShareAllowedForAll = allowed);
+      }
 
+      final isActive = data['isActive'] as bool? ?? true;
       if (!isActive && mounted && !_endedDialogShown) {
         _endedDialogShown = true;
 
@@ -137,20 +152,22 @@ class _MeetingScreenState extends State<MeetingView> {
             content: const Text('The host has ended the meeting.'),
             actions: [
               ElevatedButton(
-                onPressed: () => Navigator.pop(context), // close dialog فقط
+                onPressed: () => Navigator.pop(context),
                 child: const Text('OK'),
               ),
             ],
           ),
         );
 
-        // بعد إغلاق الديالوج: نظّفي واطلعي
         try {
           await session.disposeSession();
         } catch (_) {}
 
         if (!mounted) return;
-        Navigator.pop(context);
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomePage()),
+              (route) => false,
+        );
       }
     });
   }
@@ -196,16 +213,12 @@ class _MeetingScreenState extends State<MeetingView> {
 
   @override
   void dispose() {
-    // ✅ إزالة FLAG_SECURE عند مغادرة الصفحة
     _disableSecureScreen();
 
     _meetingSub?.cancel();
     _userSub?.cancel();
     mgr.removeListener(_onSessionChanged);
-
-    // ❌ لا تطفين الجلسة هنا
-    // session.disposeSession();
-
+    _captionController.removeListener(_onSessionChanged);
     super.dispose();
   }
 
@@ -223,85 +236,101 @@ class _MeetingScreenState extends State<MeetingView> {
     return {'mic': micGranted, 'cam': camGranted};
   }
 
+  void _showSnackBar(String message, Color color, IconData icon) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {},
+        ),
+      ),
+    );
+  }
+
   Future<void> _onMicPressed() async {
     if (!widget.user.micAccessSettings) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Microphone is disabled in settings'),
-          action: SnackBarAction(label: 'Settings', onPressed: openAppSettings),
-        ),
-      );
+      _showSnackBar(
+          'Microphone is disabled in settings', Colors.orange, Icons.mic_off);
       return;
     }
 
-    // ✅ شرط موافقة الهوست (Mic+Cam مع بعض)
     final flags = await _getHostPermissionFlags();
     if (!(flags['mic'] == true && flags['cam'] == true)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Raise hand to request host permission')),
+      _showSnackBar(
+        'Raise hand to request host permission',
+        Colors.orange,
+        Icons.pan_tool_outlined,
       );
       return;
     }
 
     final ok = await session.toggleMicWithPermission();
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Microphone permission is required'),
-          action: SnackBarAction(label: 'Settings', onPressed: openAppSettings),
-        ),
-      );
+      _showSnackBar(
+          'Microphone permission is required', Colors.redAccent, Icons.mic_off);
     }
+    _captionController.isMicMuted = !session.isMicOn;
   }
 
   Future<void> _onCameraPressed() async {
     if (!widget.user.cameraAccessSettings) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Camera is disabled in settings'),
-          action: SnackBarAction(label: 'Settings', onPressed: openAppSettings),
-        ),
-      );
+      _showSnackBar(
+          'Camera is disabled in settings', Colors.orange, Icons.videocam_off);
       return;
     }
 
-    // ✅ شرط موافقة الهوست (Mic+Cam مع بعض)
     final flags = await _getHostPermissionFlags();
     if (!(flags['mic'] == true && flags['cam'] == true)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Raise hand to request host permission')),
+      _showSnackBar(
+        'Raise hand to request host permission',
+        Colors.orange,
+        Icons.pan_tool_outlined,
       );
       return;
     }
 
     final ok = await session.toggleCameraWithPermission();
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Camera permission is required'),
-          action: SnackBarAction(label: 'Settings', onPressed: openAppSettings),
-        ),
-      );
+      _showSnackBar('Camera permission is required', Colors.redAccent,
+          Icons.videocam_off);
     }
   }
 
   Future<void> _onFlipPressed() async {
     if (!session.isCameraOn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Turn on camera first')),
-      );
+      _showSnackBar('Turn on camera first', Colors.orange, Icons.cameraswitch);
       return;
     }
     await session.flipCamera();
   }
 
-  void _onShareScreenPressed() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Share screen: Coming soon')),
+  Future<void> _onCaptionsPressed() async {
+    await _captionController.handleEnableSpeechCaptioning(
+      _currentUid,
+      widget.meeting.meetingId,
+      widget.user.name,
     );
   }
 
-  //Raise Hand *******************************************
   Future<void> _onHandPressed() async {
     final meetingController = MeetingController();
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -315,16 +344,406 @@ class _MeetingScreenState extends State<MeetingView> {
     if (isRaised) {
       await meetingController.lowerHand();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hand lowered')),
-      );
+      _showSnackBar('Hand lowered', Colors.orange, Icons.pan_tool_outlined);
     } else {
       await meetingController.raiseHand(widget.meeting.meetingId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hand raised')),
-      );
+      _showSnackBar('Hand raised', Colors.green, Icons.pan_tool_outlined);
     }
+  }
+
+  Future<void> _onShareScreenPressed() async {
+    if (_isHost) {
+      if (session.isScreenSharing) {
+        await session.stopScreenShare();
+        _showSnackBar(
+            'Screen sharing stopped', Colors.orange, Icons.stop_screen_share);
+        return;
+      }
+      _showHostShareOptions();
+      return;
+    }
+
+    if (!_isAllowedToShare) {
+      _showSnackBar(
+        'You are not allowed to share screen.\nAsk the host to grant permission.',
+        Colors.redAccent,
+        Icons.stop_screen_share,
+      );
+      return;
+    }
+
+    if (session.isScreenSharing) {
+      await session.stopScreenShare();
+      _showSnackBar(
+          'Screen sharing stopped', Colors.orange, Icons.stop_screen_share);
+      return;
+    }
+
+    await _startMyScreenShare();
+  }
+
+  void _showHostShareOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(99)),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Screen Share',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 20),
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.green.shade700,
+                    child: const Icon(Icons.screen_share, color: Colors.white),
+                  ),
+                  title: const Text('Share My Screen',
+                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                  subtitle: const Text(
+                      'Broadcast your screen to all participants',
+                      style: TextStyle(color: Colors.white54, fontSize: 13)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _startMyScreenShare();
+                  },
+                ),
+                const Divider(
+                    color: Colors.white12,
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16),
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: _screenShareAllowedForAll
+                        ? Colors.red.shade700
+                        : primaryOrange,
+                    child: Icon(
+                      _screenShareAllowedForAll
+                          ? Icons.stop_screen_share
+                          : Icons.people,
+                      color: Colors.white,
+                    ),
+                  ),
+                  title: Text(
+                    _screenShareAllowedForAll
+                        ? 'Disallow Participants to Share'
+                        : 'Allow All Participants to Share',
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  subtitle: Text(
+                    _screenShareAllowedForAll
+                        ? 'Participants can currently share their screen'
+                        : 'Let all participants share their screen',
+                    style:
+                    const TextStyle(color: Colors.white54, fontSize: 13),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _toggleAllParticipantsSharePermission();
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _toggleAllParticipantsSharePermission() async {
+    final newValue = !_screenShareAllowedForAll;
+    try {
+      await FirebaseFirestore.instance
+          .collection('Meetings')
+          .doc(widget.meeting.meetingId)
+          .update({'screenShareAllowed': newValue});
+
+      _showSnackBar(
+        newValue
+            ? 'All participants can now share their screen'
+            : 'Screen sharing disabled for participants',
+        newValue ? Colors.green : Colors.orange,
+        newValue ? Icons.screen_share : Icons.stop_screen_share,
+      );
+    } catch (e) {
+      _showSnackBar(
+          'Failed to update permission', Colors.redAccent, Icons.error_outline);
+    }
+  }
+
+  Future<void> _startMyScreenShare() async {
+    _showSnackBar(
+        'Starting screen share...', Colors.blueGrey, Icons.screen_share);
+
+    final ok = await session.toggleScreenShare();
+    if (!mounted) return;
+
+    if (ok) {
+      _showSnackBar('Screen sharing started', Colors.green, Icons.screen_share);
+    } else {
+      _showSnackBar(
+          'Failed to start screen share', Colors.redAccent, Icons.error_outline);
+    }
+  }
+
+  void _copyInvitationLink() {
+    final link = widget.meeting.invitationLink;
+    Clipboard.setData(ClipboardData(text: link));
+    if (!mounted) return;
+    _showSnackBar('Invitation link copied to clipboard!', Colors.green,
+        Icons.check_circle_outline);
+  }
+
+  Future<void> _showSendEmailDialog() async {
+    final TextEditingController emailController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isSending = false;
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: const Text(
+                'Send Email Invitation',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: Color(0xFF1A1A2E)),
+              ),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Enter the participant\'s email address. An invitation will be sent to them automatically.',
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                    const SizedBox(height: 20),
+                    TextFormField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter an email address';
+                        }
+                        if (!value.contains('@') || !value.contains('.')) {
+                          return 'Please enter a valid email address';
+                        }
+                        return null;
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'participant@mail.com',
+                        hintStyle:
+                        TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                        filled: true,
+                        fillColor: const Color(0xFFF8F9FA),
+                        prefixIcon: const Icon(Icons.email_outlined,
+                            color: Colors.orange),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: BorderSide.none,
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(
+                              color: Colors.redAccent, width: 1.5),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(
+                              color: Colors.redAccent, width: 1.5),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 15),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed:
+                  isSending ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel',
+                      style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  onPressed: isSending
+                      ? null
+                      : () async {
+                    if (!formKey.currentState!.validate()) return;
+                    setDialogState(() => isSending = true);
+
+                    final recipientEmail = emailController.text.trim();
+                    final link = widget.meeting.invitationLink;
+                    final meetingTitle = widget.meeting.title;
+                    final meetingId = widget.meeting.meetingId;
+                    final hostName = widget.user.name;
+
+                    try {
+                      await FirebaseFirestore.instance
+                          .collection('mail')
+                          .add({
+                        'to': recipientEmail,
+                        'message': {
+                          'subject':
+                          'You\'re invited to join: $meetingTitle',
+                          'html': '''
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #FFF9E3, #FFD98F, #FFB382); padding: 30px; border-radius: 16px; text-align: center;">
+    <h1 style="color: #1A1A2E; margin: 0;">Meeting Invitation</h1>
+  </div>
+  <div style="padding: 30px 20px;">
+    <p style="font-size: 16px; color: #333;">Hi,</p>
+    <p style="font-size: 16px; color: #333;"><strong>$hostName</strong> has invited you to join the meeting:</p>
+    <div style="background: #F8F9FA; border-radius: 12px; padding: 20px; margin: 20px 0; border-left: 4px solid #FFB382;">
+      <p style="margin: 0 0 8px 0; font-size: 18px; font-weight: bold; color: #1A1A2E;">$meetingTitle</p>
+      <p style="margin: 0; font-size: 14px; color: #666;">Meeting ID: $meetingId</p>
+    </div>
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="$link" style="background: linear-gradient(135deg, #FDBB84, #FFD98F); color: white; padding: 14px 40px; border-radius: 25px; text-decoration: none; font-size: 16px; font-weight: bold; display: inline-block;">Join Meeting</a>
+    </div>
+    <p style="font-size: 14px; color: #999; text-align: center;">Or copy this link: <br/><a href="$link" style="color: #FFB382;">$link</a></p>
+  </div>
+  <div style="border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+    <p style="font-size: 12px; color: #999;">This invitation was sent from Turjuman Meeting App.</p>
+  </div>
+</div>''',
+                        },
+                        'createdAt': FieldValue.serverTimestamp(),
+                      });
+
+                      if (!context.mounted) return;
+                      Navigator.pop(dialogContext);
+                      _showSnackBar(
+                          'Invitation sent to $recipientEmail',
+                          Colors.green,
+                          Icons.mark_email_read_outlined);
+                    } catch (e) {
+                      debugPrint('❌ Error sending email: $e');
+                      setDialogState(() => isSending = false);
+                      if (!context.mounted) return;
+                      Navigator.pop(dialogContext);
+                      _showSnackBar(
+                          'Failed to send invitation. Please try again.',
+                          Colors.redAccent,
+                          Icons.error_outline);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFB382),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: isSending
+                      ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
+                      : const Text('Send'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showInviteOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(99)),
+                ),
+                const SizedBox(height: 16),
+                const Text('Invite Participant',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700)),
+                const SizedBox(height: 20),
+                ListTile(
+                  leading: CircleAvatar(
+                      backgroundColor: primaryOrange,
+                      child: const Icon(Icons.copy, color: Colors.white)),
+                  title: const Text('Copy Invitation Link',
+                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                  subtitle: const Text('Copy the link and share it manually',
+                      style: TextStyle(color: Colors.white54, fontSize: 13)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _copyInvitationLink();
+                  },
+                ),
+                const Divider(
+                    color: Colors.white12,
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16),
+                ListTile(
+                  leading: CircleAvatar(
+                      backgroundColor: primaryOrange,
+                      child: const Icon(Icons.email_outlined,
+                          color: Colors.white)),
+                  title: const Text('Send Invitation by Email',
+                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                  subtitle: const Text(
+                      'Send the invitation directly to their inbox',
+                      style: TextStyle(color: Colors.white54, fontSize: 13)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showSendEmailDialog();
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _onLeaveOrEndPressed() async {
@@ -334,12 +753,12 @@ class _MeetingScreenState extends State<MeetingView> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     if (_isHost) {
-      // ✅ الهوست: فقط إنهاء الاجتماع
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('End Meeting'),
-          content: const Text('Are you sure you want to end the meeting for everyone?'),
+          content: const Text(
+              'Are you sure you want to end the meeting for everyone?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -347,9 +766,7 @@ class _MeetingScreenState extends State<MeetingView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
+                  backgroundColor: Colors.red, foregroundColor: Colors.white),
               onPressed: () => Navigator.pop(context, true),
               child: const Text('End Meeting'),
             ),
@@ -359,13 +776,11 @@ class _MeetingScreenState extends State<MeetingView> {
 
       if (confirmed != true) return;
 
-      // ✅ نلغي الاستماع عشان ما يجيه إشعار "meeting ended"
       _endedDialogShown = true;
       _meetingSub?.cancel();
 
       await meetingController.endMeeting(meetingId);
 
-      // ✅ Reset host permissions/hand after meeting end
       if (uid != null) {
         await FirebaseFirestore.instance.collection('User').doc(uid).set({
           'micPermissionGranted': false,
@@ -376,15 +791,18 @@ class _MeetingScreenState extends State<MeetingView> {
         }, SetOptions(merge: true));
       }
 
-      // ✅ اقفلي الجلسة وشيلي البانر من المصدر (Manager)
       await mgr.endAndDispose();
+      await _captionController.completeTranscription();
+      await _captionController.resetForNewMeeting();
 
       if (!mounted) return;
-      Navigator.pop(context);
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomePage()),
+            (route) => false,
+      );
       return;
     }
 
-    // ✅ Participant: يقدر يغادر عادي
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -397,9 +815,7 @@ class _MeetingScreenState extends State<MeetingView> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: primaryOrange,
-              foregroundColor: Colors.white,
-            ),
+                backgroundColor: primaryOrange, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Leave'),
           ),
@@ -411,7 +827,6 @@ class _MeetingScreenState extends State<MeetingView> {
 
     await meetingController.leaveMeeting(meetingId);
 
-    // ✅ Reset participant permissions/hand after leaving
     if (uid != null) {
       await FirebaseFirestore.instance.collection('User').doc(uid).set({
         'micPermissionGranted': false,
@@ -422,22 +837,25 @@ class _MeetingScreenState extends State<MeetingView> {
       }, SetOptions(merge: true));
     }
 
-    // ✅ اقفلي الجلسة وشيلي البانر
     await mgr.endAndDispose();
+    await _captionController.resetForNewMeeting();
 
     if (!mounted) return;
-    Navigator.pop(context);
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomePage()),
+          (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final hasRemote = session.remoteViewWidget != null;
+    final hasRemoteScreen = session.remoteScreenWidget != null;
+    final isSharingMyScreen = session.isScreenSharing;
 
     return PopScope(
       canPop: true,
-      onPopInvoked: (_) async {
-        // رجوع طبيعي بدون Leave
-      },
+      onPopInvoked: (_) async {},
       child: Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
@@ -445,39 +863,40 @@ class _MeetingScreenState extends State<MeetingView> {
           centerTitle: true,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () async {
-              Navigator.pop(context);
-            },
+            onPressed: () => Navigator.of(context).pop(),
           ),
           title: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(widget.meeting.title,
                   style: const TextStyle(color: Colors.white)),
-              Text(
-                "ID: ${widget.meeting.meetingId}",
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
-              ),
+              Text("ID: ${widget.meeting.meetingId}",
+                  style:
+                  const TextStyle(color: Colors.white70, fontSize: 12)),
             ],
           ),
           iconTheme: const IconThemeData(color: Colors.white),
           actions: [
+            if (isSharingMyScreen)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Chip(
+                  label: const Text('Sharing',
+                      style: TextStyle(color: Colors.white, fontSize: 11)),
+                  backgroundColor: Colors.green.shade700,
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
             IconButton(
               icon: const Icon(Icons.people, color: Colors.white),
               onPressed: _showParticipantsSheet,
             ),
-            IconButton(
-              icon: const Icon(Icons.link, color: Colors.white),
-              onPressed: () async {
-                await Clipboard.setData(
-                  ClipboardData(text: widget.meeting.invitationLink),
-                );
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Invitation link copied')),
-                );
-              },
-            ),
+            if (_isHost)
+              IconButton(
+                icon: const Icon(Icons.link, color: Colors.white),
+                onPressed: _copyInvitationLink,
+              ),
           ],
         ),
         body: Column(
@@ -492,8 +911,7 @@ class _MeetingScreenState extends State<MeetingView> {
                     backgroundColor: Colors.red,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                        borderRadius: BorderRadius.circular(14)),
                   ),
                   onPressed: _onLeaveOrEndPressed,
                   child: Text(
@@ -512,9 +930,11 @@ class _MeetingScreenState extends State<MeetingView> {
                     color: Colors.black,
                     child: Stack(
                       children: [
-                        // ✅ Remote video (FIXED)
                         Positioned.fill(
-                          child: hasRemote
+                          child: hasRemoteScreen
+                              ? _buildScreenShareView(
+                              session.remoteScreenWidget!)
+                              : hasRemote
                               ? session.remoteViewWidget!
                               : Center(
                             child: CircleAvatar(
@@ -526,16 +946,13 @@ class _MeetingScreenState extends State<MeetingView> {
                                     : 'U')
                                     .toUpperCase(),
                                 style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                    color: Colors.white,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                           ),
                         ),
-
-                        // ✅ Local preview
                         Positioned(
                           top: 12,
                           right: 12,
@@ -552,7 +969,128 @@ class _MeetingScreenState extends State<MeetingView> {
                             ),
                           ),
                         ),
-
+                        if (isSharingMyScreen)
+                          Positioned(
+                            top: 12,
+                            left: 12,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade700.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.screen_share,
+                                      color: Colors.white, size: 14),
+                                  SizedBox(width: 6),
+                                  Text('You are sharing',
+                                      style: TextStyle(
+                                          color: Colors.white, fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        if (hasRemoteScreen && !isSharingMyScreen)
+                          Positioned(
+                            top: 12,
+                            left: 12,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.blueGrey.withOpacity(0.85),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.screen_share,
+                                      color: Colors.white, size: 14),
+                                  SizedBox(width: 6),
+                                  Text('Screen share',
+                                      style: TextStyle(
+                                          color: Colors.white, fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        if (_captionController.captionsEnabled)
+                          Positioned(
+                            bottom: 60,
+                            left: 12,
+                            right: 12,
+                            child: StreamBuilder<DocumentSnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection(kCaptionsCollection)
+                                  .doc(widget.meeting.meetingId)
+                                  .snapshots(),
+                              builder: (context, snap) {
+                                if (!snap.hasData || !snap.data!.exists) {
+                                  return const SizedBox.shrink();
+                                }
+                                final data =
+                                snap.data!.data() as Map<String, dynamic>;
+                                final allEntries =
+                                (data['captionsBuffer'] as List<dynamic>? ??
+                                    [])
+                                    .map((e) => CaptionEntry.fromMap(
+                                    e as Map<String, dynamic>))
+                                    .toList();
+                                if (allEntries.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+                                final entries = allEntries.length > 3
+                                    ? allEntries
+                                    .sublist(allEntries.length - 3)
+                                    : allEntries;
+                                return Column(
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.stretch,
+                                  children: entries
+                                      .map(
+                                        (entry) => Container(
+                                      margin:
+                                      const EdgeInsets.only(bottom: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 14, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color:
+                                        Colors.black.withOpacity(0.75),
+                                        borderRadius:
+                                        BorderRadius.circular(10),
+                                      ),
+                                      child: RichText(
+                                        textDirection: TextDirection.rtl,
+                                        text: TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: '${entry.userName}: ',
+                                              style: const TextStyle(
+                                                color: Color(0xFFFFB382),
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: entry.text,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                      .toList(),
+                                );
+                              },
+                            ),
+                          ),
                         Positioned(
                           bottom: 12,
                           left: 12,
@@ -618,9 +1156,21 @@ class _MeetingScreenState extends State<MeetingView> {
                     onTap: _onHandPressed,
                   ),
                   _meetingIcon(
-                    icon: Icons.screen_share,
-                    label: 'Share',
+                    icon: Icons.closed_caption,
+                    label: 'CC',
+                    isActive: _captionController.captionsEnabled,
+                    activeColor: Colors.orange,
+                    onTap: _onCaptionsPressed,
+                  ),
+                  _meetingIcon(
+                    icon: session.isScreenSharing
+                        ? Icons.stop_screen_share
+                        : Icons.screen_share,
+                    label: session.isScreenSharing ? 'Stop' : 'Share',
+                    isActive: session.isScreenSharing,
+                    activeColor: Colors.green,
                     onTap: _onShareScreenPressed,
+                    locked: !_isAllowedToShare,
                   ),
                 ],
               ),
@@ -631,29 +1181,71 @@ class _MeetingScreenState extends State<MeetingView> {
     );
   }
 
+  Widget _buildScreenShareView(Widget screenWidget) {
+    return Stack(
+      children: [
+        Positioned.fill(child: screenWidget),
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            color: Colors.black.withOpacity(0.4),
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.screen_share, color: Colors.white, size: 16),
+                SizedBox(width: 8),
+                Text('Screen Share',
+                    style: TextStyle(color: Colors.white, fontSize: 13)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _meetingIcon({
     required IconData icon,
     required String label,
     required VoidCallback? onTap,
     bool isActive = false,
     Color? activeColor,
+    bool locked = false,
   }) {
-    final bg = isActive ? (activeColor ?? primaryOrange) : Colors.grey.shade800;
+    final bg =
+    isActive ? (activeColor ?? primaryOrange) : Colors.grey.shade800;
 
     return GestureDetector(
       onTap: onTap,
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: bg,
-            child: Icon(icon, color: Colors.white),
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: bg,
+                child: Icon(icon, color: Colors.white),
+              ),
+              if (locked)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                        color: Colors.red, shape: BoxShape.circle),
+                    child:
+                    const Icon(Icons.lock, color: Colors.white, size: 10),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
-          ),
+          Text(label,
+              style: const TextStyle(color: Colors.white, fontSize: 12)),
         ],
       ),
     );
@@ -664,8 +1256,7 @@ class _MeetingScreenState extends State<MeetingView> {
       context: context,
       backgroundColor: Colors.grey[900],
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) {
         return StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
@@ -675,16 +1266,18 @@ class _MeetingScreenState extends State<MeetingView> {
           builder: (context, snap) {
             if (!snap.hasData || !snap.data!.exists) {
               return const SizedBox(
-                height: 220,
-                child: Center(child: CircularProgressIndicator()),
-              );
+                  height: 220,
+                  child: Center(child: CircularProgressIndicator()));
             }
 
             final data = snap.data!.data() as Map<String, dynamic>;
-            final ids = List<String>.from((data['participants'] as List?) ?? []);
+            final ids =
+            List<String>.from((data['participants'] as List?) ?? []);
+            final screenShareAllowed =
+                data['screenShareAllowed'] as bool? ?? false;
 
             return SizedBox(
-              height: 420,
+              height: 460,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -694,26 +1287,93 @@ class _MeetingScreenState extends State<MeetingView> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(99)),
                     ),
                   ),
                   const SizedBox(height: 12),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'Participants (${ids.length})',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Participants (${ids.length})',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700),
+                        ),
+                        if (_isHost)
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pop(context);
+                              _showInviteOptions();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                  color: primaryOrange,
+                                  borderRadius: BorderRadius.circular(20)),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.person_add,
+                                      color: Colors.white, size: 18),
+                                  SizedBox(width: 6),
+                                  Text('Invite',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: screenShareAllowed
+                            ? Colors.green.shade900
+                            : Colors.grey.shade800,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            screenShareAllowed
+                                ? Icons.screen_share
+                                : Icons.stop_screen_share,
+                            color: screenShareAllowed
+                                ? Colors.greenAccent
+                                : Colors.white54,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            screenShareAllowed
+                                ? 'Screen sharing is ON for all participants'
+                                : 'Screen sharing is OFF for participants',
+                            style: TextStyle(
+                              color: screenShareAllowed
+                                  ? Colors.greenAccent
+                                  : Colors.white54,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 10),
-
-                  // ================= Raised Hands Section =================
                   StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                     stream: FirebaseFirestore.instance
                         .collection('User')
@@ -799,8 +1459,6 @@ class _MeetingScreenState extends State<MeetingView> {
                       );
                     },
                   ),
-                  // ================= End Raised Hands =================
-
                   Expanded(
                     child: ListView.separated(
                       itemCount: ids.length,
@@ -808,26 +1466,44 @@ class _MeetingScreenState extends State<MeetingView> {
                       const Divider(color: Colors.white12, height: 1),
                       itemBuilder: (context, i) {
                         final uid = ids[i];
-                        final isMe = uid == widget.user.userId;
-                        final isHost = uid == widget.meeting.hostId;
+                        final isMe = uid == widget.user.userId ||
+                            uid == FirebaseAuth.instance.currentUser?.uid;
+                        final isHostUid = uid == widget.meeting.hostId;
 
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor:
-                            isHost ? Colors.red : Colors.orange,
-                            child: Text(
-                              uid.isNotEmpty ? uid[0].toUpperCase() : '?',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          title: Text(
-                            isMe ? '$uid (You)' : uid,
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          subtitle: Text(
-                            isHost ? 'Host' : 'Participant',
-                            style: const TextStyle(color: Colors.white70),
-                          ),
+                        return FutureBuilder<DocumentSnapshot>(
+                          future: FirebaseFirestore.instance
+                              .collection('User')
+                              .doc(uid)
+                              .get(),
+                          builder: (context, userSnap) {
+                            String displayName = uid;
+                            if (userSnap.hasData && userSnap.data!.exists) {
+                              final userData =
+                              userSnap.data!.data() as Map<String, dynamic>?;
+                              displayName = userData?['name'] ?? uid;
+                            }
+
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor:
+                                isHostUid ? Colors.red : Colors.orange,
+                                child: Text(
+                                  displayName.isNotEmpty
+                                      ? displayName[0].toUpperCase()
+                                      : '?',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ),
+                              title: Text(
+                                isMe ? '$displayName (You)' : displayName,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                              subtitle: Text(
+                                isHostUid ? 'Host' : 'Participant',
+                                style: const TextStyle(color: Colors.white70),
+                              ),
+                            );
+                          },
                         );
                       },
                     ),

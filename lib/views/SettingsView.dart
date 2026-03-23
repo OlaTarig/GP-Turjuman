@@ -5,7 +5,7 @@ import '../models/UserModel.dart';
 import '../controllers/SettingsController.dart';
 import '../views/ProfileView.dart';
 import '../views/SignInView.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 class SettingsView extends StatefulWidget {
   final UserModel user;
   final ValueChanged<UserModel> onUserUpdated; // ✅ جديد
@@ -132,6 +132,8 @@ class _SettingsViewState extends State<SettingsView> {
 
   Future<void> _signOut() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_logged_in', false);
       await FirebaseAuth.instance.signOut();
       if (!mounted) return;
 

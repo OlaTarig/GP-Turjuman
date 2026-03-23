@@ -8,6 +8,9 @@ import '../models/UserModel.dart';
 import '../views/SettingsView.dart';
 import '../models/MeetingModel.dart';
 import '../controllers/MeetingSessionManager.dart';
+import 'package:turjuman/main.dart';
+import 'JoinMeetingView.dart';
+import 'FileTranscriptionView.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,17 +24,15 @@ class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
   int _currentIndex = 0;
 
-
   UserModel? _userModel;
 
   @override
   void initState() {
     super.initState();
+    // Deep link consumption is handled at the END of _loadUserData(),
+    // after the user is confirmed loaded. Do NOT call consumePendingLink() here.
     _loadUserData();
-
   }
-
-
 
   Future<void> _loadUserData() async {
     try {
@@ -78,7 +79,22 @@ class _HomePageState extends State<HomePage> {
         _isLoading = false;
       });
     }
+
+    // ✅ Deep link check — runs AFTER user data is loaded, so _userModel is ready.
+    // addPostFrameCallback ensures the widget tree is fully built before navigating.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final meetingId = deepLinkService.consumePendingLink();
+      if (meetingId != null && meetingId.isNotEmpty) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => JoinMeetingScreen(meetingId: meetingId),
+          ),
+        );
+      }
+    });
   }
+
   Future<void> _showJoinDialog() async {
     final controller = TextEditingController();
 
@@ -98,8 +114,7 @@ class _HomePageState extends State<HomePage> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(context, controller.text.trim()),
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('Join'),
           ),
         ],
@@ -110,6 +125,7 @@ class _HomePageState extends State<HomePage> {
 
     await _joinMeetingById(meetingId);
   }
+
   Future<void> _joinMeetingById(String meetingId) async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
     if (firebaseUser == null) return;
@@ -120,6 +136,7 @@ class _HomePageState extends State<HomePage> {
         .get();
 
     if (!meetingSnap.exists) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Meeting not found')),
       );
@@ -130,6 +147,7 @@ class _HomePageState extends State<HomePage> {
     final isActive = data['isActive'] as bool? ?? true;
 
     if (!isActive) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Meeting already ended')),
       );
@@ -141,7 +159,6 @@ class _HomePageState extends State<HomePage> {
       'meetingId': meetingSnap.id,
     });
 
-    // تحديث عدد المشاركين
     await FirebaseFirestore.instance
         .collection('Meetings')
         .doc(meetingId)
@@ -181,7 +198,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-
   Future<void> _startMeeting() async {
     final controller = MeetingController();
     final meeting = await controller.createMeeting("New Meeting");
@@ -217,9 +233,6 @@ class _HomePageState extends State<HomePage> {
           builder: (_) => MeetingView(meeting: meeting, user: userModel),
         ),
       );
-
-      // ✅ بعد الرجوع من الميتنق حدّث البانر
-
     } catch (e) {
       debugPrint("Error loading user model: $e");
 
@@ -237,25 +250,16 @@ class _HomePageState extends State<HomePage> {
           builder: (_) => MeetingView(meeting: meeting, user: userModel),
         ),
       );
-
-      // ✅ بعد الرجوع من الميتنق حدّث البانر
-
     }
   }
 
-
-
-  // ✅ تعديل بسيط: بدون Navigator.push
   void _onBottomNavTap(int index) {
     setState(() {
       _currentIndex = index;
     });
   }
 
-  // ✅ نفس محتوى الهوم حقك (بدون تغيير)
   Widget _homeTab() {
-    // ✅ عشان البانر الثابت ما يغطي الهيدر
-
     return SafeArea(
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -264,9 +268,8 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 20 ),
+              const SizedBox(height: 20),
 
-              // Header with greeting and profile
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -294,14 +297,11 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
-
-                  // ✅ تم حذف زر اللوق اوت من هنا فقط
                 ],
               ),
 
               const SizedBox(height: 40),
 
-              // Main meeting card
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(32),
@@ -322,7 +322,6 @@ class _HomePageState extends State<HomePage> {
                 ),
                 child: Column(
                   children: [
-                    // Icon
                     Container(
                       width: 100,
                       height: 100,
@@ -355,7 +354,7 @@ class _HomePageState extends State<HomePage> {
                       child: OutlinedButton(
                         onPressed: _showJoinDialog,
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFFFB382)),
+                          side: const BorderSide(color: Colors.white),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -365,12 +364,11 @@ class _HomePageState extends State<HomePage> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFFFFB382),
+                            color: Colors.white,
                           ),
                         ),
                       ),
                     ),
-
 
                     const SizedBox(height: 8),
 
@@ -384,7 +382,6 @@ class _HomePageState extends State<HomePage> {
 
                     const SizedBox(height: 28),
 
-                    // Start button
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -419,14 +416,13 @@ class _HomePageState extends State<HomePage> {
               ),
 
               const SizedBox(height: 32),
-              const SizedBox(height: 100), // Bottom padding for nav bar
+              const SizedBox(height: 100),
             ],
           ),
         ),
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -435,21 +431,23 @@ class _HomePageState extends State<HomePage> {
       body: _isLoading
           ? const Center(
         child: CircularProgressIndicator(
-          valueColor:
-          AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
         ),
       )
-          :Stack(
+          : Stack(
         children: [
           IndexedStack(
             index: _currentIndex,
             children: [
               _homeTab(),
-              const Center(child: Text('Files page - Coming soon')),
+              const FileTranscriptionView(),
               _userModel == null
-                  ? const Center(child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
-              ))
+                  ? const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFFFFB382)),
+                ),
+              )
                   : SettingsView(
                 user: _userModel!,
                 onUserUpdated: (updatedUser) {
@@ -462,7 +460,7 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
 
-          // ✅ Active Meeting Banner (فوق كل شي)
+          // ✅ Active Meeting Banner
           Positioned(
             top: 0,
             left: 0,
@@ -473,7 +471,8 @@ class _HomePageState extends State<HomePage> {
                 final mgr = MeetingSessionManager.instance;
                 if (!mgr.hasActiveMeeting) return const SizedBox.shrink();
 
-                final meetingTitle = mgr.activeMeeting?.title ?? 'Meeting';
+                final meetingTitle =
+                    mgr.activeMeeting?.title ?? 'Meeting';
                 return SafeArea(
                   bottom: false,
                   child: Padding(
@@ -491,15 +490,18 @@ class _HomePageState extends State<HomePage> {
                           await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => MeetingView(meeting: meeting, user: user),
+                              builder: (_) => MeetingView(
+                                  meeting: meeting, user: user),
                             ),
                           );
                         },
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
                           child: Row(
                             children: [
-                              const Icon(Icons.circle, color: Colors.green, size: 12),
+                              const Icon(Icons.circle,
+                                  color: Colors.green, size: 12),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
@@ -538,143 +540,6 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: BottomBar(
         currentIndex: _currentIndex,
         onTap: _onBottomNavTap,
-      ),
-    );
-  }
-
-  // تركت الدوال الإضافية زي ما هي عندك (ما لمستها)
-  Widget _buildActionCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFB382).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: const Color(0xFFFFB382),
-                size: 28,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2D3142),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentMeetingCard({
-    required String title,
-    required String time,
-    required int participants,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFB382).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.videocam_rounded,
-              color: Color(0xFFFFB382),
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF2D2F31),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.access_time_rounded,
-                        size: 14, color: Colors.grey.shade600),
-                    const SizedBox(width: 4),
-                    Text(
-                      time,
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600),
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(Icons.people_rounded,
-                        size: 14, color: Colors.grey.shade600),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$participants participants',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
-        ],
       ),
     );
   }

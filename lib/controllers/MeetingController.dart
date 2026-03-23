@@ -27,9 +27,13 @@ class MeetingController {
         maxCapacity: 100,
         numOfParticipants: 1,
         invitationLink: invitationLink,
+        screenShareAllowed: false,
       );
 
-      await _firestore.collection('Meetings').doc(meetingId).set(meeting.toMap());
+      await _firestore
+          .collection('Meetings')
+          .doc(meetingId)
+          .set(meeting.toMap());
 
       return meeting;
     } catch (e) {
@@ -38,7 +42,6 @@ class MeetingController {
     }
   }
 
-  /// ✅ Participant leaves: remove from participants + decrement count
   Future<void> leaveMeeting(String meetingId) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -56,7 +59,8 @@ class MeetingController {
         List<String>.from((data['participants'] as List?) ?? []);
         if (!participants.contains(user.uid)) return;
 
-        final currentNum = (data['numOfParticipants'] as int?) ?? participants.length;
+        final currentNum =
+            (data['numOfParticipants'] as int?) ?? participants.length;
         final nextNum = (currentNum - 1) < 0 ? 0 : (currentNum - 1);
 
         tx.update(ref, {
@@ -69,7 +73,6 @@ class MeetingController {
     }
   }
 
-  /// ✅ Host ends meeting: set isActive=false + endTime + clear participants + reset count
   Future<void> endMeeting(String meetingId) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -84,20 +87,26 @@ class MeetingController {
         final data = snap.data() as Map<String, dynamic>;
         final hostId = data['hostId'] as String?;
 
-        // فقط الهوست يقدر ينهي الاجتماع
         if (hostId == null || hostId != user.uid) return;
+
+        final currentParticipants = List<String>.from(
+            (data['participants'] as List?) ?? []);
 
         tx.update(ref, {
           'isActive': false,
           'endTime': Timestamp.now(),
+          'allParticipants': currentParticipants,
           'participants': <String>[],
           'numOfParticipants': 0,
+          'screenShareAllowed': false,
         });
       });
     } catch (e) {
       print("Error ending meeting: $e");
     }
   }
+
+  // ✅ مهم — لا ينحذف
   Future<void> initializeUserMeetingSession({
     required String meetingId,
     required String hostId,
@@ -111,12 +120,11 @@ class MeetingController {
       'currentMeetingId': meetingId,
       'isHandRaised': false,
       'handRaisedAt': null,
-      'micPermissionGranted': isHost,     // host=true participant=false
-      'cameraPermissionGranted': isHost,  // host=true participant=false
+      'micPermissionGranted': isHost,
+      'cameraPermissionGranted': isHost,
     }, SetOptions(merge: true));
   }
 
-  /// ✅ Req (19): Raise hand
   Future<void> raiseHand(String meetingId) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -128,7 +136,6 @@ class MeetingController {
     }, SetOptions(merge: true));
   }
 
-  /// ✅ Req (20): Lower hand
   Future<void> lowerHand() async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -139,8 +146,8 @@ class MeetingController {
     }, SetOptions(merge: true));
   }
 
-  /// ✅ Req (21): Ordered raised hands list (for this meeting)
-  Stream<QuerySnapshot<Map<String, dynamic>>> raisedHandsStream(String meetingId) {
+  Stream<QuerySnapshot<Map<String, dynamic>>> raisedHandsStream(
+      String meetingId) {
     return _firestore
         .collection('User')
         .where('currentMeetingId', isEqualTo: meetingId)
@@ -149,7 +156,6 @@ class MeetingController {
         .snapshots();
   }
 
-  /// ✅ Host approves Mic+Cam (يعطي الصلاحية)
   Future<void> approveMicCam({
     required String meetingId,
     required String targetUid,
@@ -157,8 +163,8 @@ class MeetingController {
     final host = _auth.currentUser;
     if (host == null) return;
 
-    // safety: تأكد انه داخل نفس الميتنق قبل الموافقة
-    final snap = await _firestore.collection('User').doc(targetUid).get();
+    final snap =
+    await _firestore.collection('User').doc(targetUid).get();
     final data = snap.data() ?? {};
     if (data['currentMeetingId'] != meetingId) return;
 
@@ -170,7 +176,6 @@ class MeetingController {
     }, SetOptions(merge: true));
   }
 
-  /// ✅ Host rejects (بس ينزل اليد)
   Future<void> rejectHand({required String targetUid}) async {
     await _firestore.collection('User').doc(targetUid).set({
       'isHandRaised': false,

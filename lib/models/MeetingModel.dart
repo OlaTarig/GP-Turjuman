@@ -11,6 +11,9 @@ class MeetingModel {
   final int maxCapacity;
   final int numOfParticipants;
   final String invitationLink;
+  // ✅ Global screen share permission flag
+  final bool screenShareAllowed;
+  final List<String> allParticipants;
 
   MeetingModel({
     required this.meetingId,
@@ -23,9 +26,10 @@ class MeetingModel {
     required this.maxCapacity,
     required this.numOfParticipants,
     required this.invitationLink,
+    this.screenShareAllowed = false,
+    this.allParticipants = const [],
   });
 
-  // Convert model to Firestore map
   Map<String, dynamic> toMap() {
     return {
       'meetingId': meetingId,
@@ -38,10 +42,11 @@ class MeetingModel {
       'maxCapacity': maxCapacity,
       'numOfParticipants': numOfParticipants,
       'invitationLink': invitationLink,
+      'screenShareAllowed': screenShareAllowed,
+      'allParticipants': allParticipants,
     };
   }
 
-  // Create model from Firestore
   factory MeetingModel.fromMap(Map<String, dynamic> map) {
     return MeetingModel(
       meetingId: map['meetingId'],
@@ -56,6 +61,9 @@ class MeetingModel {
       maxCapacity: map['maxCapacity'],
       numOfParticipants: map['numOfParticipants'],
       invitationLink: map['invitationLink'],
+      // ✅ safe read — defaults to false if field doesn't exist yet
+      screenShareAllowed: map['screenShareAllowed'] as bool? ?? false,
+      allParticipants: List<String>.from(map['allParticipants'] as List? ?? []),
     );
   }
 }
