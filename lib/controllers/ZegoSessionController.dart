@@ -1,10 +1,7 @@
-import 'dart:typed_data';
-import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:zego_express_engine/zego_express_engine.dart';
-import 'SignCaptioningController.dart';
 
 class ZegoSessionController extends ChangeNotifier {
   static const int    appID   = 2074378114;
@@ -38,18 +35,6 @@ class ZegoSessionController extends ChangeNotifier {
   Widget? remoteScreenWidget;
   int?    _remoteScreenViewID;
   String? _playingRemoteScreenStreamId;
-
-  // ── Sign captioning hook ───────────────────────────────────────────
-  // Set by MeetingSessionManager. Receives raw frames from the ML camera.
-  SignCaptioningController? signController;
-
-  // ── Parallel ML camera stream ──────────────────────────────────────
-  // A separate CameraController running at low resolution alongside Zego.
-  // Zego uses its own native camera session; Camera2 (Android) and
-  // AVCaptureSession (iOS) both support multiple simultaneous consumers.
-  CameraController? _mlCamera;
-  bool _mlCameraRunning  = false;
-  int  _frameSkipCounter = 0;
 
   // ──────────────────────────────────────────────────────────────────
 
@@ -257,63 +242,6 @@ class ZegoSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ─── ML camera stream ─────────────────────────────────────────────
-
-  Future<void> startMLCameraStream() async {
-    if (_mlCameraRunning) return;
-    try {
-      final cameras = await availableCameras();
-      final front = cameras.firstWhere(
-            (c) => c.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
-
-      _mlCamera = CameraController(
-        front,
-        ResolutionPreset.low,
-        enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.nv21,
-      );
-
-      await _mlCamera!.initialize();
-
-      _frameSkipCounter = 0;
-
-      await _mlCamera!.startImageStream((CameraImage image) {
-        _frameSkipCounter++;
-        if (_frameSkipCounter % 3 != 0) return;
-        final bytes = _flattenCameraImage(image);
-        signController?.onVideoFrame(bytes, image.width, image.height);
-      });
-
-      _mlCameraRunning = true;
-      debugPrint('✅ ML camera stream started');
-    } catch (e) {
-      debugPrint('❌ startMLCameraStream error: $e');
-    }
-  }
-
-  Future<void> stopMLCameraStream() async {
-    if (!_mlCameraRunning) return;
-    try {
-      await _mlCamera?.stopImageStream();
-      await _mlCamera?.dispose();
-      _mlCamera        = null;
-      _mlCameraRunning = false;
-      debugPrint('✅ ML camera stream stopped');
-    } catch (e) {
-      debugPrint('❌ stopMLCameraStream error: $e');
-    }
-  }
-
-  Uint8List _flattenCameraImage(CameraImage image) {
-    final allBytes = <int>[];
-    for (final plane in image.planes) {
-      allBytes.addAll(plane.bytes);
-    }
-    return Uint8List.fromList(allBytes);
-  }
-
   // ─── Screen Share ─────────────────────────────────────────────────
 
   ZegoScreenCaptureSource? _screenCaptureSource;
@@ -498,9 +426,6 @@ class ZegoSessionController extends ChangeNotifier {
   }
 
   Future<void> disposeSession() async {
-    signController = null;
-    await stopMLCameraStream();
-
     try {
       await logoutRoom();
     } catch (_) {}

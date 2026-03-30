@@ -1,0 +1,11 @@
+Place the following MediaPipe model files in this directory:
+
+1. pose_landmarker_full.task (~29 MB)
+   Download: https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task
+
+2. hand_landmarker.task (~8 MB)
+   Download: https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task
+
+These are loaded by SignRecognitionChannel.kt via Android's AssetManager (not Flutter's rootBundle).
+For smaller APK size, use pose_landmarker_lite.task instead of pose_landmarker_full.task —
+but accuracy will be lower and may not match training distribution.
