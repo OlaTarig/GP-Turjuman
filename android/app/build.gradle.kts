@@ -23,11 +23,9 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.turjuman"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // MediaPipe Tasks Vision requires API 24+
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -35,11 +33,19 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // Prevent Gradle from compressing ML model files — required for MediaPipe and TFLite
+    androidResources {
+        noCompress += listOf("tflite", "task", "lite", "bin")
+    }
+}
+
+dependencies {
+    // MediaPipe Tasks Vision: PoseLandmarker + HandLandmarker
+    implementation("com.google.mediapipe:tasks-vision:0.10.13")
 }
 
 flutter {

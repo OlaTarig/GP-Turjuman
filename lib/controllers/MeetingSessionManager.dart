@@ -59,10 +59,11 @@ class MeetingSessionManager extends ChangeNotifier {
     if (fbUid == null) throw Exception('No Firebase user');
 
     // ── Wire sign captioning ──────────────────────────────────────────
+    // Must be done AFTER session.initialize() (Zego engine created)
+    // and BEFORE session.startPublishing() (Zego stream started).
     await signing.initialize();
-    signing.attachZegoController(session);               // ML camera control
-    session.signController = signing;                    // frame forwarding
-    CaptionController.instance.attachSignController(signing); // label bridge
+    await signing.setupVideoProcessing();                // hook into Zego frames
+    CaptionController.instance.attachSignController(signing);
     // ─────────────────────────────────────────────────────────────────
 
     await session.loginRoom(
@@ -100,12 +101,12 @@ class MeetingSessionManager extends ChangeNotifier {
     // ── Tear down sign captioning ─────────────────────────────────────
     await signing.disable();
     CaptionController.instance.detachSignController();
-    session.signController = null;
     // ─────────────────────────────────────────────────────────────────
 
     await session.disposeSession();
     activeMeeting = null;
     activeUser    = null;
+
     notifyListeners();
   }
 

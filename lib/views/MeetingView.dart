@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 
 import '../models/MeetingModel.dart';
 import '../models/UserModel.dart';
@@ -12,6 +11,7 @@ import '../controllers/MeetingController.dart';
 import '../controllers/ZegoSessionController.dart';
 import '../controllers/MeetingSessionManager.dart';
 import '../controllers/CaptionController.dart';
+import '../controllers/SignCaptioningController.dart';
 import '../models/CaptionsAndTranscriptionModel.dart';
 import 'HomePage.dart';
 
@@ -41,6 +41,9 @@ class _MeetingScreenState extends State<MeetingView> {
 
   final CaptionController _captionController = CaptionController.instance;
 
+  SignCaptioningController get _signing => mgr.signing;
+
+
   String get _currentUid =>
       FirebaseAuth.instance.currentUser?.uid ?? widget.user.userId;
 
@@ -57,12 +60,15 @@ class _MeetingScreenState extends State<MeetingView> {
     _meetingSub = null;
   }
 
+  static const _windowChannel =
+      MethodChannel('com.example.turjuman/window_flags');
+
   Future<void> _enableSecureScreen() async {
-    await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
+    await _windowChannel.invokeMethod('addSecureFlag');
   }
 
   Future<void> _disableSecureScreen() async {
-    await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
+    await _windowChannel.invokeMethod('clearSecureFlag');
   }
 
   @override
@@ -74,6 +80,10 @@ class _MeetingScreenState extends State<MeetingView> {
     mgr = MeetingSessionManager.instance;
     mgr.addListener(_onSessionChanged);
     _captionController.addListener(_onSessionChanged);
+    // signing listener wired after mgr.startOrJoin() so the controller exists
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _signing.addListener(_onSessionChanged);
+    });
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
@@ -111,6 +121,12 @@ class _MeetingScreenState extends State<MeetingView> {
         await mgr.startOrJoin(meeting: widget.meeting, user: widget.user);
         _captionController.setMeetingId(widget.meeting.meetingId);
         _captionController.isMicMuted = !session.isMicOn;
+        _signing.attachCaptionController(
+          _captionController,
+          widget.user.userId,
+          widget.user.name,
+          widget.meeting.meetingId,
+        );
       } catch (_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -219,6 +235,7 @@ class _MeetingScreenState extends State<MeetingView> {
     _userSub?.cancel();
     mgr.removeListener(_onSessionChanged);
     _captionController.removeListener(_onSessionChanged);
+    _signing.removeListener(_onSessionChanged);
     super.dispose();
   }
 
@@ -329,6 +346,14 @@ class _MeetingScreenState extends State<MeetingView> {
       widget.meeting.meetingId,
       widget.user.name,
     );
+  }
+
+  Future<void> _onSignPressed() async {
+    if (_signing.isEnabled) {
+      await _signing.disable();
+    } else {
+      await _signing.startCapture();
+    }
   }
 
   Future<void> _onHandPressed() async {
@@ -1017,7 +1042,8 @@ class _MeetingScreenState extends State<MeetingView> {
                               ),
                             ),
                           ),
-                        if (_captionController.captionsEnabled)
+                        // ── Caption overlay (speech + sign share the same buffer) ──
+                        if (_captionController.captionsEnabled || _signing.isEnabled)
                           Positioned(
                             bottom: 60,
                             left: 12,
@@ -1032,65 +1058,148 @@ class _MeetingScreenState extends State<MeetingView> {
                                   return const SizedBox.shrink();
                                 }
                                 final data =
-                                snap.data!.data() as Map<String, dynamic>;
+                                    snap.data!.data() as Map<String, dynamic>;
                                 final allEntries =
-                                (data['captionsBuffer'] as List<dynamic>? ??
-                                    [])
-                                    .map((e) => CaptionEntry.fromMap(
-                                    e as Map<String, dynamic>))
-                                    .toList();
+                                    (data['captionsBuffer'] as List<dynamic>? ??
+                                            [])
+                                        .map((e) => CaptionEntry.fromMap(
+                                            e as Map<String, dynamic>))
+                                        .toList();
                                 if (allEntries.isEmpty) {
                                   return const SizedBox.shrink();
                                 }
                                 final entries = allEntries.length > 3
                                     ? allEntries
-                                    .sublist(allEntries.length - 3)
+                                        .sublist(allEntries.length - 3)
                                     : allEntries;
                                 return Column(
                                   crossAxisAlignment:
-                                  CrossAxisAlignment.stretch,
+                                      CrossAxisAlignment.stretch,
                                   children: entries
                                       .map(
                                         (entry) => Container(
-                                      margin:
-                                      const EdgeInsets.only(bottom: 4),
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 14, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color:
-                                        Colors.black.withOpacity(0.75),
-                                        borderRadius:
-                                        BorderRadius.circular(10),
-                                      ),
-                                      child: RichText(
-                                        textDirection: TextDirection.rtl,
-                                        text: TextSpan(
-                                          children: [
-                                            TextSpan(
-                                              text: '${entry.userName}: ',
-                                              style: const TextStyle(
-                                                color: Color(0xFFFFB382),
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
-                                              ),
+                                          margin:
+                                              const EdgeInsets.only(bottom: 4),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 14, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Colors.black.withOpacity(0.75),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                          child: RichText(
+                                            textDirection: TextDirection.rtl,
+                                            text: TextSpan(
+                                              children: [
+                                                TextSpan(
+                                                  text:
+                                                      '${entry.userName}: ',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFFFB382),
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                                TextSpan(
+                                                  text: entry.text,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            TextSpan(
-                                              text: entry.text,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ],
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                  )
+                                      )
                                       .toList(),
                                 );
                               },
                             ),
                           ),
+
+                        // ── Sign: capture progress bar ─────────────────
+                        if (_signing.captureState == CaptureState.capturing)
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            child: LinearProgressIndicator(
+                              value: _signing.captureProgress,
+                              minHeight: 4,
+                              backgroundColor: Colors.white24,
+                              valueColor:
+                                  const AlwaysStoppedAnimation<Color>(
+                                      Colors.deepPurple),
+                            ),
+                          ),
+
+                        // ── Sign: inferring indicator ──────────────────
+                        if (_signing.captureState == CaptureState.inferring)
+                          Positioned(
+                            top: 8,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple.withOpacity(0.85),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text('Analyzing sign…',
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        // ── Sign: hands out of frame warning ──────────
+                        if (_signing.isEnabled && _signing.handsOutOfFrame)
+                          Positioned(
+                            top: 8,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.90),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded,
+                                        color: Colors.white, size: 16),
+                                    SizedBox(width: 6),
+                                    Text('Hands not detected — move into frame',
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+
                         Positioned(
                           bottom: 12,
                           left: 12,
@@ -1161,6 +1270,13 @@ class _MeetingScreenState extends State<MeetingView> {
                     isActive: _captionController.captionsEnabled,
                     activeColor: Colors.orange,
                     onTap: _onCaptionsPressed,
+                  ),
+                  _meetingIcon(
+                    icon: Icons.sign_language,
+                    label: 'Sign',
+                    isActive: _signing.isEnabled,
+                    activeColor: Colors.deepPurple,
+                    onTap: _onSignPressed,
                   ),
                   _meetingIcon(
                     icon: session.isScreenSharing

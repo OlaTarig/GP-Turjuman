@@ -1,321 +1,302 @@
 import 'dart:async';
-import 'dart:collection';
-import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'dart:convert';
-import 'ZegoSessionController.dart';
+import 'CaptionController.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SignCaptioningController
+// SignCaptioningController — continuous real-time sign recognition
 //
-// Full sign-recognition pipeline:
-//   Camera frame (via ZegoSessionController._mlCamera imageStream)
-//     → MediaPipe Holistic  (pose 33pts + left hand 21pts + right hand 21pts)
-//       → extractKeypoints()  →  Float32List[225]
-//         → rolling sequence buffer (70 frames)
-//           → hasMotion() gate
-//             → TCN TFLite inference  [1, 70, 225]
-//               → threshold (0.3) + smoothing (window=5, consensus=3)
-//                 → currentArabicSign  (notifies listeners)
+// Pipeline (toggled on/off by button press):
+//   User enables Sign mode
+//     → native SignRecognitionChannel intercepts Zego camera frames
+//       → MediaPipe extracts 225 keypoints per frame
+//         → 48-frame batches (10 800 floats) streamed to Dart via EventChannel
+//           → TCN TFLite inference  [1, 48, 225]
+//             → top-5 predictions (confidence-sorted)
+//               → currentArabicSign + topPredictions notified to listeners
+//                 → automatically ready for the next sign
 //
-// CaptionController listens via addListener(_onSignLabel) and calls
-// its own updateCaption() → Firestore captionsBuffer.
+// Native Android (SignRecognitionChannel.kt) handles:
+//   Zego IZegoCustomVideoProcessHandler → I420→NV21→Bitmap → MediaPipe → 225 floats
+//   Accumulates 48 frames natively, then sends a flat List<double>(10 800) via EventChannel.
+//   Sends "handsOutOfFrame" / "handsDetected" String events for UX feedback.
+//
+// Zego video is always passed through unmodified — sign mode adds zero latency to video.
 // ─────────────────────────────────────────────────────────────────────────────
+
+enum CaptureState { idle, capturing, inferring }
+
+class SignPrediction {
+  final String arabicWord;
+  final double confidence;
+  const SignPrediction(this.arabicWord, this.confidence);
+}
 
 class SignCaptioningController extends ChangeNotifier {
-  // ── Constants — mirror Python script exactly ───────────────────────
-  static const int    _maxFrames           = 70;
+  // ── Constants — must match training ───────────────────────────────
+  static const int    _numFrames           = 48;
   static const int    _featureDim          = 225; // 33*3 + 21*3 + 21*3
-  static const double _motionThreshold     = 0.01;
   static const double _confidenceThreshold = 0.3;
-  static const int    _smoothingWindow     = 5;
-  static const int    _minConsensus        = 3;
+
+  // ── Platform channels ──────────────────────────────────────────────
+  static const _methodChannel = MethodChannel('com.example.turjuman/sign_recognition');
+  static const _eventChannel  = EventChannel('com.example.turjuman/sign_keypoints');
 
   // ── Public state ───────────────────────────────────────────────────
-  bool    isEnabled         = false;
-  String? currentArabicSign;
-  double  currentConfidence = 0.0;
+  CaptureState         captureState      = CaptureState.idle;
+  List<SignPrediction> topPredictions    = [];
+  String?              currentArabicSign;
+  double               currentConfidence = 0.0;
+  bool                 isEnabled         = false;
 
-  // ── Internal buffers ───────────────────────────────────────────────
-  final _sequenceBuffer    = ListQueue<Float32List>();
-  final _predictionHistory = ListQueue<String>();
+  /// True when native reports no hands/pose for [_maxNoDetectionFrames].
+  bool handsOutOfFrame = false;
 
-  // ── Label data ─────────────────────────────────────────────────────
+  // captureProgress is always 0 with native accumulation
+  // (48 frames are buffered on the Kotlin side, then sent as one batch)
+  double get captureProgress => 0.0;
+
+  // ── Internal ───────────────────────────────────────────────────────
+  StreamSubscription<dynamic>? _keypointsSub;
+
+  // Hands-out-of-frame tracking
+  int  _noDetectionFrames    = 0;
+  static const int _maxNoDetectionFrames = 20;
+
+  // Sentence accumulation
+  final _sentenceWords = <String>[];
+  Timer? _sentenceFlushTimer;
+  static const Duration _sentenceFlushDelay = Duration(seconds: 3);
+
+  CaptionController? _captionController;
+  String _userId    = '';
+  String _userName  = '';
+  String _meetingId = '';
+
   List<dynamic>        _labelClasses = [];
   Map<String, dynamic> _labelMapping = {};
 
-  // ── TFLite interpreter ─────────────────────────────────────────────
   Interpreter? _interpreter;
-  List<int> _outputShape = [];
-
-  // ── MediaPipe Holistic ─────────────────────────────────────────────
-  // Replace with your actual MediaPipe binding.
-  dynamic _holistic;
-
-  // ── Zego controller reference (for starting/stopping ML camera) ───
-  ZegoSessionController? _zegoController;
-
-  bool _initialized = false;
+  bool         _initialized = false;
 
   // ── Initialization ─────────────────────────────────────────────────
 
   Future<void> initialize() async {
     if (_initialized) return;
 
-    // 1. Load label assets
+    // 1. Label encoder
     _labelClasses = json.decode(
-      await rootBundle
-          .loadString('assets/models/label_encoder_classes.json'),
+      await rootBundle.loadString('assets/model/le_48_clean_final.json'),
     ) as List<dynamic>;
 
+    // 2. Word mapping
     _labelMapping = json.decode(
-      await rootBundle.loadString('assets/models/label_mapping.json'),
+      await rootBundle.loadString('assets/model/label_mapping.json'),
     ) as Map<String, dynamic>;
 
-    // 2. Load TFLite model — uncomment after adding tflite_flutter:
-    //
-     final options = InterpreterOptions();
-     _interpreter = await Interpreter.fromAsset(
-       'assets/models/tcn_final.tflite',
-       options: options,
-     );
-    // _outputShape = _interpreter!.getOutputTensor(0).shape; // [1, numClasses]
+    // 3. TFLite model — input [1, 48, 225], output [1, N]
+    _interpreter = await Interpreter.fromAsset(
+      'assets/model/tcn_48_clean_final.tflite',
+      options: InterpreterOptions(),
+    );
 
-    // 3. Initialize MediaPipe Holistic — replace with your binding:
-    //
-    // _holistic = await HolisticLandmarker.create(
-    //   minPoseDetectionConfidence: 0.5,
-    //   minTrackingConfidence:      0.5,
-    // );
+    // 4. Initialize native MediaPipe landmarkers
+    await _methodChannel.invokeMethod<void>('initialize');
 
     _initialized = true;
     debugPrint('✅ SignCaptioningController initialized');
   }
 
-  // ── Attach Zego controller (called by MeetingSessionManager) ───────
+  // ── One-time Zego hook setup ───────────────────────────────────────
+  //
+  // Must be called AFTER ZegoExpressEngine is created (session.initialize())
+  // and BEFORE startPublishingStream (session.startPublishing()).
 
-  void attachZegoController(ZegoSessionController controller) {
-    _zegoController = controller;
+  Future<void> setupVideoProcessing() async {
+    if (!_initialized) await initialize();
+    await _methodChannel.invokeMethod<void>('setupVideoProcessing');
+    debugPrint('✅ Zego custom video processing hook registered');
+  }
+
+  // ── Attach/detach CaptionController ───────────────────────────────
+
+  void attachCaptionController(
+      CaptionController cc, String userId, String userName, String meetingId) {
+    _captionController = cc;
+    _userId    = userId;
+    _userName  = userName;
+    _meetingId = meetingId;
   }
 
   // ── Enable / Disable ──────────────────────────────────────────────
 
   Future<void> enable() async {
     if (!_initialized) await initialize();
-    _sequenceBuffer.clear();
-    _predictionHistory.clear();
-    currentArabicSign = null;
-    currentConfidence = 0.0;
-    isEnabled         = true;
-    await _zegoController?.startMLCameraStream();
+    if (isEnabled) return;
+
+    isEnabled          = true;
+    handsOutOfFrame    = false;
+    _noDetectionFrames = 0;
+    captureState       = CaptureState.capturing;
+    topPredictions     = [];
+
+    await _methodChannel.invokeMethod<void>('startContinuous');
+
+    _keypointsSub = _eventChannel.receiveBroadcastStream().listen(
+      _onKeypointEvent,
+      onError: (e) => debugPrint('⚠️ sign_keypoints channel error: $e'),
+    );
+
     notifyListeners();
-    debugPrint('✅ Sign captioning ENABLED');
+    debugPrint('✅ Sign captioning ENABLED (continuous native)');
   }
 
   Future<void> disable() async {
-    isEnabled         = false;
-    currentArabicSign = null;
-    currentConfidence = 0.0;
-    _sequenceBuffer.clear();
-    _predictionHistory.clear();
-    await _zegoController?.stopMLCameraStream();
+    isEnabled          = false;
+    captureState       = CaptureState.idle;
+    topPredictions     = [];
+    currentArabicSign  = null;
+    currentConfidence  = 0.0;
+    handsOutOfFrame    = false;
+    _noDetectionFrames = 0;
+
+    await _methodChannel.invokeMethod<void>('stopContinuous');
+    await _keypointsSub?.cancel();
+    _keypointsSub = null;
+
+    // Flush any words the user signed before disabling
+    _sentenceFlushTimer?.cancel();
+    _flushSentence();
+
     notifyListeners();
     debugPrint('✅ Sign captioning DISABLED');
   }
 
-  // ── Frame entry point (called by ZegoSessionController._mlCamera) ──
+  // ── Continuous toggle ──────────────────────────────────────────────
 
-  Future<void> onVideoFrame(
-      Uint8List bytes, int width, int height) async {
-    if (!isEnabled || !_initialized) return;
+  Future<void> startCapture() async {
+    if (!isEnabled) await enable();
+  }
 
-    // 1. Run MediaPipe Holistic
-    //    Replace _runHolisticStub with your actual binding call, e.g.:
-    //    final result = await _holistic.processBytes(bytes, width, height);
-    //    if (result.poseLandmarks == null) return;
-    final result = await _runHolisticStub(bytes, width, height);
-    if (result == null) return;
+  // ── EventChannel handler ───────────────────────────────────────────
 
-    // 2. Extract 225-float keypoints — mirrors Python extract_keypoints()
-    final keypoints = _extractKeypoints(result);
+  void _onKeypointEvent(dynamic event) {
+    if (event is String) {
+      if (event == 'handsOutOfFrame') {
+        _noDetectionFrames++;
+        if (_noDetectionFrames >= _maxNoDetectionFrames && !handsOutOfFrame) {
+          handsOutOfFrame = true;
+          notifyListeners();
+        }
+      } else if (event == 'handsDetected') {
+        if (_noDetectionFrames > 0 || handsOutOfFrame) {
+          _noDetectionFrames = 0;
+          handsOutOfFrame    = false;
+          notifyListeners();
+        }
+      }
+    } else if (event is List && isEnabled) {
+      // 10 800 values = 48 frames × 225 keypoints, sent as List<dynamic>
+      final flat = event.map<double>((e) => (e as num).toDouble()).toList();
+      _runInferenceFromFlat(flat);
+    }
+  }
 
-    // 3. Push to rolling buffer
-    _sequenceBuffer.addLast(keypoints);
-    if (_sequenceBuffer.length > _maxFrames) _sequenceBuffer.removeFirst();
+  // ── Inference ──────────────────────────────────────────────────────
 
-    // 4. Only infer when buffer full AND motion detected
-    if (_sequenceBuffer.length < _maxFrames) return;
-    if (!_hasMotion()) return;
+  Future<void> _runInferenceFromFlat(List<double> flat) async {
+    if (_interpreter == null) return;
+    if (flat.length < _numFrames * _featureDim) return;
 
-    // 5. Run TCN inference
-    final rawOutput = _runInference(_sequenceBuffer.toList());
-    if (rawOutput == null) return;
-
-    // 6. Threshold + smoothing
-    final processed = _processOutput(rawOutput);
-    if (processed == null) return;
-
-    final (arabicSign, confidence) = processed;
-    final smoothed = _smooth(arabicSign);
-    if (smoothed == null) return;
-
-    // 7. Publish — CaptionController._onSignLabel fires here
-    currentArabicSign = smoothed;
-    currentConfidence = confidence;
+    captureState = CaptureState.inferring;
     notifyListeners();
-  }
 
-  // ── Keypoint extraction ────────────────────────────────────────────
-  // Mirrors Python extract_keypoints() + adjust_landmarks() exactly.
-  // pose: 33*3=99, lh: 21*3=63, rh: 21*3=63 → total 225
-
-  Float32List _extractKeypoints(HolisticResult result) {
-    final pose = result.poseLandmarks != null
-        ? result.poseLandmarks!
-        .expand((l) => [l.x, l.y, l.z])
-        .toList()
-        : List<double>.filled(99, 0.0);
-
-    final lh = result.leftHandLandmarks != null
-        ? result.leftHandLandmarks!
-        .expand((l) => [l.x, l.y, l.z])
-        .toList()
-        : List<double>.filled(63, 0.0);
-
-    final rh = result.rightHandLandmarks != null
-        ? result.rightHandLandmarks!
-        .expand((l) => [l.x, l.y, l.z])
-        .toList()
-        : List<double>.filled(63, 0.0);
-
-    final nose    = [pose[0], pose[1], pose[2]];
-    final lhWrist = [lh[0],   lh[1],   lh[2]];
-    final rhWrist = [rh[0],   rh[1],   rh[2]];
-
-    List<double> adjust(List<double> arr, List<double> anchor) {
-      final out = <double>[];
-      for (int i = 0; i < arr.length; i += 3) {
-        out.add(arr[i]     - anchor[0]);
-        out.add(arr[i + 1] - anchor[1]);
-        out.add(arr[i + 2] - anchor[2]);
+    try {
+      // Build flat [1, 48, 225] float32 input
+      final inputFlat = Float32List(_numFrames * _featureDim);
+      for (int i = 0; i < _numFrames * _featureDim; i++) {
+        inputFlat[i] = flat[i];
       }
-      return out;
-    }
+      final inputTensor = inputFlat.reshape([1, _numFrames, _featureDim]);
 
-    final combined = [
-      ...adjust(pose, nose),
-      ...adjust(lh,   lhWrist),
-      ...adjust(rh,   rhWrist),
-    ];
+      // Output buffer [1, numClasses]
+      final numClasses   = _interpreter!.getOutputTensor(0).shape[1];
+      final outputBuffer = [List<double>.filled(numClasses, 0.0)];
+      _interpreter!.run(inputTensor, outputBuffer);
 
-    assert(combined.length == _featureDim);
-    return Float32List.fromList(combined);
-  }
+      final rawOutput = List<double>.from(outputBuffer[0] as List);
+      topPredictions  = _buildTop5(rawOutput);
 
-  // ── Motion detection ──────────────────────────────────────────────
-  // Mirrors Python has_motion()
-
-  bool _hasMotion() {
-    final frames = _sequenceBuffer.toList();
-    double total = 0.0;
-    for (int i = 1; i < frames.length; i++) {
-      double diff = 0.0;
-      for (int j = 0; j < _featureDim; j++) {
-        diff += (frames[i][j] - frames[i - 1][j]).abs();
+      if (topPredictions.isNotEmpty &&
+          topPredictions.first.confidence >= _confidenceThreshold) {
+        currentArabicSign = topPredictions.first.arabicWord;
+        currentConfidence = topPredictions.first.confidence;
+        _onSignRecognized(currentArabicSign!);
+      } else {
+        currentArabicSign = null;
+        currentConfidence = 0.0;
       }
-      total += diff / _featureDim;
+
+      debugPrint('✅ Sign: $currentArabicSign '
+          '(${(currentConfidence * 100).toStringAsFixed(1)}%)');
+    } catch (e) {
+      debugPrint('❌ Inference error: $e');
+    } finally {
+      // Auto-restart continuous capture while sign mode is active
+      captureState = isEnabled ? CaptureState.capturing : CaptureState.idle;
+      notifyListeners();
     }
-    return (total / (frames.length - 1)) > _motionThreshold;
   }
 
-  // ── TCN Inference ─────────────────────────────────────────────────
-  // Mirrors Python predict_sign():
-  //   subsample to 70 frames (np.linspace) or zero-pad
-  //   input shape: [1, 70, 225]
+  // ── Sentence accumulation ─────────────────────────────────────────
 
-  List<double>? _runInference(List<Float32List> sequence) {
-    if (_interpreter == null) return null;
-
-    List<Float32List> seq = List.from(sequence);
-
-    if (seq.length > _maxFrames) {
-      final indices = List.generate(_maxFrames, (i) {
-        return ((i * (seq.length - 1)) / (_maxFrames - 1)).round();
-      });
-      seq = indices.map((i) => seq[i]).toList();
-    } else if (seq.length < _maxFrames) {
-      final pad = Float32List(_featureDim);
-      while (seq.length < _maxFrames) seq.add(pad);
-    }
-
-    final flat = Float32List(_maxFrames * _featureDim);
-    for (int f = 0; f < _maxFrames; f++) {
-      flat.setRange(f * _featureDim, (f + 1) * _featureDim, seq[f]);
-    }
-
-    // Uncomment when tflite_flutter is wired up:
-    // final inputTensor  = flat.reshape([1, _maxFrames, _featureDim]);
-    // final numClasses   = _outputShape[1];
-    // final outputBuffer = List.filled(numClasses, 0.0).reshape([1, numClasses]);
-    // _interpreter!.run(inputTensor, outputBuffer);
-    // return List<double>.from(outputBuffer[0] as List);
-
-    return null;
+  void _onSignRecognized(String word) {
+    _sentenceWords.add(word);
+    _sentenceFlushTimer?.cancel();
+    _sentenceFlushTimer = Timer(_sentenceFlushDelay, _flushSentence);
   }
 
-  // ── Output processing ─────────────────────────────────────────────
-  // Mirrors Python: argmax → confidence threshold → label mapping
-
-  (String, double)? _processOutput(List<double> rawOutput) {
-    final predIdx    = rawOutput.indexOf(rawOutput.reduce(max));
-    final confidence = rawOutput[predIdx];
-    if (confidence < _confidenceThreshold) return null;
-
-    final originalLabel = _labelClasses[predIdx].toString();
-    final arabicLabel   =
-        _labelMapping[originalLabel] as String? ?? '؟';
-
-    return (arabicLabel, confidence);
+  void _flushSentence() {
+    if (_sentenceWords.isEmpty) return;
+    final sentence = _sentenceWords.join(' ');
+    _sentenceWords.clear();
+    _captionController?.pushSignCaption(
+        sentence, _userId, _userName, _meetingId);
+    debugPrint('🤟 Sentence flushed: $sentence');
   }
 
-  // ── Smoothing ─────────────────────────────────────────────────────
-  // Mirrors Python Counter(recent_predictions).most_common(1)[0]
+  // ── Label lookup ───────────────────────────────────────────────────
 
-  String? _smooth(String label) {
-    _predictionHistory.addLast(label);
-    if (_predictionHistory.length > _smoothingWindow) {
-      _predictionHistory.removeFirst();
-    }
-    final counts = <String, int>{};
-    for (final p in _predictionHistory) {
-      counts[p] = (counts[p] ?? 0) + 1;
-    }
-    final best =
-    counts.entries.reduce((a, b) => a.value > b.value ? a : b);
-    return best.value >= _minConsensus ? best.key : null;
-  }
+  List<SignPrediction> _buildTop5(List<double> rawOutput) {
+    final indexed = List.generate(rawOutput.length, (i) => MapEntry(i, rawOutput[i]));
+    indexed.sort((a, b) => b.value.compareTo(a.value));
 
-  // ── MediaPipe stub ─────────────────────────────────────────────────
-  // Remove once your MediaPipe binding is wired up.
-  Future<HolisticResult?> _runHolisticStub(
-      Uint8List bytes, int width, int height) async {
-    return null; // null = no person detected → frame skipped
+    final top5 = <SignPrediction>[];
+    for (final entry in indexed.take(5)) {
+      if (entry.key >= _labelClasses.length) continue;
+      final originalLabel = _labelClasses[entry.key].toString();
+      final arabicWord    = _labelMapping[originalLabel]?.toString() ?? '؟';
+      top5.add(SignPrediction(arabicWord, entry.value));
+    }
+    return top5;
   }
 
   // ── Dispose ───────────────────────────────────────────────────────
+
   @override
   void dispose() {
-    // _holistic?.close();
-    // _interpreter?.close();
+    _keypointsSub?.cancel();
+    _methodChannel.invokeMethod<void>('dispose').ignore();
+    _interpreter?.close();
     super.dispose();
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Data classes — replace with actual types from your MediaPipe binding
+// Legacy data classes (kept for API compatibility)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class LandmarkPoint {
@@ -327,7 +308,6 @@ class HolisticResult {
   final List<LandmarkPoint>? poseLandmarks;
   final List<LandmarkPoint>? leftHandLandmarks;
   final List<LandmarkPoint>? rightHandLandmarks;
-
   const HolisticResult({
     this.poseLandmarks,
     this.leftHandLandmarks,

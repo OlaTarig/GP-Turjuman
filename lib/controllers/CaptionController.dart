@@ -380,9 +380,56 @@ class CaptionController extends ChangeNotifier {
           '${dt.minute.toString().padLeft(2, '0')}:'
           '${dt.second.toString().padLeft(2, '0')}';
 
-  // ── Sign captioning bridge (reserved for future use) ──────────────
+  // ── Sign captioning bridge ─────────────────────────────────────────
   void attachSignController(dynamic signController) {}
   void detachSignController() {}
+
+  // ── Sign captioning ────────────────────────────────────────────────
+  //
+  // Called by SignCaptioningController when a sentence is flushed.
+  // Bypasses the mic-mute gate so deaf users can caption with mic off.
+  Future<void> pushSignCaption(
+      String text, String userId, String userName, String meetingId) async {
+    if (text.trim().isEmpty || meetingId.isEmpty) return;
+
+    // Ensure the Firestore doc exists (it may not if speech CC was never turned on)
+    await FirebaseFirestore.instance
+        .collection(kCaptionsCollection)
+        .doc(meetingId)
+        .set({
+      'meetingId': meetingId,
+      'captionsBuffer': [],
+      'translatedSign': [],
+      'isCompleted': false,
+      'format': 'pdf',
+      'activeSpeakerId': '',
+      'attendees': FieldValue.arrayUnion([userId]),
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'transcriptionFilePath': '',
+    }, SetOptions(merge: true));
+
+    final entry = CaptionEntry(
+      userId: userId,
+      userName: userName,
+      text: text.trim(),
+      timestamp: DateTime.now(),
+    );
+
+    try {
+      await FirebaseFirestore.instance
+          .collection(kCaptionsCollection)
+          .doc(meetingId)
+          .set({
+        'captionsBuffer': FieldValue.arrayUnion([entry.toMap()]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      debugPrint('🤟 Sign caption pushed: ${entry.text}');
+    } catch (e) {
+      debugPrint('❌ pushSignCaption error: $e');
+    }
+    notifyListeners();
+  }
 
   @override
   void dispose() {
