@@ -189,11 +189,10 @@ class SignRecognitionChannel(
                 val copy      = ByteArray(totalSize)
                 data.rewind()
                 data.get(copy, 0, totalSize)
+                // SDK 3.x passes the frame through automatically after the
+                // callback returns — no sendCustomVideoProcessedRawData needed.
 
-                // 2. In SDK 3.23+ RAW_DATA frames are passed through automatically —
-                //    no sendCustomVideoProcessedRawData call needed.
-
-                // 3. Process for sign recognition when active and not already busy.
+                // 2. Process for sign recognition when active and not already busy.
                 if (!isCapturing) return
                 if (!isProcessing.compareAndSet(false, true)) return // drop frame if busy
 

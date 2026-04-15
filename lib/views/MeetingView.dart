@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/MeetingModel.dart';
 import '../models/UserModel.dart';
 import '../controllers/MeetingController.dart';
@@ -13,6 +14,7 @@ import '../controllers/MeetingSessionManager.dart';
 import '../controllers/CaptionController.dart';
 import '../controllers/SignCaptioningController.dart';
 import '../models/CaptionsAndTranscriptionModel.dart';
+import '../features/sign_language/sign_language_module.dart';
 import 'HomePage.dart';
 
 class MeetingView extends StatefulWidget {
@@ -38,8 +40,10 @@ class _MeetingScreenState extends State<MeetingView> {
   bool _endedDialogShown = false;
 
   bool _screenShareAllowedForAll = false;
+  bool _signAvatarEnabled = false;
 
   final CaptionController _captionController = CaptionController.instance;
+  final SignLanguageModule _signLang = SignLanguageModule.instance;
 
   SignCaptioningController get _signing => mgr.signing;
 
@@ -64,7 +68,11 @@ class _MeetingScreenState extends State<MeetingView> {
       MethodChannel('com.example.turjuman/window_flags');
 
   Future<void> _enableSecureScreen() async {
-    await _windowChannel.invokeMethod('addSecureFlag');
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool('secure_screen_enabled') ?? true;
+    if (enabled) {
+      await _windowChannel.invokeMethod('addSecureFlag');
+    }
   }
 
   Future<void> _disableSecureScreen() async {
@@ -127,6 +135,11 @@ class _MeetingScreenState extends State<MeetingView> {
           widget.user.name,
           widget.meeting.meetingId,
         );
+
+        // Sign language avatar pipeline
+        await _signLang.initialize();
+        _signLang.attachToCaption(_captionController);
+        _signLang.handController.addListener(_onSessionChanged);
       } catch (_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -191,6 +204,12 @@ class _MeetingScreenState extends State<MeetingView> {
   void _onSessionChanged() {
     if (!mounted) return;
     setState(() {});
+    // Surface any speech recognition error to the user
+    final err = _captionController.lastError;
+    if (err != null) {
+      _captionController.lastError = null;
+      _showSnackBar(err, Colors.redAccent, Icons.mic_off);
+    }
   }
 
   void _checkAccessSettingsOnEntry() {
@@ -236,6 +255,11 @@ class _MeetingScreenState extends State<MeetingView> {
     mgr.removeListener(_onSessionChanged);
     _captionController.removeListener(_onSessionChanged);
     _signing.removeListener(_onSessionChanged);
+    if (_signLang.isInitialized) {
+      _signLang.handController.removeListener(_onSessionChanged);
+      _signLang.detachFromCaption(_captionController);
+      _signLang.stopPlayback();
+    }
     super.dispose();
   }
 
@@ -352,7 +376,34 @@ class _MeetingScreenState extends State<MeetingView> {
     if (_signing.isEnabled) {
       await _signing.disable();
     } else {
+      if (!session.isCameraOn) {
+        _showSnackBar(
+          'Turn on your camera first — sign recognition needs camera access',
+          Colors.orange,
+          Icons.videocam_off,
+        );
+        return;
+      }
       await _signing.startCapture();
+    }
+  }
+
+  void _onSignAvatarPressed() {
+    if (!_signAvatarEnabled) {
+      setState(() => _signAvatarEnabled = true);
+      _showSnackBar(
+        'Sign avatar enabled — captions will be translated to sign language',
+        const Color(0xFFFFB382),
+        Icons.interpreter_mode,
+      );
+    } else {
+      _signLang.stopPlayback();
+      setState(() => _signAvatarEnabled = false);
+      _showSnackBar(
+        'Sign avatar disabled',
+        Colors.grey,
+        Icons.interpreter_mode,
+      );
     }
   }
 
@@ -926,26 +977,6 @@ class _MeetingScreenState extends State<MeetingView> {
         ),
         body: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-              child: SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                  ),
-                  onPressed: _onLeaveOrEndPressed,
-                  child: Text(
-                    _isHost ? 'End Meeting' : 'Leave Meeting',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -1119,14 +1150,14 @@ class _MeetingScreenState extends State<MeetingView> {
                             ),
                           ),
 
-                        // ── Sign: capture progress bar ─────────────────
-                        if (_signing.captureState == CaptureState.capturing)
+                        // ── Sign: capture progress bar (indeterminate) ──
+                        if (_signing.captureState == CaptureState.capturing ||
+                            _signing.captureState == CaptureState.inferring)
                           Positioned(
                             top: 0,
                             left: 0,
                             right: 0,
                             child: LinearProgressIndicator(
-                              value: _signing.captureProgress,
                               minHeight: 4,
                               backgroundColor: Colors.white24,
                               valueColor:
@@ -1165,6 +1196,35 @@ class _MeetingScreenState extends State<MeetingView> {
                                             color: Colors.white,
                                             fontSize: 13)),
                                   ],
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        // ── Sign: last recognized word chip ───────────
+                        if (_signing.isEnabled &&
+                            _signing.currentArabicSign != null &&
+                            _signing.captureState == CaptureState.capturing)
+                          Positioned(
+                            top: 12,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple.withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                child: Text(
+                                  _signing.currentArabicSign!,
+                                  textDirection: TextDirection.rtl,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1219,6 +1279,12 @@ class _MeetingScreenState extends State<MeetingView> {
                             ),
                           ),
                         ),
+
+                        // ── Sign language avatar overlay ───────────
+                        if (_signAvatarEnabled && _signLang.isInitialized)
+                          SignOverlayWidget(
+                            controller: _signLang.handController,
+                          ),
                       ],
                     ),
                   ),
@@ -1226,8 +1292,6 @@ class _MeetingScreenState extends State<MeetingView> {
               ),
             ),
             Container(
-              padding:
-              const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
               decoration: const BoxDecoration(
                 color: darkBg,
                 borderRadius: BorderRadius.only(
@@ -1235,59 +1299,115 @@ class _MeetingScreenState extends State<MeetingView> {
                   topRight: Radius.circular(24),
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _meetingIcon(
-                    icon: session.isMicOn ? Icons.mic : Icons.mic_off,
-                    label: 'Mic',
-                    isActive: session.isMicOn,
-                    activeColor: Colors.orange,
-                    onTap: _onMicPressed,
+                  const SizedBox(height: 10),
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
                   ),
-                  _meetingIcon(
-                    icon: session.isCameraOn
-                        ? Icons.videocam
-                        : Icons.videocam_off,
-                    label: 'Camera',
-                    isActive: session.isCameraOn,
-                    activeColor: Colors.orange,
-                    onTap: _onCameraPressed,
+                  const SizedBox(height: 6),
+                  ShaderMask(
+                    shaderCallback: (rect) => const LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        Colors.white,
+                        Colors.white,
+                        Colors.transparent,
+                      ],
+                      stops: [0.0, 0.06, 0.94, 1.0],
+                    ).createShader(rect),
+                    blendMode: BlendMode.dstIn,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                      child: Row(
+                        children: [
+                          _meetingIcon(
+                            icon: Icons.call_end,
+                            label: _isHost ? 'End' : 'Leave',
+                            isActive: true,
+                            activeColor: Colors.red,
+                            onTap: _onLeaveOrEndPressed,
+                          ),
+                          const SizedBox(width: 16),
+                          _meetingIcon(
+                            icon: session.isMicOn ? Icons.mic : Icons.mic_off,
+                            label: 'Mic',
+                            isActive: session.isMicOn,
+                            activeColor: Colors.orange,
+                            onTap: _onMicPressed,
+                          ),
+                          const SizedBox(width: 16),
+                          _meetingIcon(
+                            icon: session.isCameraOn
+                                ? Icons.videocam
+                                : Icons.videocam_off,
+                            label: 'Camera',
+                            isActive: session.isCameraOn,
+                            activeColor: Colors.orange,
+                            onTap: _onCameraPressed,
+                          ),
+                          const SizedBox(width: 16),
+                          _meetingIcon(
+                            icon: Icons.cameraswitch,
+                            label: 'Flip',
+                            onTap: _onFlipPressed,
+                          ),
+                          const SizedBox(width: 16),
+                          _meetingIcon(
+                            icon: Icons.pan_tool_outlined,
+                            label: 'Hand',
+                            onTap: _onHandPressed,
+                          ),
+                          const SizedBox(width: 16),
+                          _meetingIcon(
+                            icon: Icons.closed_caption,
+                            label: 'CC',
+                            isActive: _captionController.captionsEnabled,
+                            activeColor: Colors.orange,
+                            onTap: _onCaptionsPressed,
+                          ),
+                          const SizedBox(width: 16),
+                          _meetingIcon(
+                            icon: Icons.sign_language,
+                            label: 'Sign',
+                            isActive: _signing.isEnabled,
+                            activeColor: Colors.deepPurple,
+                            onTap: _onSignPressed,
+                          ),
+                          const SizedBox(width: 16),
+                          _meetingIcon(
+                            icon: Icons.interpreter_mode,
+                            label: 'Avatar',
+                            isActive: _signAvatarEnabled,
+                            activeColor: const Color(0xFFFFB382),
+                            onTap: _onSignAvatarPressed,
+                          ),
+                          const SizedBox(width: 16),
+                          _meetingIcon(
+                            icon: session.isScreenSharing
+                                ? Icons.stop_screen_share
+                                : Icons.screen_share,
+                            label: session.isScreenSharing ? 'Stop' : 'Share',
+                            isActive: session.isScreenSharing,
+                            activeColor: Colors.green,
+                            onTap: _onShareScreenPressed,
+                            locked: !_isAllowedToShare,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  _meetingIcon(
-                    icon: Icons.cameraswitch,
-                    label: 'Flip',
-                    onTap: _onFlipPressed,
-                  ),
-                  _meetingIcon(
-                    icon: Icons.pan_tool_outlined,
-                    label: 'Hand',
-                    onTap: _onHandPressed,
-                  ),
-                  _meetingIcon(
-                    icon: Icons.closed_caption,
-                    label: 'CC',
-                    isActive: _captionController.captionsEnabled,
-                    activeColor: Colors.orange,
-                    onTap: _onCaptionsPressed,
-                  ),
-                  _meetingIcon(
-                    icon: Icons.sign_language,
-                    label: 'Sign',
-                    isActive: _signing.isEnabled,
-                    activeColor: Colors.deepPurple,
-                    onTap: _onSignPressed,
-                  ),
-                  _meetingIcon(
-                    icon: session.isScreenSharing
-                        ? Icons.stop_screen_share
-                        : Icons.screen_share,
-                    label: session.isScreenSharing ? 'Stop' : 'Share',
-                    isActive: session.isScreenSharing,
-                    activeColor: Colors.green,
-                    onTap: _onShareScreenPressed,
-                    locked: !_isAllowedToShare,
-                  ),
+                  SizedBox(height: MediaQuery.of(context).padding.bottom),
                 ],
               ),
             ),
@@ -1341,9 +1461,9 @@ class _MeetingScreenState extends State<MeetingView> {
           Stack(
             children: [
               CircleAvatar(
-                radius: 22,
+                radius: 24,
                 backgroundColor: bg,
-                child: Icon(icon, color: Colors.white),
+                child: Icon(icon, color: Colors.white, size: 22),
               ),
               if (locked)
                 Positioned(

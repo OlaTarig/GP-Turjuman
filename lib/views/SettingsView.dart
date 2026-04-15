@@ -28,13 +28,31 @@ class _SettingsViewState extends State<SettingsView> {
 
   bool _loadingMic = false;
   bool _loadingCam = false;
+  bool _secureScreenEnabled = true;
+
+  static const String _secureScreenPrefKey = 'secure_screen_enabled';
 
   @override
   void initState() {
     super.initState();
     _user = widget.user;
     _controller = SettingsController();
-    // ✅ شلنا ريفرش الصلاحيات هنا لأنه كان يخبّص على صلاحيات الهوست
+    _loadSecureScreenPref();
+  }
+
+  Future<void> _loadSecureScreenPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _secureScreenEnabled = prefs.getBool(_secureScreenPrefKey) ?? true;
+      });
+    }
+  }
+
+  Future<void> _toggleSecureScreen(bool enable) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_secureScreenPrefKey, enable);
+    if (mounted) setState(() => _secureScreenEnabled = enable);
   }
 
   Future<void> _openProfile() async {
@@ -204,8 +222,6 @@ class _SettingsViewState extends State<SettingsView> {
                 loading: _loadingMic,
                 onChanged: _toggleMic,
               ),
-              // ✅ نفس التنبيه موجود، بس بدون ربطه بصلاحيات الهوست
-              // (لو تبغى نشيله بالكامل قلّي)
               const Divider(height: 24),
               _switchRow(
                 title: 'Camera (App)',
@@ -214,6 +230,20 @@ class _SettingsViewState extends State<SettingsView> {
                 value: _user.cameraAccessSettings,
                 loading: _loadingCam,
                 onChanged: _toggleCamera,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _card(
+            title: 'Privacy & Security',
+            children: [
+              _switchRow(
+                title: 'Secure Screen',
+                subtitle:
+                    'Prevents screenshots and screen recording during meetings.',
+                value: _secureScreenEnabled,
+                loading: false,
+                onChanged: _toggleSecureScreen,
               ),
             ],
           ),

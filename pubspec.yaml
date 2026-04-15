@@ -61,6 +61,7 @@ dependencies:
   flutter_native_splash: ^2.4.4
   tflite_flutter: ^0.12.1
   flutter_launcher_icons: ^0.14.4
+  video_player: ^2.8.0
 
 dev_dependencies:
   flutter_test:
@@ -94,6 +95,9 @@ flutter:
    - assets/model/tcn_48_clean_final.tflite
    - assets/model/label_mapping.json
    - assets/model/le_48_clean_final.json
+   - assets/signs_dictionary.json
+   - assets/signs/
+   - assets/fingerspelling/
 
 
 flutter_launcher_icons:

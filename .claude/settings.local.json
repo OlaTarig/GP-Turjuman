@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find C:UsersolataAppDataLocalPubCachehostedpub.devzego_express_engine-3.23.0 -name *.aar)",
+      "Bash(find C:UsersolataAppDataLocalPubCachehostedpub.devzego_express_engine-3.23.0 -name *.gradle)",
+      "Read(//c/Users/olata/AppData/Local/Pub/Cache/hosted/pub.dev/zego_express_engine-3.23.0/android/libs/**)",
+      "Bash(python3 -c \":*)"
+    ]
+  }
+}

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -36,6 +37,10 @@ class CaptionController extends ChangeNotifier {
   StreamSubscription? _audioStreamSub;
   StreamSubscription<DocumentSnapshot>? _captionSub;
 
+  // ── Retry / backoff ────────────────────────────────────────────────
+  int _consecutiveErrors = 0;
+  static const int _maxConsecutiveErrors = 5;
+
   // ── Getters ────────────────────────────────────────────────────────
   bool get captionsEnabled => _captionsVisible;
   bool get isSpeaking => _isSpeaking;
@@ -68,6 +73,7 @@ class CaptionController extends ChangeNotifier {
     } else {
       // Turn ON immediately so overlay shows right away
       _captionsVisible = true;
+      _consecutiveErrors = 0;
       debugPrint('✅ CC enabled — meetingId=$_currentMeetingId userId=$_currentUserId');
 
       // Seed live captions from whatever is already in fullTranscript
@@ -199,6 +205,17 @@ class CaptionController extends ChangeNotifier {
 
   // ── Stream mic → Google Speech ─────────────────────────────────────
   Future<void> _startStreaming() async {
+    if (!_isSpeaking) return;
+
+    // Always tear down the previous session before starting a new one.
+    // Failing to stop the recorder causes startStream() to throw on restart.
+    final oldSub = _audioStreamSub;
+    _audioStreamSub = null;
+    await oldSub?.cancel();
+    try { await _recorder.stop(); } catch (_) {}
+
+    if (!_isSpeaking) return; // may have been disabled while cleaning up
+
     try {
       final config = RecognitionConfig(
         encoding: AudioEncoding.LINEAR16,
@@ -224,13 +241,16 @@ class CaptionController extends ChangeNotifier {
       );
 
       _audioStreamSub = responseStream.listen(
-            (response) {
+        (response) {
           debugPrint('🎙️ Speech response: ${response.results.length} results');
           for (final result in response.results) {
             debugPrint('🎙️ isFinal=${result.isFinal} text=${result.alternatives.isNotEmpty ? result.alternatives.first.transcript : "empty"}');
             if (result.isFinal) {
-              final text = result.alternatives.first.transcript.trim();
+              final text = result.alternatives.isNotEmpty
+                  ? result.alternatives.first.transcript.trim()
+                  : '';
               if (text.isNotEmpty) {
+                _consecutiveErrors = 0; // reset backoff on any successful result
                 if (!isMicMuted) {
                   debugPrint('🎤 [$_currentUserName] recognized: $text');
                   updateCaption(text);
@@ -242,10 +262,20 @@ class CaptionController extends ChangeNotifier {
           }
         },
         onError: (e) {
-          debugPrint('❌ Speech stream error: $e');
-          if (_isSpeaking) {
-            Future.delayed(const Duration(seconds: 1), _startStreaming);
+          _consecutiveErrors++;
+          debugPrint('❌ Speech stream error ($_consecutiveErrors/$_maxConsecutiveErrors): $e');
+          if (!_isSpeaking) return;
+          if (_consecutiveErrors >= _maxConsecutiveErrors) {
+            _isSpeaking = false;
+            lastError = 'Speech recognition unavailable — check your internet connection.';
+            debugPrint('🛑 Too many consecutive errors — stopping CC');
+            notifyListeners();
+            return;
           }
+          // Exponential backoff: 1s, 2s, 4s, 8s … capped at 30s
+          final delay = Duration(seconds: min(1 << (_consecutiveErrors - 1), 30));
+          debugPrint('🔁 Retrying in ${delay.inSeconds}s...');
+          Future.delayed(delay, _startStreaming);
         },
         onDone: () {
           debugPrint('🔄 Speech stream ended — restarting...');
@@ -253,21 +283,33 @@ class CaptionController extends ChangeNotifier {
             Future.delayed(const Duration(milliseconds: 500), _startStreaming);
           }
         },
+        cancelOnError: false,
       );
 
       debugPrint('✅ Google Speech streaming started for $_currentUserName');
     } catch (e) {
+      _consecutiveErrors++;
       lastError = 'Failed to start recording: $e';
-      debugPrint('❌ _startStreaming error: $e');
+      debugPrint('❌ _startStreaming error ($_consecutiveErrors/$_maxConsecutiveErrors): $e');
       notifyListeners();
+      if (_isSpeaking && _consecutiveErrors < _maxConsecutiveErrors) {
+        final delay = Duration(seconds: min(1 << (_consecutiveErrors - 1), 30));
+        Future.delayed(delay, _startStreaming);
+      } else if (_consecutiveErrors >= _maxConsecutiveErrors) {
+        _isSpeaking = false;
+        lastError = 'Speech recognition unavailable — check your internet connection.';
+        notifyListeners();
+      }
     }
   }
 
   // ── Stop mic ───────────────────────────────────────────────────────
   Future<void> _stopMic() async {
+    _isSpeaking = false; // block any in-flight onDone/onError from restarting
+    final sub = _audioStreamSub;
+    _audioStreamSub = null;
     try {
-      await _audioStreamSub?.cancel();
-      _audioStreamSub = null;
+      await sub?.cancel();
       await _recorder.stop();
       debugPrint('🛑 Mic stopped');
     } catch (e) {
