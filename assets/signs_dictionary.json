@@ -1,0 +1,190 @@
+{
+  "_comment": "Sign language gesture dictionary. Add one entry per sign word or fingerspell letter.",
+  "_format": {
+    "videoPath": "Flutter asset path to the .mp4 clip",
+    "durationMs": "Nominal duration in milliseconds (used as fallback; actual duration comes from the video file)",
+    "word": "The Arabic word or letter this gesture represents"
+  },
+  "signs": {
+    "مرحبا": {
+      "videoPath": "assets/signs/مرحبا.mp4",
+      "durationMs": 2000,
+      "word": "مرحبا"
+    },
+    "شكرا": {
+      "videoPath": "assets/signs/شكرا.mp4",
+      "durationMs": 1800,
+      "word": "شكرا"
+    },
+    "نعم": {
+      "videoPath": "assets/signs/نعم.mp4",
+      "durationMs": 1200,
+      "word": "نعم"
+    },
+    "لا": {
+      "videoPath": "assets/signs/لا.mp4",
+      "durationMs": 1000,
+      "word": "لا"
+    },
+    "اجتماع": {
+      "videoPath": "assets/signs/اجتماع.mp4",
+      "durationMs": 2200,
+      "word": "اجتماع"
+    },
+    "يوم": {
+      "videoPath": "assets/signs/يوم.mp4",
+      "durationMs": 1300,
+      "word": "يوم"
+    },
+    "وقت": {
+      "videoPath": "assets/signs/وقت.mp4",
+      "durationMs": 1400,
+      "word": "وقت"
+    },
+    "طيب": {
+      "videoPath": "assets/signs/طيب.mp4",
+      "durationMs": 1500,
+      "word": "طيب"
+    },
+    "ا": {
+      "videoPath": "assets/fingerspelling/ا.mp4",
+      "durationMs": 700,
+      "word": "ا"
+    },
+    "ب": {
+      "videoPath": "assets/fingerspelling/ب.mp4",
+      "durationMs": 700,
+      "word": "ب"
+    },
+    "ت": {
+      "videoPath": "assets/fingerspelling/ت.mp4",
+      "durationMs": 700,
+      "word": "ت"
+    },
+    "ث": {
+      "videoPath": "assets/fingerspelling/ث.mp4",
+      "durationMs": 700,
+      "word": "ث"
+    },
+    "ج": {
+      "videoPath": "assets/fingerspelling/ج.mp4",
+      "durationMs": 700,
+      "word": "ج"
+    },
+    "ح": {
+      "videoPath": "assets/fingerspelling/ح.mp4",
+      "durationMs": 700,
+      "word": "ح"
+    },
+    "خ": {
+      "videoPath": "assets/fingerspelling/خ.mp4",
+      "durationMs": 700,
+      "word": "خ"
+    },
+    "د": {
+      "videoPath": "assets/fingerspelling/د.mp4",
+      "durationMs": 700,
+      "word": "د"
+    },
+    "ذ": {
+      "videoPath": "assets/fingerspelling/ذ.mp4",
+      "durationMs": 700,
+      "word": "ذ"
+    },
+    "ر": {
+      "videoPath": "assets/fingerspelling/ر.mp4",
+      "durationMs": 700,
+      "word": "ر"
+    },
+    "ز": {
+      "videoPath": "assets/fingerspelling/ز.mp4",
+      "durationMs": 700,
+      "word": "ز"
+    },
+    "س": {
+      "videoPath": "assets/fingerspelling/س.mp4",
+      "durationMs": 700,
+      "word": "س"
+    },
+    "ش": {
+      "videoPath": "assets/fingerspelling/ش.mp4",
+      "durationMs": 700,
+      "word": "ش"
+    },
+    "ص": {
+      "videoPath": "assets/fingerspelling/ص.mp4",
+      "durationMs": 700,
+      "word": "ص"
+    },
+    "ض": {
+      "videoPath": "assets/fingerspelling/ض.mp4",
+      "durationMs": 700,
+      "word": "ض"
+    },
+    "ط": {
+      "videoPath": "assets/fingerspelling/ط.mp4",
+      "durationMs": 700,
+      "word": "ط"
+    },
+    "ظ": {
+      "videoPath": "assets/fingerspelling/ظ.mp4",
+      "durationMs": 700,
+      "word": "ظ"
+    },
+    "ع": {
+      "videoPath": "assets/fingerspelling/ع.mp4",
+      "durationMs": 700,
+      "word": "ع"
+    },
+    "غ": {
+      "videoPath": "assets/fingerspelling/غ.mp4",
+      "durationMs": 700,
+      "word": "غ"
+    },
+    "ف": {
+      "videoPath": "assets/fingerspelling/ف.mp4",
+      "durationMs": 700,
+      "word": "ف"
+    },
+    "ق": {
+      "videoPath": "assets/fingerspelling/ق.mp4",
+      "durationMs": 700,
+      "word": "ق"
+    },
+    "ك": {
+      "videoPath": "assets/fingerspelling/ك.mp4",
+      "durationMs": 700,
+      "word": "ك"
+    },
+    "ل": {
+      "videoPath": "assets/fingerspelling/ل.mp4",
+      "durationMs": 700,
+      "word": "ل"
+    },
+    "م": {
+      "videoPath": "assets/fingerspelling/م.mp4",
+      "durationMs": 700,
+      "word": "م"
+    },
+    "ن": {
+      "videoPath": "assets/fingerspelling/ن.mp4",
+      "durationMs": 700,
+      "word": "ن"
+    },
+    "ه": {
+      "videoPath": "assets/fingerspelling/ه.mp4",
+      "durationMs": 700,
+      "word": "ه"
+    },
+    "و": {
+      "videoPath": "assets/fingerspelling/و.mp4",
+      "durationMs": 700,
+      "word": "و"
+    },
+    "ي": {
+      "videoPath": "assets/fingerspelling/ي.mp4",
+      "durationMs": 700,
+      "word": "ي"
+    }
+  }
+}

@@ -61,6 +61,7 @@ dependencies:
   flutter_native_splash: ^2.4.4
   tflite_flutter: ^0.12.1
   flutter_launcher_icons: ^0.14.4
+  video_player: ^2.8.0
 
 dev_dependencies:
   flutter_test:
@@ -72,6 +73,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -93,7 +95,22 @@ flutter:
    - assets/model/tcn_48_clean_final.tflite
    - assets/model/label_mapping.json
    - assets/model/le_48_clean_final.json
+   - assets/signs_dictionary.json
+   - assets/signs/
+   - assets/fingerspelling/
 
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/IconLogo.png"
+  adaptive_icon_background: "#FFFFFF"
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/SplashLogo.png
+  android_12:
+    image: assets/SplashLogo.png
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

@@ -55,9 +55,9 @@ class SignCaptioningController extends ChangeNotifier {
   /// True when native reports no hands/pose for [_maxNoDetectionFrames].
   bool handsOutOfFrame = false;
 
-  // captureProgress is always 0 with native accumulation
-  // (48 frames are buffered on the Kotlin side, then sent as one batch)
-  double get captureProgress => 0.0;
+  // null = indeterminate (animated) — frames are accumulated natively,
+  // so there is no per-frame progress to report from Dart.
+  double? get captureProgress => null;
 
   // ── Internal ───────────────────────────────────────────────────────
   StreamSubscription<dynamic>? _keypointsSub;
@@ -69,7 +69,7 @@ class SignCaptioningController extends ChangeNotifier {
   // Sentence accumulation
   final _sentenceWords = <String>[];
   Timer? _sentenceFlushTimer;
-  static const Duration _sentenceFlushDelay = Duration(seconds: 3);
+  static const Duration _sentenceFlushDelay = Duration(seconds: 1);
 
   CaptionController? _captionController;
   String _userId    = '';
@@ -200,6 +200,7 @@ class SignCaptioningController extends ChangeNotifier {
       }
     } else if (event is List && isEnabled) {
       // 10 800 values = 48 frames × 225 keypoints, sent as List<dynamic>
+      debugPrint('🤟 Batch received from native: ${event.length} values');
       final flat = event.map<double>((e) => (e as num).toDouble()).toList();
       _runInferenceFromFlat(flat);
     }
@@ -240,7 +241,10 @@ class SignCaptioningController extends ChangeNotifier {
         currentConfidence = 0.0;
       }
 
-      debugPrint('✅ Sign: $currentArabicSign '
+      final topVal = topPredictions.isNotEmpty ? topPredictions.first.confidence : 0.0;
+      debugPrint('🔍 Inference done — top: ${topPredictions.isNotEmpty ? topPredictions.first.arabicWord : "none"} '
+          '(${(topVal * 100).toStringAsFixed(1)}%), threshold=${(_confidenceThreshold * 100).toStringAsFixed(0)}%');
+      debugPrint('✅ Sign accepted: $currentArabicSign '
           '(${(currentConfidence * 100).toStringAsFixed(1)}%)');
     } catch (e) {
       debugPrint('❌ Inference error: $e');
