@@ -4,9 +4,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:zego_express_engine/zego_express_engine.dart';
 
 class ZegoSessionController extends ChangeNotifier {
-  static const int    appID   = 2074378114;
+  static const int    appID   = 1007373030;
   static const String appSign =
-      'bc7513ea95f678cdf0f6647bb845f230095caaa0d236ec0e28b375cce7137048';
+      '98d7d6323f1cad29be6727e77b8622e847660a4d1999846367d450ee7f976606';
 
   bool isInitialized = false;
 
