@@ -13,39 +13,73 @@
     },
     "شكرا": {
       "videoPath": "assets/signs/شكرا.mp4",
-      "durationMs": 1800,
+      "durationMs": 4000,
       "word": "شكرا"
     },
     "نعم": {
       "videoPath": "assets/signs/نعم.mp4",
-      "durationMs": 1200,
+      "durationMs": 4000,
       "word": "نعم"
     },
     "لا": {
       "videoPath": "assets/signs/لا.mp4",
-      "durationMs": 1000,
+      "durationMs": 3000,
       "word": "لا"
     },
     "اجتماع": {
       "videoPath": "assets/signs/اجتماع.mp4",
-      "durationMs": 2200,
+      "durationMs": 3000,
       "word": "اجتماع"
     },
     "يوم": {
       "videoPath": "assets/signs/يوم.mp4",
-      "durationMs": 1300,
+      "durationMs": 3000,
       "word": "يوم"
     },
     "وقت": {
       "videoPath": "assets/signs/وقت.mp4",
-      "durationMs": 1400,
+      "durationMs": 3000,
       "word": "وقت"
     },
-    "طيب": {
-      "videoPath": "assets/signs/طيب.mp4",
-      "durationMs": 1500,
-      "word": "طيب"
+
+    "تعلم": {
+      "videoPath": "assets/signs/تعلم.mp4",
+      "durationMs": 3000,
+      "word": "تعلم"
     },
+    "من": {
+      "videoPath": "assets/signs/من.mp4",
+      "durationMs": 3000,
+      "word": "من"
+    },
+    "في": {
+      "videoPath": "assets/signs/في.mp4",
+      "durationMs": 2000,
+      "word": "في"
+    },
+
+    "هي": {
+      "videoPath": "assets/signs/هي.mp4",
+      "durationMs": 3000,
+      "word": "هي"
+    },
+    "نحن": {
+      "videoPath": "assets/signs/نحن.mp4",
+      "durationMs": 3000,
+      "word": "نحن"
+    },
+    "كيف": {
+      "videoPath": "assets/signs/كيف.mp4",
+      "durationMs": 2000,
+      "word": "كيف"
+    },
+
+    "ماء": {
+      "videoPath": "assets/signs/ماء.mp4",
+      "durationMs": 3000,
+      "word": "ماء"
+    },
+
     "ا": {
       "videoPath": "assets/fingerspelling/ا.mp4",
       "durationMs": 700,
