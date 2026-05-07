@@ -129,10 +129,25 @@ class MeetingController {
     final user = _auth.currentUser;
     if (user == null) return;
 
+    final userSnap = await _firestore.collection('User').doc(user.uid).get();
+    final userName = userSnap.data()?['name'] ?? user.email ?? user.uid;
+
     await _firestore.collection('User').doc(user.uid).set({
       'currentMeetingId': meetingId,
       'isHandRaised': true,
       'handRaisedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await _firestore
+        .collection('Meetings')
+        .doc(meetingId)
+        .collection('permissionRequests')
+        .doc(user.uid)
+        .set({
+      'uid': user.uid,
+      'name': userName,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
@@ -163,8 +178,7 @@ class MeetingController {
     final host = _auth.currentUser;
     if (host == null) return;
 
-    final snap =
-    await _firestore.collection('User').doc(targetUid).get();
+    final snap = await _firestore.collection('User').doc(targetUid).get();
     final data = snap.data() ?? {};
     if (data['currentMeetingId'] != meetingId) return;
 
@@ -174,12 +188,29 @@ class MeetingController {
       'isHandRaised': false,
       'handRaisedAt': null,
     }, SetOptions(merge: true));
+
+    await _firestore
+        .collection('Meetings')
+        .doc(meetingId)
+        .collection('permissionRequests')
+        .doc(targetUid)
+        .delete();
   }
 
-  Future<void> rejectHand({required String targetUid}) async {
+  Future<void> rejectHand({
+    required String meetingId,
+    required String targetUid,
+  }) async {
     await _firestore.collection('User').doc(targetUid).set({
       'isHandRaised': false,
       'handRaisedAt': null,
     }, SetOptions(merge: true));
+
+    await _firestore
+        .collection('Meetings')
+        .doc(meetingId)
+        .collection('permissionRequests')
+        .doc(targetUid)
+        .delete();
   }
 }
