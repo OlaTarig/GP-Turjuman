@@ -80,6 +80,104 @@
       "word": "ماء"
     },
 
+    "مشكلة": {
+      "videoPath": "assets/signs/مشكلة.mp4",
+      "durationMs": 2000,
+      "word": "مشكلة"
+    },
+
+    "حل": {
+      "videoPath": "assets/signs/حل.mp4",
+      "durationMs": 2000,
+      "word": "حل"
+    },
+
+    "سؤال": {
+      "videoPath": "assets/signs/سؤال.mp4",
+      "durationMs": 3000,
+      "word": "سؤال"
+    },
+
+    "جواب": {
+      "videoPath": "assets/signs/جواب.mp4",
+      "durationMs": 3000,
+      "word": "جواب"
+    },
+
+    "مساعدة": {
+      "videoPath": "assets/signs/مساعدة.mp4",
+      "durationMs": 3000,
+      "word": "مساعدة"
+    },
+
+    "مهم": {
+      "videoPath": "assets/signs/مهم.mp4",
+      "durationMs": 2000,
+      "word": "مهم"
+    },
+
+    "جامعة الملك سعود": {
+      "videoPath": "assets/signs/ksu.mp4",
+      "durationMs": 4000,
+      "word": "جامعة الملك سعود"
+    },
+
+    "عمل": {
+      "videoPath": "assets/signs/عمل.mp4",
+      "durationMs": 3000,
+      "word": "عمل"
+    },
+
+    "كتاب": {
+      "videoPath": "assets/signs/كتاب.mp4",
+      "durationMs": 3000,
+      "word": "كتاب"
+    },
+
+    "مجموعة": {
+      "videoPath": "assets/signs/مجموعة.mp4",
+      "durationMs": 2000,
+      "word": "مجموعة"
+    },
+
+    "صلاة": {
+      "videoPath": "assets/signs/صلاة.mp4",
+      "durationMs": 2000,
+      "word": "صلاة"
+    },
+
+    "فلوس": {
+      "videoPath": "assets/signs/فلوس.mp4",
+      "durationMs": 3000,
+      "word": "فلوس"
+    },
+
+    "انتهى": {
+      "videoPath": "assets/signs/انتهى.mp4",
+      "durationMs": 3000,
+      "word": "انتهى"
+    },
+    "انتهاء": {
+      "videoPath": "assets/signs/انتهى.mp4",
+      "durationMs": 2000,
+      "word": "انتهى"
+    },
+
+    "إرسال": {
+      "videoPath": "assets/signs/إرسال.mp4",
+      "durationMs": 3000,
+      "word": "إرسال"
+    },
+    "ارسل": {
+      "videoPath": "assets/signs/إرسال.mp4",
+      "durationMs": 3000,
+      "word": "إرسال"
+    },
+
+
+
+
+
     "ا": {
       "videoPath": "assets/fingerspelling/ا.mp4",
       "durationMs": 700,

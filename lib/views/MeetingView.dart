@@ -1500,11 +1500,11 @@ class _MeetingScreenState extends State<MeetingView> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                      padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: screenShareAllowed
                             ? Colors.green.shade900
@@ -1539,13 +1539,14 @@ class _MeetingScreenState extends State<MeetingView> {
                     ),
                   ),
                   const SizedBox(height: 10),
+
                   StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                     stream: FirebaseFirestore.instance
-                        .collection('User')
-                        .where('currentMeetingId',
-                        isEqualTo: widget.meeting.meetingId)
-                        .where('isHandRaised', isEqualTo: true)
-                        .orderBy('handRaisedAt', descending: false)
+                        .collection('Meetings')
+                        .doc(widget.meeting.meetingId)
+                        .collection('permissionRequests')
+                        .where('status', isEqualTo: 'pending')
+                        .orderBy('createdAt', descending: false)
                         .snapshots(),
                     builder: (context, handsSnap) {
                       if (!handsSnap.hasData) {
@@ -1574,14 +1575,16 @@ class _MeetingScreenState extends State<MeetingView> {
                           ),
                           const SizedBox(height: 6),
                           ...docs.map((d) {
-                            final uid = d.id;
+                            final requestData = d.data();
+                            final uid = requestData['uid'] ?? d.id;
+                            final name = requestData['name'] ?? uid;
 
                             return ListTile(
                               dense: true,
                               leading: const Icon(Icons.pan_tool_outlined,
                                   color: Colors.orange),
                               title: Text(
-                                uid,
+                                name,
                                 style: const TextStyle(color: Colors.white),
                               ),
                               trailing: _isHost
@@ -1590,27 +1593,19 @@ class _MeetingScreenState extends State<MeetingView> {
                                 children: [
                                   TextButton(
                                     onPressed: () async {
-                                      await FirebaseFirestore.instance
-                                          .collection('User')
-                                          .doc(uid)
-                                          .set({
-                                        'micPermissionGranted': true,
-                                        'cameraPermissionGranted': true,
-                                        'isHandRaised': false,
-                                        'handRaisedAt': null,
-                                      }, SetOptions(merge: true));
+                                      await MeetingController().approveMicCam(
+                                        meetingId: widget.meeting.meetingId,
+                                        targetUid: uid,
+                                      );
                                     },
                                     child: const Text('Approve'),
                                   ),
                                   TextButton(
                                     onPressed: () async {
-                                      await FirebaseFirestore.instance
-                                          .collection('User')
-                                          .doc(uid)
-                                          .set({
-                                        'isHandRaised': false,
-                                        'handRaisedAt': null,
-                                      }, SetOptions(merge: true));
+                                      await MeetingController().rejectHand(
+                                        meetingId: widget.meeting.meetingId,
+                                        targetUid: uid,
+                                      );
                                     },
                                     child: const Text('Reject'),
                                   ),
@@ -1624,6 +1619,7 @@ class _MeetingScreenState extends State<MeetingView> {
                       );
                     },
                   ),
+
                   Expanded(
                     child: ListView.separated(
                       itemCount: ids.length,
