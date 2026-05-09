@@ -198,26 +198,43 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  bool _startingMeeting = false;
+
   Future<void> _startMeeting() async {
-    final controller = MeetingController();
-    final meeting = await controller.createMeeting("New Meeting");
-
-    if (meeting == null || !mounted) return;
-
-    final firebaseUser = FirebaseAuth.instance.currentUser;
-    if (firebaseUser == null) return;
+    if (_startingMeeting) return;
+    setState(() => _startingMeeting = true);
 
     try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('User')
-          .doc(firebaseUser.uid)
-          .get();
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser == null) {
+        _showError('Please sign in to start a meeting.');
+        return;
+      }
+
+      final meeting = await MeetingController().createMeeting("New Meeting");
+
+      if (!mounted) return;
+      if (meeting == null) {
+        _showError('Could not create meeting. Check your connection and try again.');
+        return;
+      }
 
       UserModel userModel;
-
-      if (userDoc.exists && userDoc.data() != null) {
-        userModel = UserModel.fromMap(userDoc.data()!);
-      } else {
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('User')
+            .doc(firebaseUser.uid)
+            .get();
+        if (userDoc.exists && userDoc.data() != null) {
+          userModel = UserModel.fromMap(userDoc.data()!);
+        } else {
+          userModel = UserModel(
+            userId: firebaseUser.uid,
+            name: firebaseUser.displayName ?? 'User',
+            email: firebaseUser.email ?? '',
+          );
+        }
+      } catch (_) {
         userModel = UserModel(
           userId: firebaseUser.uid,
           name: firebaseUser.displayName ?? 'User',
@@ -226,31 +243,28 @@ class _HomePageState extends State<HomePage> {
       }
 
       if (!mounted) return;
-
       await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => MeetingView(meeting: meeting, user: userModel),
         ),
       );
-    } catch (e) {
-      debugPrint("Error loading user model: $e");
-
-      final userModel = UserModel(
-        userId: firebaseUser.uid,
-        name: firebaseUser.displayName ?? 'User',
-        email: firebaseUser.email ?? '',
-      );
-
-      if (!mounted) return;
-
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => MeetingView(meeting: meeting, user: userModel),
-        ),
-      );
+    } finally {
+      if (mounted) setState(() => _startingMeeting = false);
     }
+  }
+
+  void _showError(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 
   void _onBottomNavTap(int index) {
@@ -386,7 +400,7 @@ class _HomePageState extends State<HomePage> {
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
-                        onPressed: _startMeeting,
+                        onPressed: _startingMeeting ? null : _startMeeting,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: const Color(0xFFFFB382),
@@ -395,20 +409,30 @@ class _HomePageState extends State<HomePage> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.play_arrow_rounded, size: 28),
-                            SizedBox(width: 8),
-                            Text(
-                              'Start Now',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                        child: _startingMeeting
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Color(0xFFFFB382)),
+                                ),
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.play_arrow_rounded, size: 28),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Start Now',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
                   ],

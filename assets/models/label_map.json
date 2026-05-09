@@ -1,0 +1,1262 @@
+{
+  "0": {
+    "orig_label": 0,
+    "sign_arabic": 0,
+    "sign_english": 0
+  },
+  "1": {
+    "orig_label": 1,
+    "sign_arabic": 1,
+    "sign_english": 1
+  },
+  "2": {
+    "orig_label": 2,
+    "sign_arabic": 2,
+    "sign_english": 2
+  },
+  "3": {
+    "orig_label": 3,
+    "sign_arabic": 3,
+    "sign_english": 3
+  },
+  "4": {
+    "orig_label": 4,
+    "sign_arabic": 4,
+    "sign_english": 4
+  },
+  "5": {
+    "orig_label": 5,
+    "sign_arabic": 5,
+    "sign_english": 5
+  },
+  "6": {
+    "orig_label": 8,
+    "sign_arabic": 8,
+    "sign_english": 8
+  },
+  "7": {
+    "orig_label": 10,
+    "sign_arabic": 10,
+    "sign_english": 10
+  },
+  "8": {
+    "orig_label": 11,
+    "sign_arabic": 20,
+    "sign_english": 20
+  },
+  "9": {
+    "orig_label": 12,
+    "sign_arabic": 30,
+    "sign_english": 30
+  },
+  "10": {
+    "orig_label": 13,
+    "sign_arabic": 40,
+    "sign_english": 40
+  },
+  "11": {
+    "orig_label": 14,
+    "sign_arabic": 50,
+    "sign_english": 50
+  },
+  "12": {
+    "orig_label": 15,
+    "sign_arabic": 60,
+    "sign_english": 60
+  },
+  "13": {
+    "orig_label": 16,
+    "sign_arabic": 70,
+    "sign_english": 70
+  },
+  "14": {
+    "orig_label": 17,
+    "sign_arabic": 80,
+    "sign_english": 80
+  },
+  "15": {
+    "orig_label": 18,
+    "sign_arabic": 90,
+    "sign_english": 90
+  },
+  "16": {
+    "orig_label": 19,
+    "sign_arabic": 100,
+    "sign_english": 100
+  },
+  "17": {
+    "orig_label": 20,
+    "sign_arabic": 200,
+    "sign_english": 200
+  },
+  "18": {
+    "orig_label": 24,
+    "sign_arabic": 600,
+    "sign_english": 600
+  },
+  "19": {
+    "orig_label": 25,
+    "sign_arabic": 700,
+    "sign_english": 700
+  },
+  "20": {
+    "orig_label": 28,
+    "sign_arabic": 1000,
+    "sign_english": 1000
+  },
+  "21": {
+    "orig_label": 29,
+    "sign_arabic": 1000000,
+    "sign_english": 1000000
+  },
+  "22": {
+    "orig_label": 31,
+    "sign_arabic": "ا",
+    "sign_english": "alif"
+  },
+  "23": {
+    "orig_label": 32,
+    "sign_arabic": "ب",
+    "sign_english": "baa"
+  },
+  "24": {
+    "orig_label": 33,
+    "sign_arabic": "ت",
+    "sign_english": "ta"
+  },
+  "25": {
+    "orig_label": 34,
+    "sign_arabic": "ث",
+    "sign_english": "tha"
+  },
+  "26": {
+    "orig_label": 35,
+    "sign_arabic": "ج",
+    "sign_english": "Jiim"
+  },
+  "27": {
+    "orig_label": 36,
+    "sign_arabic": "ح",
+    "sign_english": "Haa"
+  },
+  "28": {
+    "orig_label": 37,
+    "sign_arabic": "خ",
+    "sign_english": "kha"
+  },
+  "29": {
+    "orig_label": 38,
+    "sign_arabic": "د",
+    "sign_english": "daal"
+  },
+  "30": {
+    "orig_label": 39,
+    "sign_arabic": "ذ",
+    "sign_english": "thal"
+  },
+  "31": {
+    "orig_label": 40,
+    "sign_arabic": "ر",
+    "sign_english": "raa"
+  },
+  "32": {
+    "orig_label": 41,
+    "sign_arabic": "ز",
+    "sign_english": "zay"
+  },
+  "33": {
+    "orig_label": 42,
+    "sign_arabic": "س",
+    "sign_english": "siin"
+  },
+  "34": {
+    "orig_label": 43,
+    "sign_arabic": "ش",
+    "sign_english": "shiin"
+  },
+  "35": {
+    "orig_label": 44,
+    "sign_arabic": "ص",
+    "sign_english": "Saad"
+  },
+  "36": {
+    "orig_label": 45,
+    "sign_arabic": "ض",
+    "sign_english": "Daad"
+  },
+  "37": {
+    "orig_label": 46,
+    "sign_arabic": "ط",
+    "sign_english": "Taa"
+  },
+  "38": {
+    "orig_label": 47,
+    "sign_arabic": "ظ",
+    "sign_english": "Zaa"
+  },
+  "39": {
+    "orig_label": 48,
+    "sign_arabic": "ع",
+    "sign_english": "Ayn"
+  },
+  "40": {
+    "orig_label": 49,
+    "sign_arabic": "غ",
+    "sign_english": "ghayn"
+  },
+  "41": {
+    "orig_label": 50,
+    "sign_arabic": "ف",
+    "sign_english": "faa"
+  },
+  "42": {
+    "orig_label": 51,
+    "sign_arabic": "ق",
+    "sign_english": "qaaf"
+  },
+  "43": {
+    "orig_label": 52,
+    "sign_arabic": "ك",
+    "sign_english": "kaaf"
+  },
+  "44": {
+    "orig_label": 53,
+    "sign_arabic": "ل",
+    "sign_english": "laam"
+  },
+  "45": {
+    "orig_label": 54,
+    "sign_arabic": "م",
+    "sign_english": "miim"
+  },
+  "46": {
+    "orig_label": 55,
+    "sign_arabic": "ن",
+    "sign_english": "noon"
+  },
+  "47": {
+    "orig_label": 56,
+    "sign_arabic": "ه",
+    "sign_english": "haa"
+  },
+  "48": {
+    "orig_label": 57,
+    "sign_arabic": "و",
+    "sign_english": "waaw"
+  },
+  "49": {
+    "orig_label": 58,
+    "sign_arabic": "ي",
+    "sign_english": "yaa"
+  },
+  "50": {
+    "orig_label": 59,
+    "sign_arabic": "ة",
+    "sign_english": "taa marbuuTa"
+  },
+  "51": {
+    "orig_label": 60,
+    "sign_arabic": "أ",
+    "sign_english": "alif with hamza above"
+  },
+  "52": {
+    "orig_label": 61,
+    "sign_arabic": "ؤ",
+    "sign_english": "Waaw with hamza"
+  },
+  "53": {
+    "orig_label": 62,
+    "sign_arabic": "ئ",
+    "sign_english": "Alif maqsoura with hamza"
+  },
+  "54": {
+    "orig_label": 63,
+    "sign_arabic": "ئـ",
+    "sign_english": "hamza on line"
+  },
+  "55": {
+    "orig_label": 64,
+    "sign_arabic": "ء",
+    "sign_english": "hamza"
+  },
+  "56": {
+    "orig_label": 65,
+    "sign_arabic": "إ",
+    "sign_english": "alif with hamza below"
+  },
+  "57": {
+    "orig_label": 66,
+    "sign_arabic": "آ",
+    "sign_english": "ALif with maad"
+  },
+  "58": {
+    "orig_label": 67,
+    "sign_arabic": "ى",
+    "sign_english": "Alif maqsoura"
+  },
+  "59": {
+    "orig_label": 68,
+    "sign_arabic": "لا",
+    "sign_english": "laam Alif"
+  },
+  "60": {
+    "orig_label": 69,
+    "sign_arabic": "ال",
+    "sign_english": "Al"
+  },
+  "61": {
+    "orig_label": 70,
+    "sign_arabic": "هيكل عظمي",
+    "sign_english": "Skeleton"
+  },
+  "62": {
+    "orig_label": 71,
+    "sign_arabic": "جمجة",
+    "sign_english": "skull"
+  },
+  "63": {
+    "orig_label": 72,
+    "sign_arabic": "عمود فقري",
+    "sign_english": "Backbone"
+  },
+  "64": {
+    "orig_label": 78,
+    "sign_arabic": "جهاز هضمي",
+    "sign_english": "digestive system"
+  },
+  "65": {
+    "orig_label": 79,
+    "sign_arabic": "وجه",
+    "sign_english": "Face"
+  },
+  "66": {
+    "orig_label": 80,
+    "sign_arabic": "بلعوم",
+    "sign_english": "pharynx"
+  },
+  "67": {
+    "orig_label": 83,
+    "sign_arabic": "الأمعاء الدقيقة",
+    "sign_english": "Small intestine"
+  },
+  "68": {
+    "orig_label": 84,
+    "sign_arabic": "الأمعاء الغليظة",
+    "sign_english": "Large intestine"
+  },
+  "69": {
+    "orig_label": 86,
+    "sign_arabic": "جهاز عصبي",
+    "sign_english": "nervous system"
+  },
+  "70": {
+    "orig_label": 87,
+    "sign_arabic": "قلب",
+    "sign_english": "heart"
+  },
+  "71": {
+    "orig_label": 88,
+    "sign_arabic": "حواس خمس",
+    "sign_english": "five senses"
+  },
+  "72": {
+    "orig_label": 89,
+    "sign_arabic": "عضلة",
+    "sign_english": "muscle"
+  },
+  "73": {
+    "orig_label": 90,
+    "sign_arabic": "أنسجة",
+    "sign_english": "tissue"
+  },
+  "74": {
+    "orig_label": 91,
+    "sign_arabic": "مستشفى",
+    "sign_english": "hospital"
+  },
+  "75": {
+    "orig_label": 92,
+    "sign_arabic": "إسعافات أولية",
+    "sign_english": "first aid"
+  },
+  "76": {
+    "orig_label": 93,
+    "sign_arabic": "جرح نازف",
+    "sign_english": "wound"
+  },
+  "77": {
+    "orig_label": 94,
+    "sign_arabic": "حروق",
+    "sign_english": "burning"
+  },
+  "78": {
+    "orig_label": 95,
+    "sign_arabic": "مخدر/ بنج",
+    "sign_english": "anesthetist"
+  },
+  "79": {
+    "orig_label": 96,
+    "sign_arabic": "عملية جراحية",
+    "sign_english": "surgery"
+  },
+  "80": {
+    "orig_label": 97,
+    "sign_arabic": "شاش / ضمادة",
+    "sign_english": "gauze"
+  },
+  "81": {
+    "orig_label": 99,
+    "sign_arabic": "صيدلية",
+    "sign_english": "pharmacy"
+  },
+  "82": {
+    "orig_label": 100,
+    "sign_arabic": "تحليل دم",
+    "sign_english": "blood analysis"
+  },
+  "83": {
+    "orig_label": 104,
+    "sign_arabic": "سماعة أذن",
+    "sign_english": "stethoscope"
+  },
+  "84": {
+    "orig_label": 105,
+    "sign_arabic": "جهاز قياس الضغط",
+    "sign_english": "sphygmometroscope"
+  },
+  "85": {
+    "orig_label": 108,
+    "sign_arabic": "معمل التحاليل / مختبر",
+    "sign_english": "analysis laboratory"
+  },
+  "86": {
+    "orig_label": 110,
+    "sign_arabic": "التهاب",
+    "sign_english": "inflammation"
+  },
+  "87": {
+    "orig_label": 111,
+    "sign_arabic": "تورم",
+    "sign_english": "swelling"
+  },
+  "88": {
+    "orig_label": 112,
+    "sign_arabic": "زكام",
+    "sign_english": "cold"
+  },
+  "89": {
+    "orig_label": 113,
+    "sign_arabic": "عدوى",
+    "sign_english": "infection"
+  },
+  "90": {
+    "orig_label": 115,
+    "sign_arabic": "ألم",
+    "sign_english": "pain"
+  },
+  "91": {
+    "orig_label": 116,
+    "sign_arabic": "حمى",
+    "sign_english": "fever"
+  },
+  "92": {
+    "orig_label": 120,
+    "sign_arabic": "مرض السكر / سكري",
+    "sign_english": "diabetes"
+  },
+  "93": {
+    "orig_label": 121,
+    "sign_arabic": "أزمة قلبية",
+    "sign_english": "heart attack"
+  },
+  "94": {
+    "orig_label": 123,
+    "sign_arabic": "مرض فقدان المناعة / الإيدز",
+    "sign_english": "Aids"
+  },
+  "95": {
+    "orig_label": 125,
+    "sign_arabic": "سكتة قلبية",
+    "sign_english": "Heart failure"
+  },
+  "96": {
+    "orig_label": 126,
+    "sign_arabic": "شلل نصفي",
+    "sign_english": "hemiplegia"
+  },
+  "97": {
+    "orig_label": 132,
+    "sign_arabic": "دورة شهرية",
+    "sign_english": "monthly circulation"
+  },
+  "98": {
+    "orig_label": 136,
+    "sign_arabic": "مرهم",
+    "sign_english": "ointment"
+  },
+  "99": {
+    "orig_label": 137,
+    "sign_arabic": "قطارة",
+    "sign_english": "dropper"
+  },
+  "100": {
+    "orig_label": 140,
+    "sign_arabic": "تطعيم",
+    "sign_english": "inoculation"
+  },
+  "101": {
+    "orig_label": 141,
+    "sign_arabic": "أشعة ليزر",
+    "sign_english": "laser ray"
+  },
+  "102": {
+    "orig_label": 143,
+    "sign_arabic": "إدمان",
+    "sign_english": "addiction"
+  },
+  "103": {
+    "orig_label": 144,
+    "sign_arabic": "توحد / أوتيزم",
+    "sign_english": "oneness"
+  },
+  "104": {
+    "orig_label": 145,
+    "sign_arabic": "منغولي",
+    "sign_english": "mongoloid"
+  },
+  "105": {
+    "orig_label": 146,
+    "sign_arabic": "بكتريا",
+    "sign_english": "bacterium"
+  },
+  "106": {
+    "orig_label": 147,
+    "sign_arabic": "جرثومة",
+    "sign_english": "microbe"
+  },
+  "107": {
+    "orig_label": 148,
+    "sign_arabic": "فيروس",
+    "sign_english": "virus"
+  },
+  "108": {
+    "orig_label": 149,
+    "sign_arabic": "إنتشار",
+    "sign_english": "spread"
+  },
+  "109": {
+    "orig_label": 150,
+    "sign_arabic": "إعاقة",
+    "sign_english": "hindrance"
+  },
+  "110": {
+    "orig_label": 151,
+    "sign_arabic": "إعاقة ذهنية",
+    "sign_english": "mentality hindrance"
+  },
+  "111": {
+    "orig_label": 152,
+    "sign_arabic": "اعاقة جسدية",
+    "sign_english": "physical disability"
+  },
+  "112": {
+    "orig_label": 153,
+    "sign_arabic": "اعاقة بصرية",
+    "sign_english": "visual impairment"
+  },
+  "113": {
+    "orig_label": 155,
+    "sign_arabic": "وباء",
+    "sign_english": "epidemic"
+  },
+  "114": {
+    "orig_label": 156,
+    "sign_arabic": "مناعة",
+    "sign_english": "immunity"
+  },
+  "115": {
+    "orig_label": 158,
+    "sign_arabic": "معافى",
+    "sign_english": "healthy"
+  },
+  "116": {
+    "orig_label": 159,
+    "sign_arabic": "يأكل",
+    "sign_english": "eat"
+  },
+  "117": {
+    "orig_label": 160,
+    "sign_arabic": "يشرب",
+    "sign_english": "drink"
+  },
+  "118": {
+    "orig_label": 162,
+    "sign_arabic": "يستيقظ",
+    "sign_english": "wake up"
+  },
+  "119": {
+    "orig_label": 164,
+    "sign_arabic": "يسكت",
+    "sign_english": "silence"
+  },
+  "120": {
+    "orig_label": 167,
+    "sign_arabic": "ينزل",
+    "sign_english": "descend"
+  },
+  "121": {
+    "orig_label": 168,
+    "sign_arabic": "يفتح",
+    "sign_english": "open"
+  },
+  "122": {
+    "orig_label": 169,
+    "sign_arabic": "يقفل ( يغلق )",
+    "sign_english": "close"
+  },
+  "123": {
+    "orig_label": 170,
+    "sign_arabic": "يبني",
+    "sign_english": "build"
+  },
+  "124": {
+    "orig_label": 171,
+    "sign_arabic": "يكسر",
+    "sign_english": "break"
+  },
+  "125": {
+    "orig_label": 173,
+    "sign_arabic": "يحب",
+    "sign_english": "love"
+  },
+  "126": {
+    "orig_label": 177,
+    "sign_arabic": "يزرع",
+    "sign_english": "plant"
+  },
+  "127": {
+    "orig_label": 178,
+    "sign_arabic": "يسقي",
+    "sign_english": "irrigate"
+  },
+  "128": {
+    "orig_label": 179,
+    "sign_arabic": "يحصد",
+    "sign_english": "harvest"
+  },
+  "129": {
+    "orig_label": 182,
+    "sign_arabic": "يدخن",
+    "sign_english": "smoke"
+  },
+  "130": {
+    "orig_label": 183,
+    "sign_arabic": "يدعم",
+    "sign_english": "support"
+  },
+  "131": {
+    "orig_label": 184,
+    "sign_arabic": "يختار",
+    "sign_english": "choose"
+  },
+  "132": {
+    "orig_label": 185,
+    "sign_arabic": "ينادي",
+    "sign_english": "call"
+  },
+  "133": {
+    "orig_label": 186,
+    "sign_arabic": "يتنامى",
+    "sign_english": "grow"
+  },
+  "134": {
+    "orig_label": 187,
+    "sign_arabic": "يصبغ",
+    "sign_english": "dye"
+  },
+  "135": {
+    "orig_label": 188,
+    "sign_arabic": "يقف",
+    "sign_english": "stand"
+  },
+  "136": {
+    "orig_label": 189,
+    "sign_arabic": "يستحم",
+    "sign_english": "bathe"
+  },
+  "137": {
+    "orig_label": 195,
+    "sign_arabic": "أم",
+    "sign_english": "mother"
+  },
+  "138": {
+    "orig_label": 196,
+    "sign_arabic": "أخت",
+    "sign_english": "sister"
+  },
+  "139": {
+    "orig_label": 198,
+    "sign_arabic": "بنت",
+    "sign_english": "girl"
+  },
+  "140": {
+    "orig_label": 199,
+    "sign_arabic": "رضيع",
+    "sign_english": "baby"
+  },
+  "141": {
+    "orig_label": 200,
+    "sign_arabic": "توأم",
+    "sign_english": "twin"
+  },
+  "142": {
+    "orig_label": 202,
+    "sign_arabic": "شاب",
+    "sign_english": "young man"
+  },
+  "143": {
+    "orig_label": 203,
+    "sign_arabic": "شابة",
+    "sign_english": "young woman"
+  },
+  "144": {
+    "orig_label": 205,
+    "sign_arabic": "زواج",
+    "sign_english": "wedding"
+  },
+  "145": {
+    "orig_label": 206,
+    "sign_arabic": "حمل",
+    "sign_english": "pregnant"
+  },
+  "146": {
+    "orig_label": 207,
+    "sign_arabic": "ولادة",
+    "sign_english": "childbirth"
+  },
+  "147": {
+    "orig_label": 208,
+    "sign_arabic": "عم",
+    "sign_english": "uncle"
+  },
+  "148": {
+    "orig_label": 209,
+    "sign_arabic": "عمة",
+    "sign_english": "aunt"
+  },
+  "149": {
+    "orig_label": 210,
+    "sign_arabic": "خال",
+    "sign_english": "maternal uncle"
+  },
+  "150": {
+    "orig_label": 211,
+    "sign_arabic": "خالة",
+    "sign_english": "maternal aunt"
+  },
+  "151": {
+    "orig_label": 212,
+    "sign_arabic": "ابن الأخ",
+    "sign_english": "nephew"
+  },
+  "152": {
+    "orig_label": 213,
+    "sign_arabic": "ابن الأخت",
+    "sign_english": "nephew"
+  },
+  "153": {
+    "orig_label": 214,
+    "sign_arabic": "ابن العم",
+    "sign_english": "cousin"
+  },
+  "154": {
+    "orig_label": 217,
+    "sign_arabic": "ناس",
+    "sign_english": "people"
+  },
+  "155": {
+    "orig_label": 218,
+    "sign_arabic": "طلاق",
+    "sign_english": "divorce"
+  },
+  "156": {
+    "orig_label": 220,
+    "sign_arabic": "حفلة",
+    "sign_english": "party"
+  },
+  "157": {
+    "orig_label": 224,
+    "sign_arabic": "قبيح",
+    "sign_english": "ugly"
+  },
+  "158": {
+    "orig_label": 231,
+    "sign_arabic": "محبط",
+    "sign_english": "offended"
+  },
+  "159": {
+    "orig_label": 232,
+    "sign_arabic": "مشمئز",
+    "sign_english": "disgusted"
+  },
+  "160": {
+    "orig_label": 233,
+    "sign_arabic": "مرتبك",
+    "sign_english": "confused"
+  },
+  "161": {
+    "orig_label": 238,
+    "sign_arabic": "حزين",
+    "sign_english": "sad"
+  },
+  "162": {
+    "orig_label": 239,
+    "sign_arabic": "شجاع",
+    "sign_english": "courageous"
+  },
+  "163": {
+    "orig_label": 247,
+    "sign_arabic": "بخيل",
+    "sign_english": "miserly"
+  },
+  "164": {
+    "orig_label": 252,
+    "sign_arabic": "متواضع",
+    "sign_english": "humble"
+  },
+  "165": {
+    "orig_label": 258,
+    "sign_arabic": "خفيف",
+    "sign_english": "light"
+  },
+  "166": {
+    "orig_label": 273,
+    "sign_arabic": "بجانب",
+    "sign_english": "side"
+  },
+  "167": {
+    "orig_label": 277,
+    "sign_arabic": "حول",
+    "sign_english": "around"
+  },
+  "168": {
+    "orig_label": 281,
+    "sign_arabic": "فوق",
+    "sign_english": "up"
+  },
+  "169": {
+    "orig_label": 287,
+    "sign_arabic": "يمين",
+    "sign_english": "right"
+  },
+  "170": {
+    "orig_label": 290,
+    "sign_arabic": "تفضل",
+    "sign_english": "here you are"
+  },
+  "171": {
+    "orig_label": 291,
+    "sign_arabic": "جار",
+    "sign_english": "neighbor"
+  },
+  "172": {
+    "orig_label": 293,
+    "sign_arabic": "صديق",
+    "sign_english": "friend"
+  },
+  "173": {
+    "orig_label": 298,
+    "sign_arabic": "بيت",
+    "sign_english": "house"
+  },
+  "174": {
+    "orig_label": 299,
+    "sign_arabic": "جدار",
+    "sign_english": "wall"
+  },
+  "175": {
+    "orig_label": 300,
+    "sign_arabic": "سقف",
+    "sign_english": "roof"
+  },
+  "176": {
+    "orig_label": 302,
+    "sign_arabic": "شباك",
+    "sign_english": "window"
+  },
+  "177": {
+    "orig_label": 303,
+    "sign_arabic": "غرفة",
+    "sign_english": "room"
+  },
+  "178": {
+    "orig_label": 305,
+    "sign_arabic": "سرير",
+    "sign_english": "bed"
+  },
+  "179": {
+    "orig_label": 306,
+    "sign_arabic": "مرتبة سرير ( حشية)",
+    "sign_english": "mattress"
+  },
+  "180": {
+    "orig_label": 308,
+    "sign_arabic": "وسادة ( مخدة)",
+    "sign_english": "pillow"
+  },
+  "181": {
+    "orig_label": 310,
+    "sign_arabic": "خزانة ملابس",
+    "sign_english": "wardrobe"
+  },
+  "182": {
+    "orig_label": 312,
+    "sign_arabic": "فرن غازي",
+    "sign_english": "Oven"
+  },
+  "183": {
+    "orig_label": 313,
+    "sign_arabic": "بوتاغاز (طابخ)",
+    "sign_english": "cooker"
+  },
+  "184": {
+    "orig_label": 315,
+    "sign_arabic": "سكين",
+    "sign_english": "knife"
+  },
+  "185": {
+    "orig_label": 316,
+    "sign_arabic": "شوكة",
+    "sign_english": "fork"
+  },
+  "186": {
+    "orig_label": 317,
+    "sign_arabic": "ملعقة",
+    "sign_english": "spoon"
+  },
+  "187": {
+    "orig_label": 319,
+    "sign_arabic": "مجمد (فريزر)",
+    "sign_english": "freezer"
+  },
+  "188": {
+    "orig_label": 322,
+    "sign_arabic": "غرفة طعام",
+    "sign_english": "food room"
+  },
+  "189": {
+    "orig_label": 323,
+    "sign_arabic": "إبريق",
+    "sign_english": "pitcher"
+  },
+  "190": {
+    "orig_label": 324,
+    "sign_arabic": "طاولة",
+    "sign_english": "table"
+  },
+  "191": {
+    "orig_label": 325,
+    "sign_arabic": "كنكة ( دلة)",
+    "sign_english": "dalah"
+  },
+  "192": {
+    "orig_label": 326,
+    "sign_arabic": "دورة مياه (حمام)",
+    "sign_english": "bathroom"
+  },
+  "193": {
+    "orig_label": 327,
+    "sign_arabic": "كرسي",
+    "sign_english": "chair"
+  },
+  "194": {
+    "orig_label": 329,
+    "sign_arabic": "منشفة",
+    "sign_english": "towel carpet"
+  },
+  "195": {
+    "orig_label": 330,
+    "sign_arabic": "سجادة (زربية)",
+    "sign_english": "carpet"
+  },
+  "196": {
+    "orig_label": 331,
+    "sign_arabic": "موكيت ( فرش أرضي) moquette",
+    "sign_english": "moquette"
+  },
+  "197": {
+    "orig_label": 332,
+    "sign_arabic": "ثريا (نجفة)",
+    "sign_english": "chandelier"
+  },
+  "198": {
+    "orig_label": 333,
+    "sign_arabic": "مسجل",
+    "sign_english": "cassette"
+  },
+  "199": {
+    "orig_label": 334,
+    "sign_arabic": "شريط كاست",
+    "sign_english": "cassette tape"
+  },
+  "200": {
+    "orig_label": 335,
+    "sign_arabic": "تلفزيون (تلفاز)",
+    "sign_english": "television"
+  },
+  "201": {
+    "orig_label": 336,
+    "sign_arabic": "طبق هوائي (دش)",
+    "sign_english": "satellite"
+  },
+  "202": {
+    "orig_label": 337,
+    "sign_arabic": "شريط فيديو",
+    "sign_english": "video tape"
+  },
+  "203": {
+    "orig_label": 339,
+    "sign_arabic": "كاميرا فوتوغرافية",
+    "sign_english": "photo camera"
+  },
+  "204": {
+    "orig_label": 340,
+    "sign_arabic": "هاتف ( تلفون)",
+    "sign_english": "telephone"
+  },
+  "205": {
+    "orig_label": 341,
+    "sign_arabic": "غرفة ضيوف",
+    "sign_english": "guests room"
+  },
+  "206": {
+    "orig_label": 344,
+    "sign_arabic": "مدفأة",
+    "sign_english": "heater"
+  },
+  "207": {
+    "orig_label": 346,
+    "sign_arabic": "مروحة",
+    "sign_english": "fan"
+  },
+  "208": {
+    "orig_label": 347,
+    "sign_arabic": "تدفئة مركزية",
+    "sign_english": "central heater"
+  },
+  "209": {
+    "orig_label": 348,
+    "sign_arabic": "كهرباء",
+    "sign_english": "electrics"
+  },
+  "210": {
+    "orig_label": 349,
+    "sign_arabic": "مكيف",
+    "sign_english": "air conditioner"
+  },
+  "211": {
+    "orig_label": 350,
+    "sign_arabic": "سلك كهربائي",
+    "sign_english": "wire"
+  },
+  "212": {
+    "orig_label": 351,
+    "sign_arabic": "قابس كهربائي ( فيش)",
+    "sign_english": "plug"
+  },
+  "213": {
+    "orig_label": 353,
+    "sign_arabic": "مكواة",
+    "sign_english": "iron"
+  },
+  "214": {
+    "orig_label": 354,
+    "sign_arabic": "ميزان حرارة جوي",
+    "sign_english": "thermometer"
+  },
+  "215": {
+    "orig_label": 355,
+    "sign_arabic": "الله تعالى",
+    "sign_english": "God"
+  },
+  "216": {
+    "orig_label": 357,
+    "sign_arabic": "عيسى المسيح",
+    "sign_english": "Essa Christ"
+  },
+  "217": {
+    "orig_label": 358,
+    "sign_arabic": "القرآن الكريم",
+    "sign_english": "The Holy Quran"
+  },
+  "218": {
+    "orig_label": 359,
+    "sign_arabic": "الخلفاء الراشدون",
+    "sign_english": "Rightly Guided Caliphs"
+  },
+  "219": {
+    "orig_label": 360,
+    "sign_arabic": "السنة النبوية",
+    "sign_english": "Sunnah"
+  },
+  "220": {
+    "orig_label": 361,
+    "sign_arabic": "أركان الإسلام",
+    "sign_english": "Pillars of Islam"
+  },
+  "221": {
+    "orig_label": 366,
+    "sign_arabic": "الصوم",
+    "sign_english": "Fasting"
+  },
+  "222": {
+    "orig_label": 367,
+    "sign_arabic": "العمرة",
+    "sign_english": "Umrah"
+  },
+  "223": {
+    "orig_label": 369,
+    "sign_arabic": "ملائكة",
+    "sign_english": "Angels"
+  },
+  "224": {
+    "orig_label": 371,
+    "sign_arabic": "يوم القيامة",
+    "sign_english": "Doomsday"
+  },
+  "225": {
+    "orig_label": 372,
+    "sign_arabic": "القضاء والقدر",
+    "sign_english": "Fate and destiny"
+  },
+  "226": {
+    "orig_label": 373,
+    "sign_arabic": "أركان الصلاة",
+    "sign_english": "Pillars of prayer"
+  },
+  "227": {
+    "orig_label": 374,
+    "sign_arabic": "خير",
+    "sign_english": "Good"
+  },
+  "228": {
+    "orig_label": 375,
+    "sign_arabic": "النية",
+    "sign_english": "Intention"
+  },
+  "229": {
+    "orig_label": 377,
+    "sign_arabic": "طهارة",
+    "sign_english": "purity"
+  },
+  "230": {
+    "orig_label": 378,
+    "sign_arabic": "مبطلات الصلاة",
+    "sign_english": "Prayer invalidators"
+  },
+  "231": {
+    "orig_label": 379,
+    "sign_arabic": "تيمم",
+    "sign_english": "tayammum"
+  },
+  "232": {
+    "orig_label": 381,
+    "sign_arabic": "يؤذن",
+    "sign_english": "authorized"
+  },
+  "233": {
+    "orig_label": 383,
+    "sign_arabic": "صلاة الفجر",
+    "sign_english": "Al-fajr prayer"
+  },
+  "234": {
+    "orig_label": 384,
+    "sign_arabic": "صلاة الظهر",
+    "sign_english": "Salat Aduher"
+  },
+  "235": {
+    "orig_label": 389,
+    "sign_arabic": "خطبة الجمعة",
+    "sign_english": "Friday sermon"
+  },
+  "236": {
+    "orig_label": 391,
+    "sign_arabic": "خطبة العيد",
+    "sign_english": "Eid sermon"
+  },
+  "237": {
+    "orig_label": 392,
+    "sign_arabic": "مسجد",
+    "sign_english": "Mosque"
+  },
+  "238": {
+    "orig_label": 394,
+    "sign_arabic": "إمام",
+    "sign_english": "Before"
+  },
+  "239": {
+    "orig_label": 396,
+    "sign_arabic": "آية",
+    "sign_english": "any"
+  },
+  "240": {
+    "orig_label": 400,
+    "sign_arabic": "عيد الأضحى",
+    "sign_english": "Eid al-Adha"
+  },
+  "241": {
+    "orig_label": 402,
+    "sign_arabic": "مكة",
+    "sign_english": "Mecca"
+  },
+  "242": {
+    "orig_label": 403,
+    "sign_arabic": "الكعبة",
+    "sign_english": "Kaaba"
+  },
+  "243": {
+    "orig_label": 404,
+    "sign_arabic": "المدينة المنورة",
+    "sign_english": "Medina"
+  },
+  "244": {
+    "orig_label": 406,
+    "sign_arabic": "جبل عرفات",
+    "sign_english": "Arafat Mountain"
+  },
+  "245": {
+    "orig_label": 407,
+    "sign_arabic": "الصفا والمروة",
+    "sign_english": "Safa and Marwa"
+  },
+  "246": {
+    "orig_label": 409,
+    "sign_arabic": "رمي الجمرات",
+    "sign_english": "Throwing pebbles"
+  },
+  "247": {
+    "orig_label": 410,
+    "sign_arabic": "طواف",
+    "sign_english": "circumambulation"
+  },
+  "248": {
+    "orig_label": 411,
+    "sign_arabic": "ماء زمزم",
+    "sign_english": "Zamzam water"
+  },
+  "249": {
+    "orig_label": 414,
+    "sign_arabic": "طواف الوداع",
+    "sign_english": "farewell circumambulation"
+  },
+  "250": {
+    "orig_label": 415,
+    "sign_arabic": "المسجد الأقصى",
+    "sign_english": "Al-Aqsa Mosque"
+  },
+  "251": {
+    "orig_label": 416,
+    "sign_arabic": "يسبح",
+    "sign_english": "swim"
+  }
+}

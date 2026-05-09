@@ -55,38 +55,55 @@ class CaptionController extends ChangeNotifier {
     return ServiceAccount.fromString(json.encode(jsonMap));
   }
 
-  // ── CC button pressed ──────────────────────────────────────────────
+  // ── Auto-start recording on meeting join ──────────────────────────
+  //
+  // Begins saving speech captions to Firestore without showing the overlay.
+  // Call once after the meeting session is established. The CC button then
+  // only controls overlay visibility — recording is always running.
+  Future<void> beginCapture(
+      String userId, String meetingId, String userName) async {
+    if (_isSpeaking) return;
+    _currentUserId    = userId;
+    _currentMeetingId = meetingId;
+    _currentUserName  = userName;
+    _consecutiveErrors = 0;
+    debugPrint('▶️ beginCapture: auto-starting speech recording');
+    await _startSpeaking();
+  }
+
+  // ── CC button pressed — toggles overlay only ───────────────────────
+  //
+  // Recording is always running (started via beginCapture on join).
+  // This only shows/hides the caption overlay for the local user.
   Future<void> handleEnableSpeechCaptioning(
       String userId, String meetingId, String userName) async {
-    _currentUserId = userId;
+    _currentUserId    = userId;
     _currentMeetingId = meetingId;
-    _currentUserName = userName;
+    _currentUserName  = userName;
 
     if (_captionsVisible) {
-      // Turn OFF
-      await _stopMic();
-      _isSpeaking = false;
       _captionsVisible = false;
       _liveCaptions.clear();
       notifyListeners();
-      debugPrint('🔕 CC disabled');
+      debugPrint('🔕 CC overlay hidden (recording continues in background)');
     } else {
-      // Turn ON immediately so overlay shows right away
       _captionsVisible = true;
-      _consecutiveErrors = 0;
-      debugPrint('✅ CC enabled — meetingId=$_currentMeetingId userId=$_currentUserId');
-
-      // Seed live captions from whatever is already in fullTranscript
-      if (_fullTranscript.isNotEmpty) {
-        _liveCaptions
-          ..clear()
-          ..addAll(_fullTranscript.length > 3
-              ? _fullTranscript.sublist(_fullTranscript.length - 3)
-              : _fullTranscript);
-        debugPrint('✅ Seeded ${_liveCaptions.length} captions from fullTranscript');
+      // Start recording now if beginCapture hasn't fired yet (e.g. slow init).
+      if (!_isSpeaking) {
+        _consecutiveErrors = 0;
+        await _startSpeaking();
+      } else {
+        // Seed overlay from whatever is already in the transcript.
+        if (_fullTranscript.isNotEmpty) {
+          _liveCaptions
+            ..clear()
+            ..addAll(_fullTranscript.length > 3
+                ? _fullTranscript.sublist(_fullTranscript.length - 3)
+                : _fullTranscript);
+        }
+        notifyListeners();
       }
-      notifyListeners();
-      await _startSpeaking();
+      debugPrint('✅ CC overlay shown — meetingId=$_currentMeetingId');
     }
   }
 
@@ -166,7 +183,6 @@ class CaptionController extends ChangeNotifier {
     }
 
     _isSpeaking = true;
-    _captionsVisible = true;
     notifyListeners();
 
     // 3. Create Firestore doc (merge — never wipe captionsBuffer)
@@ -250,13 +266,9 @@ class CaptionController extends ChangeNotifier {
                   ? result.alternatives.first.transcript.trim()
                   : '';
               if (text.isNotEmpty) {
-                _consecutiveErrors = 0; // reset backoff on any successful result
-                if (!isMicMuted) {
-                  debugPrint('🎤 [$_currentUserName] recognized: $text');
-                  updateCaption(text);
-                } else {
-                  debugPrint('🔇 Mic muted — caption suppressed');
-                }
+                _consecutiveErrors = 0;
+                debugPrint('🎤 [$_currentUserName] recognized: $text');
+                updateCaption(text);
               }
             }
           }
@@ -309,21 +321,19 @@ class CaptionController extends ChangeNotifier {
     final sub = _audioStreamSub;
     _audioStreamSub = null;
     try {
-      await sub?.cancel();
-      await _recorder.stop();
+      await sub?.cancel().timeout(const Duration(seconds: 5));
+    } catch (_) {}
+    try {
+      await _recorder.stop().timeout(const Duration(seconds: 5));
       debugPrint('🛑 Mic stopped');
     } catch (e) {
-      debugPrint('❌ _stopMic error: $e');
+      debugPrint('⚠️ _stopMic: recorder stop timed out or failed — $e');
     }
   }
 
   // ── Push caption to Firestore ──────────────────────────────────────
   Future<void> updateCaption(String newText) async {
     if (newText.trim().isEmpty) return;
-    if (isMicMuted) {
-      debugPrint('🔇 updateCaption blocked — mic muted');
-      return;
-    }
 
     // Check if another speaker is active
     try {
@@ -434,23 +444,6 @@ class CaptionController extends ChangeNotifier {
       String text, String userId, String userName, String meetingId) async {
     if (text.trim().isEmpty || meetingId.isEmpty) return;
 
-    // Ensure the Firestore doc exists (it may not if speech CC was never turned on)
-    await FirebaseFirestore.instance
-        .collection(kCaptionsCollection)
-        .doc(meetingId)
-        .set({
-      'meetingId': meetingId,
-      'captionsBuffer': [],
-      'translatedSign': [],
-      'isCompleted': false,
-      'format': 'pdf',
-      'activeSpeakerId': '',
-      'attendees': FieldValue.arrayUnion([userId]),
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-      'transcriptionFilePath': '',
-    }, SetOptions(merge: true));
-
     final entry = CaptionEntry(
       userId: userId,
       userName: userName,
@@ -459,13 +452,19 @@ class CaptionController extends ChangeNotifier {
     );
 
     try {
+      // Single write: creates the doc if absent, appends the entry, updates attendees.
       await FirebaseFirestore.instance
           .collection(kCaptionsCollection)
           .doc(meetingId)
           .set({
+        'meetingId': meetingId,
         'captionsBuffer': FieldValue.arrayUnion([entry.toMap()]),
+        'attendees': FieldValue.arrayUnion([userId]),
+        'isCompleted': false,
+        'format': 'pdf',
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      }, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 10));
       debugPrint('🤟 Sign caption pushed: ${entry.text}');
     } catch (e) {
       debugPrint('❌ pushSignCaption error: $e');

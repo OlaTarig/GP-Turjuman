@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../controllers/ZegoSessionController.dart';
 import '../controllers/SignCaptioningController.dart';
+import '../controllers/sign_recognition_controller.dart';
 import '../controllers/CaptionController.dart';
 import '../models/MeetingModel.dart';
 import '../models/UserModel.dart';
@@ -12,8 +13,9 @@ class MeetingSessionManager extends ChangeNotifier {
   MeetingSessionManager._();
   static final MeetingSessionManager instance = MeetingSessionManager._();
 
-  final ZegoSessionController    session = ZegoSessionController();
-  final SignCaptioningController signing = SignCaptioningController();
+  final ZegoSessionController    session     = ZegoSessionController();
+  final SignCaptioningController  signing     = SignCaptioningController();
+  final SignRecognitionController recognition = SignRecognitionController();
 
   StreamSubscription<DocumentSnapshot>? _meetingSub;
 
@@ -59,12 +61,14 @@ class MeetingSessionManager extends ChangeNotifier {
     if (fbUid == null) throw Exception('No Firebase user');
 
     // ── Wire sign captioning ──────────────────────────────────────────
-    // Must be done AFTER session.initialize() (Zego engine created)
-    // and BEFORE session.startPublishing() (Zego stream started).
     await signing.initialize();
-    await signing.setupVideoProcessing();                // hook into Zego frames
+    await signing.setupVideoProcessing();
+    signing.attachRecognitionController(recognition);
     CaptionController.instance.attachSignController(signing);
     // ─────────────────────────────────────────────────────────────────
+
+    // Pre-load the recognition model in the background so first press is instant
+    recognition.initialize().ignore();
 
     await session.loginRoom(
       roomId:   meeting.meetingId,
@@ -97,6 +101,8 @@ class MeetingSessionManager extends ChangeNotifier {
   Future<void> endAndDispose() async {
     _cancelMeetingListener();
     session.removeListener(_forward);
+
+    recognition.disable();
 
     // ── Tear down sign captioning ─────────────────────────────────────
     await signing.disable();

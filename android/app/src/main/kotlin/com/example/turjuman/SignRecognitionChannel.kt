@@ -2,68 +2,29 @@ package com.example.turjuman
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.ImageFormat
 import android.graphics.Matrix
-import android.graphics.Rect
-import android.graphics.YuvImage
+import android.opengl.GLES20
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
-import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
-import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
 import im.zego.zegoexpress.ZegoExpressEngine
 import im.zego.zegoexpress.callback.IZegoCustomVideoProcessHandler
 import im.zego.zegoexpress.constants.ZegoPublishChannel
 import im.zego.zegoexpress.constants.ZegoVideoBufferType
 import im.zego.zegoexpress.entity.ZegoCustomVideoProcessConfig
-import im.zego.zegoexpress.entity.ZegoVideoFrameParam
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
-/**
- * Platform channel handler that exposes MediaPipe pose + hand landmark detection to Flutter,
- * using Zego's IZegoCustomVideoProcessHandler to intercept camera frames natively —
- * no second CameraController needed.
- *
- * MethodChannel  : "com.example.turjuman/sign_recognition"
- * EventChannel   : "com.example.turjuman/sign_keypoints"
- *
- * Methods
- * -------
- * initialize()
- *   Creates PoseLandmarker and HandLandmarker from model files in Android assets.
- *
- * setupVideoProcessing()
- *   Registers Zego custom video processing handler.
- *   Must be called AFTER ZegoExpressEngine.createEngineWithProfile()
- *   and BEFORE ZegoExpressEngine.startPublishingStream().
- *
- * startContinuous()
- *   Activates frame processing. Frames start flowing to the EventChannel.
- *
- * stopContinuous()
- *   Pauses frame processing. Zego video continues unaffected.
- *
- * dispose()
- *   Releases landmarkers and shuts down the executor.
- *
- * EventChannel events
- * -------------------
- * String "handsOutOfFrame"  — no pose/hands detected
- * String "handsDetected"    — hands re-appeared
- * List<double> (10 800)     — 48 frames × 225 keypoints flattened, ready for TFLite
- */
 class SignRecognitionChannel(
     private val context: Context,
     private val binaryMessenger: BinaryMessenger,
@@ -73,10 +34,21 @@ class SignRecognitionChannel(
         const val CHANNEL_NAME       = "com.example.turjuman/sign_recognition"
         const val EVENT_CHANNEL_NAME = "com.example.turjuman/sign_keypoints"
 
-        private const val POSE_MODEL  = "models/pose_landmarker_lite.task"
         private const val HAND_MODEL  = "models/hand_landmarker.task"
-        private const val FEATURE_DIM = 225
+        private const val FEATURE_DIM = 126          // lh(63) + rh(63)
         private const val NUM_FRAMES  = 48
+        private const val TARGET_FPS      = 25
+        private const val FRAME_MS        = (1000 / TARGET_FPS).toLong()  // 40ms
+        // Training window: 48 frames @ 30 fps ≈ 1600 ms.
+        // At device speed (~3 fps) we collect 3–5 frames then resample to NUM_FRAMES.
+        // 800ms gives ~3 frames (≥ minimum) at half the latency; resampling stretches
+        // the temporal axis to match training regardless of actual collection rate.
+        private const val BATCH_WINDOW_MS = 800L
+
+        // GL_BGRA_EXT: reads bytes as B,G,R,A which maps directly to Android ARGB_8888 memory layout
+        // (on little-endian ARM, ARGB_8888 stores pixels as B-G-R-A bytes).
+        // Using GL_RGBA would swap R and B, sending BGR to MediaPipe instead of RGB.
+        private const val GL_BGRA_EXT = 0x80E1
     }
 
     // ── EventChannel ─────────────────────────────────────────────────────────
@@ -97,19 +69,25 @@ class SignRecognitionChannel(
     }
 
     // ── MediaPipe ─────────────────────────────────────────────────────────────
-    private var poseLandmarker: PoseLandmarker? = null
     private var handLandmarker: HandLandmarker? = null
-    private var initialized      = false
+    private var initialized = false
 
-    // ── Background executor (single thread — frames processed in order) ───────
+    // ── Background executor ───────────────────────────────────────────────────
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private val isProcessing              = AtomicBoolean(false)
 
     // ── State ─────────────────────────────────────────────────────────────────
     @Volatile private var isCapturing = false
-
-    // Native-side frame accumulation buffer (48 frames of 225 doubles each)
     private val nativeFrameBuffer = mutableListOf<DoubleArray>()
+
+    // ── Frame timing ──────────────────────────────────────────────────────────
+    private var lastCollectedMs   = 0L
+    private var batchStartMs      = 0L
+    private var processedCount    = 0
+    private var detectedCount     = 0
+
+    // ── Debug ─────────────────────────────────────────────────────────────────
+    private val debugFrameSaved = AtomicBoolean(false)
 
     // ─────────────────────────────────────────────────────────────────────────
     // MethodChannel
@@ -125,165 +103,355 @@ class SignRecognitionChannel(
                     result.error("INIT_ERROR", "MediaPipe init failed: ${e.message}", null)
                 }
             }
-
             "setupVideoProcessing" -> {
                 try {
                     setupZegoVideoProcessing()
                     result.success(null)
                 } catch (e: Exception) {
-                    result.error("SETUP_ERROR", "Video processing setup failed: ${e.message}", null)
+                    result.error("SETUP_ERROR", "Setup failed: ${e.message}", null)
                 }
             }
-
             "startContinuous" -> {
                 nativeFrameBuffer.clear()
-                isCapturing = true
+                lastCollectedMs = 0L
+                batchStartMs    = 0L
+                processedCount  = 0
+                detectedCount   = 0
+                isCapturing     = true
                 result.success(null)
             }
-
             "stopContinuous" -> {
                 isCapturing = false
                 nativeFrameBuffer.clear()
                 result.success(null)
             }
-
             "dispose" -> {
                 isCapturing = false
                 nativeFrameBuffer.clear()
-                poseLandmarker?.close()
                 handLandmarker?.close()
-                poseLandmarker = null
                 handLandmarker = null
                 initialized    = false
                 executor.shutdown()
                 result.success(null)
             }
-
             else -> result.notImplemented()
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Zego custom video processing
+    // Zego GL_TEXTURE_2D processing
     // ─────────────────────────────────────────────────────────────────────────
+
+    private var frameCallbackCount = 0
 
     private fun setupZegoVideoProcessing() {
         val engine = ZegoExpressEngine.getEngine()
             ?: throw IllegalStateException("Zego engine not yet created")
 
+        android.util.Log.d("SignRec", "setupZegoVideoProcessing: GL_TEXTURE_2D")
+
         val config = ZegoCustomVideoProcessConfig()
-        config.bufferType = ZegoVideoBufferType.RAW_DATA
+        config.bufferType = ZegoVideoBufferType.GL_TEXTURE_2D
         engine.enableCustomVideoProcessing(true, config, ZegoPublishChannel.MAIN)
 
         engine.setCustomVideoProcessHandler(object : IZegoCustomVideoProcessHandler() {
 
-            override fun onCapturedUnprocessedRawData(
-                data: ByteBuffer,
-                dataLength: IntArray,
-                param: ZegoVideoFrameParam,
+            override fun onCapturedUnprocessedTextureData(
+                textureID: Int,
+                width: Int,
+                height: Int,
                 referenceTimeMillisecond: Long,
                 channel: ZegoPublishChannel,
             ) {
-                // 1. Copy bytes before the buffer is recycled by Zego.
-                val totalSize = dataLength.sum()
-                val copy      = ByteArray(totalSize)
-                data.rewind()
-                data.get(copy, 0, totalSize)
-                // SDK 3.x passes the frame through automatically after the
-                // callback returns — no sendCustomVideoProcessedRawData needed.
+                frameCallbackCount++
+                if (frameCallbackCount == 1) {
+                    android.util.Log.d("SignRec", "first GL frame: w=$width h=$height texID=$textureID")
+                }
 
-                // 2. Process for sign recognition when active and not already busy.
-                if (!isCapturing) return
-                if (!isProcessing.compareAndSet(false, true)) return // drop frame if busy
+                val now = System.currentTimeMillis()
+                // Frame-rate check comes first so compareAndSet is only called when we
+                // truly intend to capture. This prevents the else branch from accidentally
+                // releasing the lock while a previous task is still running in the executor
+                // (which would let new tasks queue up faster than they finish).
+                val shouldCapture = isCapturing
+                    && (now - lastCollectedMs) >= FRAME_MS
+                    && isProcessing.compareAndSet(false, true)
 
-                val width  = param.width
-                val height = param.height
-                val dl     = dataLength.clone()
+                if (shouldCapture) {
+                    // Read pixels on the GL thread (active EGL context required).
+                    val bitmap = readBitmapFromTexture(textureID, width, height)
 
-                executor.execute {
-                    try {
-                        handleSignFrame(copy, width, height, dl)
-                    } finally {
+                    // Always return texture to Zego immediately.
+                    ZegoExpressEngine.getEngine()?.sendCustomVideoProcessedTextureData(
+                        textureID, width, height, referenceTimeMillisecond, channel
+                    )
+
+                    if (bitmap != null) {
+                        lastCollectedMs = now
+                        executor.execute {
+                            try {
+                                handleSignFrameFromBitmap(bitmap)
+                            } finally {
+                                isProcessing.set(false)
+                            }
+                        }
+                    } else {
                         isProcessing.set(false)
                     }
+                } else {
+                    // Pass frame through unchanged. isProcessing is NOT touched here —
+                    // compareAndSet was never called (frame rate / capturing guard failed),
+                    // or it returned false (task already running), so nothing to undo.
+                    ZegoExpressEngine.getEngine()?.sendCustomVideoProcessedTextureData(
+                        textureID, width, height, referenceTimeMillisecond, channel
+                    )
                 }
             }
         })
+        android.util.Log.d("SignRec", "setupZegoVideoProcessing: DONE")
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Per-frame sign processing
+    // Read bitmap from GL texture.
+    //
+    // Color: GL_BGRA_EXT (0x80E1) maps directly to Android ARGB_8888 memory layout.
+    //
+    // Orientation: Zego GL_TEXTURE_2D textures are top-down (origin top-left),
+    // so glReadPixels gives correct top-to-bottom order — NO vertical flip needed.
+    // (Previous vertical flip was causing upside-down images → 15% detection rate.)
+    //
+    // Mirror: front camera preview is mirrored; MIRROR_FRONT_CAMERA un-mirrors it
+    // so hands match the un-mirrored training data orientation.
     // ─────────────────────────────────────────────────────────────────────────
 
-    private fun handleSignFrame(
-        rawData: ByteArray,
-        width: Int,
-        height: Int,
-        dataLength: IntArray,
-    ) {
-        try {
-            val nv21   = i420ToNv21(rawData, width, height, dataLength)
-            val bitmap = nv21ToBitmap(nv21, width, height, rotationDegrees = 270)
-            if (bitmap == null) {
-                emit("handsOutOfFrame")
-                return
+    // Toggle if predictions are consistently wrong-handed (handedness swap symptom).
+    private val MIRROR_FRONT_CAMERA = true
+
+    private fun readBitmapFromTexture(textureID: Int, width: Int, height: Int): Bitmap? {
+        return try {
+            val fbo = IntArray(1)
+            GLES20.glGenFramebuffers(1, fbo, 0)
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fbo[0])
+            GLES20.glFramebufferTexture2D(
+                GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0,
+                GLES20.GL_TEXTURE_2D, textureID, 0
+            )
+
+            val status = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER)
+            if (status != GLES20.GL_FRAMEBUFFER_COMPLETE) {
+                android.util.Log.w("SignRec", "FBO incomplete: 0x${status.toString(16)}")
+                GLES20.glDeleteFramebuffers(1, fbo, 0)
+                GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+                return null
             }
 
-            val mpImage    = BitmapImageBuilder(bitmap).build()
-            val poseResult = poseLandmarker?.detect(mpImage)
-            val handResult = handLandmarker?.detect(mpImage)
+            val pixels = ByteBuffer.allocateDirect(width * height * 4)
+            pixels.order(ByteOrder.nativeOrder())
+            GLES20.glReadPixels(0, 0, width, height, GL_BGRA_EXT, GLES20.GL_UNSIGNED_BYTE, pixels)
 
-            if (poseResult == null || poseResult.landmarks().isEmpty()) {
+            val glError = GLES20.glGetError()
+            if (glError != GLES20.GL_NO_ERROR) {
+                android.util.Log.w("SignRec", "GL_BGRA_EXT failed (err=0x${glError.toString(16)}), falling back to GL_RGBA + swap")
+                pixels.rewind()
+                GLES20.glReadPixels(0, 0, width, height, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, pixels)
+                pixels.rewind()
+                val bytes = ByteArray(pixels.remaining())
+                pixels.get(bytes)
+                for (i in bytes.indices step 4) {
+                    val r = bytes[i]; bytes[i] = bytes[i + 2]; bytes[i + 2] = r
+                }
+                pixels.rewind()
+                pixels.put(bytes)
+            }
+
+            GLES20.glDeleteFramebuffers(1, fbo, 0)
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+
+            pixels.rewind()
+            val raw = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            raw.copyPixelsFromBuffer(pixels)
+
+            // Log center pixel to verify color quality (first frame only).
+            if (frameCallbackCount <= 1) {
+                val px = raw.getPixel(width / 2, height / 2)
+                android.util.Log.d("SignRec",
+                    "center pixel: R=${(px shr 16) and 0xFF} G=${(px shr 8) and 0xFF} " +
+                    "B=${px and 0xFF} A=${(px ushr 24) and 0xFF}")
+            }
+
+            // Apply horizontal mirror for front camera (no vertical flip — Zego is top-down).
+            val bmp = if (MIRROR_FRONT_CAMERA) {
+                val m = Matrix().apply { postScale(-1f, 1f, width / 2f, height / 2f) }
+                Bitmap.createBitmap(raw, 0, 0, width, height, m, false)
+            } else raw
+
+            // 256px wide: MediaPipe runs ~80ms → ~12fps → ~19 frames per 1.6s window.
+            val targetW = minOf(256, bmp.width)
+            val targetH  = (bmp.height * targetW.toFloat() / bmp.width).toInt()
+            val scaled = if (targetW < bmp.width) Bitmap.createScaledBitmap(bmp, targetW, targetH, true) else bmp
+
+            // Save first processed frame for visual inspection.
+            if (debugFrameSaved.compareAndSet(false, true)) {
+                try {
+                    val file = java.io.File(context.getExternalFilesDir(null), "sign_debug.png")
+                    java.io.FileOutputStream(file).use { scaled.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                    android.util.Log.d("SignRec", "debug frame saved → ${file.absolutePath}")
+                } catch (e: Exception) {
+                    android.util.Log.w("SignRec", "debug frame save failed: ${e.message}")
+                }
+            }
+
+            scaled
+        } catch (e: Exception) {
+            android.util.Log.e("SignRec", "readBitmapFromTexture error: ${e.message}", e)
+            null
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Per-frame processing (background executor)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private fun handleSignFrameFromBitmap(bitmap: Bitmap) {
+        val frameMs = System.currentTimeMillis()
+        try {
+            val mpImage    = BitmapImageBuilder(bitmap).build()
+            // VIDEO mode requires strictly increasing timestamps in milliseconds.
+            val handResult = handLandmarker?.detectForVideo(mpImage, frameMs)
+            val handCount  = handResult?.landmarks()?.size ?: 0
+
+            processedCount++
+            if (handCount > 0) detectedCount++
+
+            // Log detection rate every 20 processed frames
+            if (processedCount % 20 == 0) {
+                android.util.Log.d("SignRec",
+                    "detection rate: $detectedCount/$processedCount " +
+                    "(${100 * detectedCount / processedCount}%) bufSize=${nativeFrameBuffer.size}")
+            }
+
+            if (handCount == 0) {
                 emit("handsOutOfFrame")
                 return
             }
 
             emit("handsDetected")
 
-            val keypoints = extractAndNormalizeKeypoints(poseResult, handResult!!)
+            val nowMs = frameMs
+            if (batchStartMs == 0L) batchStartMs = nowMs
+
+            val keypoints = extractHandKeypoints(handResult)
+
+            // Debug: log first frame's thumb MCP (landmark 1, indices 3-5) — non-zero only when hand detected.
+            if (nativeFrameBuffer.isEmpty()) {
+                val lhL1 = keypoints.drop(3).take(3).map { String.format("%.4f", it) }
+                val rhL1 = keypoints.drop(66).take(3).map { String.format("%.4f", it) }
+                android.util.Log.d("SignRec", "frame0 lh_l1=$lhL1 rh_l1=$rhL1 (non-zero=detected)")
+            }
+
             nativeFrameBuffer.add(keypoints.toDoubleArray())
 
-            if (nativeFrameBuffer.size >= NUM_FRAMES) {
-                // Flatten 48 × 225 = 10 800 doubles and send to Dart for TFLite.
-                val flat = DoubleArray(NUM_FRAMES * FEATURE_DIM)
-                for (f in 0 until NUM_FRAMES) {
-                    val frame = nativeFrameBuffer[f]
-                    System.arraycopy(frame, 0, flat, f * FEATURE_DIM, FEATURE_DIM)
+            val elapsed = nowMs - batchStartMs
+            if (elapsed >= BATCH_WINDOW_MS) {
+                val n = nativeFrameBuffer.size
+                if (n >= 3) {
+                    // Resample whatever frames we collected to exactly NUM_FRAMES so the
+                    // temporal pattern always spans ~1.6s, matching the training window.
+                    android.util.Log.d("SignRec",
+                        "batch complete: $n frames in ${elapsed}ms " +
+                        "(${1000L * n / elapsed.coerceAtLeast(1)}fps) → resample→$NUM_FRAMES")
+                    val flat = resampleToFlat(nativeFrameBuffer, NUM_FRAMES, FEATURE_DIM)
+                    android.util.Log.d("SignRec", "emitting ${flat.size} values to Dart")
+                    emit(flat.toList())
+                } else {
+                    android.util.Log.d("SignRec", "batch discarded: only $n frames in ${elapsed}ms")
                 }
                 nativeFrameBuffer.clear()
-                emit(flat.toList()) // List<Double>
+                batchStartMs   = 0L
+                processedCount = 0
+                detectedCount  = 0
             }
         } catch (e: Exception) {
-            // Silently skip bad frames — don't crash the processing loop.
+            android.util.Log.e("SignRec", "handleSignFrame error: ${e.javaClass.simpleName}: ${e.message}", e)
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // I420 → NV21 conversion
-    //
-    // I420 layout : Y plane | U plane | V plane   (U and V separate)
-    // NV21 layout : Y plane | VU interleaved
+    // Resample a variable-length frame list to exactly targetCount frames by
+    // linearly interpolating between adjacent source frames.
+    // This normalises the temporal axis so inference always sees ~1.6 s of motion
+    // regardless of the actual collection fps.
     // ─────────────────────────────────────────────────────────────────────────
 
-    private fun i420ToNv21(
-        data: ByteArray, width: Int, height: Int, dataLength: IntArray,
-    ): ByteArray {
-        val ySize  = dataLength[0]             // width × height
-        val uSize  = dataLength[1]             // width/2 × height/2
-        val uStart = ySize
-        val vStart = ySize + uSize
-        val uvPixels = uSize                   // same as vSize
-
-        val nv21 = ByteArray(ySize + uvPixels * 2)
-        System.arraycopy(data, 0, nv21, 0, ySize) // copy Y unchanged
-
-        // Interleave V, U (NV21 is V-first)
-        var dst = ySize
-        for (i in 0 until uvPixels) {
-            nv21[dst++] = data[vStart + i]
-            nv21[dst++] = data[uStart + i]
+    private fun resampleToFlat(frames: List<DoubleArray>, targetCount: Int, featureDim: Int): DoubleArray {
+        val flat = DoubleArray(targetCount * featureDim)
+        val n    = frames.size
+        if (n == 1) {
+            for (i in 0 until targetCount)
+                System.arraycopy(frames[0], 0, flat, i * featureDim, featureDim)
+            return flat
         }
-        return nv21
+        for (i in 0 until targetCount) {
+            val srcF  = i.toFloat() * (n - 1) / (targetCount - 1)
+            val srcLo = srcF.toInt().coerceIn(0, n - 1)
+            val srcHi = (srcLo + 1).coerceIn(0, n - 1)
+            val t     = srcF - srcLo
+            for (j in 0 until featureDim)
+                flat[i * featureDim + j] = frames[srcLo][j] * (1.0 - t) + frames[srcHi][j] * t
+        }
+        return flat
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Extract wrist-centered hand keypoints: lh(63) + rh(63) = 126 doubles.
+    //
+    // Mirrors Python training:
+    //   lh_adj = adjust_landmarks(lh, lh[:3])   # center on wrist (landmark 0)
+    //   rh_adj = adjust_landmarks(rh, rh[:3])
+    //   return concat([lh_adj, rh_adj])
+    //
+    // Handedness note: for a FRONT camera with a mirrored image, MediaPipe's
+    // "Left"/"Right" labels are swapped relative to the user's actual hands.
+    // Set SWAP_HANDEDNESS = true if training was done on a non-mirrored desktop
+    // webcam (OpenCV default) but the phone camera provides a mirrored image.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private val SWAP_HANDEDNESS = false  // toggle if predictions are consistently wrong-handed
+
+    private fun extractHandKeypoints(handResult: HandLandmarkerResult?): List<Double> {
+        var lhRaw: List<Double>? = null
+        var rhRaw: List<Double>? = null
+        val handednesses = handResult?.handednesses() ?: emptyList()
+        for (i in handednesses.indices) {
+            val category  = handednesses[i].firstOrNull()?.categoryName() ?: continue
+            val landmarks = handResult?.landmarks()?.getOrNull(i) ?: continue
+            val flat      = landmarks.flatMap { lm ->
+                listOf(lm.x().toDouble(), lm.y().toDouble(), lm.z().toDouble())
+            }
+            if (!SWAP_HANDEDNESS) {
+                when (category) { "Left" -> lhRaw = flat; "Right" -> rhRaw = flat }
+            } else {
+                when (category) { "Left" -> rhRaw = flat; "Right" -> lhRaw = flat }
+            }
+        }
+
+        val lh = if (lhRaw != null) adjustWrist(lhRaw) else List(63) { 0.0 }
+        val rh = if (rhRaw != null) adjustWrist(rhRaw) else List(63) { 0.0 }
+        return lh + rh
+    }
+
+    // Subtracts wrist (landmark 0) from all 21 landmarks. Wrist becomes (0,0,0).
+    private fun adjustWrist(arr: List<Double>): List<Double> {
+        val wx = arr[0]; val wy = arr[1]; val wz = arr[2]
+        val out = ArrayList<Double>(63)
+        var i = 0
+        while (i < arr.size) {
+            out += arr[i] - wx
+            out += arr[i + 1] - wy
+            out += arr[i + 2] - wz
+            i += 3
+        }
+        return out
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -292,23 +460,7 @@ class SignRecognitionChannel(
 
     private fun initializeMediaPipe() {
         if (initialized) return
-
-        poseLandmarker = PoseLandmarker.createFromOptions(
-            context,
-            PoseLandmarker.PoseLandmarkerOptions.builder()
-                .setBaseOptions(
-                    BaseOptions.builder()
-                        .setModelAssetPath(POSE_MODEL)
-                        .setDelegate(Delegate.CPU)
-                        .build()
-                )
-                .setRunningMode(RunningMode.IMAGE)
-                .setNumPoses(1)
-                .setMinPoseDetectionConfidence(0.5f)
-                .setMinPosePresenceConfidence(0.5f)
-                .setMinTrackingConfidence(0.5f)
-                .build()
-        )
+        android.util.Log.d("SignRec", "initializeMediaPipe: loading hand model…")
 
         handLandmarker = HandLandmarker.createFromOptions(
             context,
@@ -319,93 +471,17 @@ class SignRecognitionChannel(
                         .setDelegate(Delegate.CPU)
                         .build()
                 )
-                .setRunningMode(RunningMode.IMAGE)
+                // VIDEO mode uses inter-frame tracking — far higher detection rate than IMAGE mode.
+                .setRunningMode(RunningMode.VIDEO)
                 .setNumHands(2)
-                .setMinHandDetectionConfidence(0.5f)
-                .setMinHandPresenceConfidence(0.5f)
-                .setMinTrackingConfidence(0.5f)
+                .setMinHandDetectionConfidence(0.1f)
+                .setMinHandPresenceConfidence(0.1f)
+                .setMinTrackingConfidence(0.1f)
                 .build()
         )
 
         initialized = true
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // NV21 → Bitmap
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private fun nv21ToBitmap(
-        nv21: ByteArray, width: Int, height: Int, rotationDegrees: Int,
-    ): Bitmap? = try {
-        val yuv  = YuvImage(nv21, ImageFormat.NV21, width, height, null)
-        val baos = ByteArrayOutputStream()
-        yuv.compressToJpeg(Rect(0, 0, width, height), 85, baos)
-        var bmp  = BitmapFactory.decodeByteArray(baos.toByteArray(), 0, baos.size())
-            ?: return null
-        if (rotationDegrees != 0) {
-            val m = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
-            bmp = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
-        }
-        bmp
-    } catch (e: Exception) { null }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Keypoint extraction — must mirror Python training code exactly
-    //
-    // Python reference:
-    //   def adjust_landmarks(landmarks, center_idx=0):
-    //       arr = np.array([[l.x, l.y, l.z] for l in landmarks])
-    //       arr -= arr[center_idx]
-    //       return arr.flatten()
-    //
-    //   features = np.concatenate([
-    //       adjust_landmarks(pose, center_idx=0),   # nose
-    //       adjust_landmarks(lh,  center_idx=0),   # left wrist
-    //       adjust_landmarks(rh,  center_idx=0),   # right wrist
-    //   ])
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private fun extractAndNormalizeKeypoints(
-        poseResult: PoseLandmarkerResult,
-        handResult: HandLandmarkerResult,
-    ): List<Double> {
-        val poseRaw: List<Double> = poseResult.landmarks().firstOrNull()
-            ?.flatMap { lm -> listOf(lm.x().toDouble(), lm.y().toDouble(), lm.z().toDouble()) }
-            ?: List(99) { 0.0 }
-
-        var lhRaw: List<Double>? = null
-        var rhRaw: List<Double>? = null
-        for (i in handResult.handednesses().indices) {
-            val category  = handResult.handednesses()[i].firstOrNull()?.categoryName() ?: continue
-            val landmarks = handResult.landmarks().getOrNull(i) ?: continue
-            val flat      = landmarks.flatMap { lm ->
-                listOf(lm.x().toDouble(), lm.y().toDouble(), lm.z().toDouble())
-            }
-            when (category) {
-                "Left"  -> lhRaw = flat
-                "Right" -> rhRaw = flat
-            }
-        }
-        val lh = lhRaw ?: List(63) { 0.0 }
-        val rh = rhRaw ?: List(63) { 0.0 }
-
-        val nose    = doubleArrayOf(poseRaw[0], poseRaw[1], poseRaw[2])
-        val lhWrist = doubleArrayOf(lh[0],      lh[1],      lh[2])
-        val rhWrist = doubleArrayOf(rh[0],      rh[1],      rh[2])
-
-        return adjust(poseRaw, nose) + adjust(lh, lhWrist) + adjust(rh, rhWrist)
-    }
-
-    private fun adjust(arr: List<Double>, anchor: DoubleArray): List<Double> {
-        val out = ArrayList<Double>(arr.size)
-        var i = 0
-        while (i < arr.size) {
-            out += arr[i]     - anchor[0]
-            out += arr[i + 1] - anchor[1]
-            out += arr[i + 2] - anchor[2]
-            i += 3
-        }
-        return out
+        android.util.Log.d("SignRec", "initializeMediaPipe: handLandmarker OK")
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'dart:convert';
 import 'CaptionController.dart';
+import 'sign_recognition_controller.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SignCaptioningController — continuous real-time sign recognition
@@ -38,7 +39,7 @@ class SignPrediction {
 class SignCaptioningController extends ChangeNotifier {
   // ── Constants — must match training ───────────────────────────────
   static const int    _numFrames           = 48;
-  static const int    _featureDim          = 225; // 33*3 + 21*3 + 21*3
+  static const int    _featureDim          = 126; // lh(63)+rh(63), wrist-centered by native
   static const double _confidenceThreshold = 0.3;
 
   // ── Platform channels ──────────────────────────────────────────────
@@ -72,11 +73,11 @@ class SignCaptioningController extends ChangeNotifier {
   static const Duration _sentenceFlushDelay = Duration(seconds: 1);
 
   CaptionController? _captionController;
+  SignRecognitionController? _recognitionController;
   String _userId    = '';
   String _userName  = '';
   String _meetingId = '';
 
-  List<dynamic>        _labelClasses = [];
   Map<String, dynamic> _labelMapping = {};
 
   Interpreter? _interpreter;
@@ -87,27 +88,24 @@ class SignCaptioningController extends ChangeNotifier {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    // 1. Label encoder
-    _labelClasses = json.decode(
-      await rootBundle.loadString('assets/model/le_48_clean_final.json'),
-    ) as List<dynamic>;
-
-    // 2. Word mapping
+    // label_map.json: {"0": {"orig_label": N, "sign_arabic": "...", "sign_english": "..."}, ...}
     _labelMapping = json.decode(
-      await rootBundle.loadString('assets/model/label_mapping.json'),
+      await rootBundle.loadString('assets/models/label_map.json'),
     ) as Map<String, dynamic>;
 
-    // 3. TFLite model — input [1, 48, 225], output [1, N]
+    // TFLite model — input [1, 48, 225], output [1, N]
     _interpreter = await Interpreter.fromAsset(
-      'assets/model/tcn_48_clean_final.tflite',
+      'assets/models/model_good.tflite',
       options: InterpreterOptions(),
     );
 
-    // 4. Initialize native MediaPipe landmarkers
+    // Initialize native MediaPipe landmarkers
     await _methodChannel.invokeMethod<void>('initialize');
 
     _initialized = true;
     debugPrint('✅ SignCaptioningController initialized');
+    debugPrint('📐 model input shape:  ${_interpreter!.getInputTensor(0).shape}');
+    debugPrint('📐 model output shape: ${_interpreter!.getOutputTensor(0).shape}');
   }
 
   // ── One-time Zego hook setup ───────────────────────────────────────
@@ -129,6 +127,10 @@ class SignCaptioningController extends ChangeNotifier {
     _userId    = userId;
     _userName  = userName;
     _meetingId = meetingId;
+  }
+
+  void attachRecognitionController(SignRecognitionController r) {
+    _recognitionController = r;
   }
 
   // ── Enable / Disable ──────────────────────────────────────────────
@@ -201,6 +203,7 @@ class SignCaptioningController extends ChangeNotifier {
     } else if (event is List && isEnabled) {
       // 10 800 values = 48 frames × 225 keypoints, sent as List<dynamic>
       debugPrint('🤟 Batch received from native: ${event.length} values');
+      _recognitionController?.receiveBatch(event);
       final flat = event.map<double>((e) => (e as num).toDouble()).toList();
       _runInferenceFromFlat(flat);
     }
@@ -216,11 +219,9 @@ class SignCaptioningController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Build flat [1, 48, 225] float32 input
-      final inputFlat = Float32List(_numFrames * _featureDim);
-      for (int i = 0; i < _numFrames * _featureDim; i++) {
-        inputFlat[i] = flat[i];
-      }
+      // Native already sends wrist-centered lh(63)+rh(63) per frame — use directly.
+      final inputFlat = Float32List(flat.length);
+      for (int i = 0; i < flat.length; i++) inputFlat[i] = flat[i];
       final inputTensor = inputFlat.reshape([1, _numFrames, _featureDim]);
 
       // Output buffer [1, numClasses]
@@ -265,7 +266,18 @@ class SignCaptioningController extends ChangeNotifier {
 
   void _flushSentence() {
     if (_sentenceWords.isEmpty) return;
-    final sentence = _sentenceWords.join(' ');
+    // Single-char words are individual letters — concatenate them directly.
+    // Multi-char words (full words) are separated by spaces.
+    final buf = StringBuffer();
+    for (final word in _sentenceWords) {
+      if (word.length == 1) {
+        buf.write(word);
+      } else {
+        if (buf.isNotEmpty) buf.write(' ');
+        buf.write(word);
+      }
+    }
+    final sentence = buf.toString();
     _sentenceWords.clear();
     _captionController?.pushSignCaption(
         sentence, _userId, _userName, _meetingId);
@@ -280,9 +292,9 @@ class SignCaptioningController extends ChangeNotifier {
 
     final top5 = <SignPrediction>[];
     for (final entry in indexed.take(5)) {
-      if (entry.key >= _labelClasses.length) continue;
-      final originalLabel = _labelClasses[entry.key].toString();
-      final arabicWord    = _labelMapping[originalLabel]?.toString() ?? '؟';
+      final info = _labelMapping[entry.key.toString()] as Map<String, dynamic>?;
+      if (info == null) continue;
+      final arabicWord = info['sign_arabic']?.toString() ?? '؟';
       top5.add(SignPrediction(arabicWord, entry.value));
     }
     return top5;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/MeetingModel.dart';
@@ -33,9 +34,13 @@ class MeetingController {
       await _firestore
           .collection('Meetings')
           .doc(meetingId)
-          .set(meeting.toMap());
+          .set(meeting.toMap())
+          .timeout(const Duration(seconds: 15));
 
       return meeting;
+    } on TimeoutException {
+      print("createMeeting timed out — check internet connection");
+      return null;
     } catch (e) {
       print("Error creating meeting: $e");
       return null;
@@ -100,7 +105,9 @@ class MeetingController {
           'numOfParticipants': 0,
           'screenShareAllowed': false,
         });
-      });
+      }).timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      print("endMeeting timed out — proceeding anyway");
     } catch (e) {
       print("Error ending meeting: $e");
     }

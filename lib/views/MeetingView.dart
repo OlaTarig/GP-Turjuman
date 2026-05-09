@@ -13,8 +13,11 @@ import '../controllers/ZegoSessionController.dart';
 import '../controllers/MeetingSessionManager.dart';
 import '../controllers/CaptionController.dart';
 import '../controllers/SignCaptioningController.dart';
+import '../controllers/sign_recognition_controller.dart';
 import '../models/CaptionsAndTranscriptionModel.dart';
 import '../features/sign_language/sign_language_module.dart';
+import 'widgets/sign_captioning_overlay.dart';
+import 'widgets/sign_recognition_overlay.dart';
 import 'HomePage.dart';
 
 class MeetingView extends StatefulWidget {
@@ -45,7 +48,8 @@ class _MeetingScreenState extends State<MeetingView> {
   final CaptionController _captionController = CaptionController.instance;
   final SignLanguageModule _signLang = SignLanguageModule.instance;
 
-  SignCaptioningController get _signing => mgr.signing;
+  SignCaptioningController  get _signing     => mgr.signing;
+  SignRecognitionController get _recognition => mgr.recognition;
 
 
   String get _currentUid =>
@@ -91,6 +95,7 @@ class _MeetingScreenState extends State<MeetingView> {
     // signing listener wired after mgr.startOrJoin() so the controller exists
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _signing.addListener(_onSessionChanged);
+      _recognition.addListener(_onSessionChanged);
     });
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -131,10 +136,18 @@ class _MeetingScreenState extends State<MeetingView> {
         _captionController.isMicMuted = !session.isMicOn;
         _signing.attachCaptionController(
           _captionController,
-          widget.user.userId,
+          _currentUid,
           widget.user.name,
           widget.meeting.meetingId,
         );
+
+        // Auto-start speech recording so captions are always saved to Firestore
+        // even if the user never presses the CC button. CC only shows the overlay.
+        _captionController.beginCapture(
+          _currentUid,
+          widget.meeting.meetingId,
+          widget.user.name,
+        ).ignore();
 
         // Sign language avatar pipeline
         await _signLang.initialize();
@@ -255,6 +268,8 @@ class _MeetingScreenState extends State<MeetingView> {
     mgr.removeListener(_onSessionChanged);
     _captionController.removeListener(_onSessionChanged);
     _signing.removeListener(_onSessionChanged);
+    _recognition.removeListener(_onSessionChanged);
+    _recognition.disable();
     if (_signLang.isInitialized) {
       _signLang.handController.removeListener(_onSessionChanged);
       _signLang.detachFromCaption(_captionController);
@@ -375,6 +390,7 @@ class _MeetingScreenState extends State<MeetingView> {
   Future<void> _onSignPressed() async {
     if (_signing.isEnabled) {
       await _signing.disable();
+      await _recognition.disable();
     } else {
       if (!session.isCameraOn) {
         _showSnackBar(
@@ -385,6 +401,7 @@ class _MeetingScreenState extends State<MeetingView> {
         return;
       }
       await _signing.startCapture();
+      await _recognition.enable();
     }
   }
 
@@ -855,26 +872,27 @@ class _MeetingScreenState extends State<MeetingView> {
       _endedDialogShown = true;
       _meetingSub?.cancel();
 
-      await meetingController.endMeeting(meetingId);
-
+      // Best-effort cleanup — navigate away regardless of failures.
+      await _runWithTimeout(meetingController.endMeeting(meetingId));
       if (uid != null) {
-        await FirebaseFirestore.instance.collection('User').doc(uid).set({
-          'micPermissionGranted': false,
-          'cameraPermissionGranted': false,
-          'isHandRaised': false,
-          'handRaisedAt': null,
-          'currentMeetingId': null,
-        }, SetOptions(merge: true));
+        await _runWithTimeout(
+          FirebaseFirestore.instance.collection('User').doc(uid).set({
+            'micPermissionGranted': false,
+            'cameraPermissionGranted': false,
+            'isHandRaised': false,
+            'handRaisedAt': null,
+            'currentMeetingId': null,
+          }, SetOptions(merge: true)),
+        );
       }
-
-      await mgr.endAndDispose();
-      await _captionController.completeTranscription();
-      await _captionController.resetForNewMeeting();
+      await _runWithTimeout(mgr.endAndDispose());
+      await _runWithTimeout(_captionController.completeTranscription());
+      await _runWithTimeout(_captionController.resetForNewMeeting());
 
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const HomePage()),
-            (route) => false,
+        (route) => false,
       );
       return;
     }
@@ -901,26 +919,36 @@ class _MeetingScreenState extends State<MeetingView> {
 
     if (confirmed != true) return;
 
-    await meetingController.leaveMeeting(meetingId);
-
+    await _runWithTimeout(meetingController.leaveMeeting(meetingId));
     if (uid != null) {
-      await FirebaseFirestore.instance.collection('User').doc(uid).set({
-        'micPermissionGranted': false,
-        'cameraPermissionGranted': false,
-        'isHandRaised': false,
-        'handRaisedAt': null,
-        'currentMeetingId': null,
-      }, SetOptions(merge: true));
+      await _runWithTimeout(
+        FirebaseFirestore.instance.collection('User').doc(uid).set({
+          'micPermissionGranted': false,
+          'cameraPermissionGranted': false,
+          'isHandRaised': false,
+          'handRaisedAt': null,
+          'currentMeetingId': null,
+        }, SetOptions(merge: true)),
+      );
     }
-
-    await mgr.endAndDispose();
-    await _captionController.resetForNewMeeting();
+    await _runWithTimeout(mgr.endAndDispose());
+    await _runWithTimeout(_captionController.resetForNewMeeting());
 
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const HomePage()),
-          (route) => false,
+      (route) => false,
     );
+  }
+
+  /// Runs [future] with a 10-second timeout and swallows any error so
+  /// end/leave always completes even when network or cleanup calls hang.
+  Future<void> _runWithTimeout(Future<void> future) async {
+    try {
+      await future.timeout(const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('⚠️ _runWithTimeout: $e');
+    }
   }
 
   @override
@@ -1150,115 +1178,16 @@ class _MeetingScreenState extends State<MeetingView> {
                             ),
                           ),
 
-                        // ── Sign: capture progress bar (indeterminate) ──
-                        if (_signing.captureState == CaptureState.capturing ||
-                            _signing.captureState == CaptureState.inferring)
-                          Positioned(
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            child: LinearProgressIndicator(
-                              minHeight: 4,
-                              backgroundColor: Colors.white24,
-                              valueColor:
-                                  const AlwaysStoppedAnimation<Color>(
-                                      Colors.deepPurple),
-                            ),
-                          ),
+                        // ── Sign captioning overlays (progress, chip, warnings) ──
+                        Positioned.fill(
+                          child: SignCaptioningOverlay(signing: _signing),
+                        ),
 
-                        // ── Sign: inferring indicator ──────────────────
-                        if (_signing.captureState == CaptureState.inferring)
-                          Positioned(
-                            top: 8,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.deepPurple.withOpacity(0.85),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2),
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text('Analyzing sign…',
-                                        style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 13)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-
-                        // ── Sign: last recognized word chip ───────────
-                        if (_signing.isEnabled &&
-                            _signing.currentArabicSign != null &&
-                            _signing.captureState == CaptureState.capturing)
-                          Positioned(
-                            top: 12,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.deepPurple.withOpacity(0.9),
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                child: Text(
-                                  _signing.currentArabicSign!,
-                                  textDirection: TextDirection.rtl,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                        // ── Sign: hands out of frame warning ──────────
-                        if (_signing.isEnabled && _signing.handsOutOfFrame)
-                          Positioned(
-                            top: 8,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.withOpacity(0.90),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.warning_amber_rounded,
-                                        color: Colors.white, size: 16),
-                                    SizedBox(width: 6),
-                                    Text('Hands not detected — move into frame',
-                                        style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 13)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
+                        // ── Sign recognition overlays (collect, infer, results) ──
+                        Positioned.fill(
+                          child: SignRecognitionOverlay(
+                              controller: _recognition),
+                        ),
 
                         Positioned(
                           bottom: 12,
@@ -1381,7 +1310,7 @@ class _MeetingScreenState extends State<MeetingView> {
                             icon: Icons.sign_language,
                             label: 'Sign',
                             isActive: _signing.isEnabled,
-                            activeColor: Colors.deepPurple,
+                            activeColor: Colors.orange,
                             onTap: _onSignPressed,
                           ),
                           const SizedBox(width: 16),
