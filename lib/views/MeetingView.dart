@@ -149,9 +149,9 @@ class _MeetingScreenState extends State<MeetingView> {
           widget.user.name,
         ).ignore();
 
-        // Sign language avatar pipeline
+        // Sign language avatar pipeline — only initialize here;
+        // attachToCaption is deferred until the user enables the avatar.
         await _signLang.initialize();
-        _signLang.attachToCaption(_captionController);
         _signLang.handController.addListener(_onSessionChanged);
       } catch (_) {
         if (!mounted) return;
@@ -408,12 +408,15 @@ class _MeetingScreenState extends State<MeetingView> {
   void _onSignAvatarPressed() {
     if (!_signAvatarEnabled) {
       setState(() => _signAvatarEnabled = true);
+      // Attach now so only captions from this point are queued for signing.
+      _signLang.attachToCaption(_captionController);
       _showSnackBar(
         'Sign avatar enabled — captions will be translated to sign language',
         const Color(0xFFFFB382),
         Icons.interpreter_mode,
       );
     } else {
+      _signLang.detachFromCaption(_captionController);
       _signLang.stopPlayback();
       setState(() => _signAvatarEnabled = false);
       _showSnackBar(
@@ -1107,29 +1110,28 @@ class _MeetingScreenState extends State<MeetingView> {
                             bottom: 60,
                             left: 12,
                             right: 12,
-                            child: StreamBuilder<DocumentSnapshot>(
-                              stream: FirebaseFirestore.instance
-                                  .collection(kCaptionsCollection)
-                                  .doc(widget.meeting.meetingId)
-                                  .snapshots(),
-                              builder: (context, snap) {
-                                if (!snap.hasData || !snap.data!.exists) {
-                                  return const SizedBox.shrink();
-                                }
-                                final data =
-                                    snap.data!.data() as Map<String, dynamic>;
-                                final allEntries =
-                                    (data['captionsBuffer'] as List<dynamic>? ??
-                                            [])
-                                        .map((e) => CaptionEntry.fromMap(
-                                            e as Map<String, dynamic>))
-                                        .toList();
+                            child: AnimatedBuilder(
+                              animation: _captionController,
+                              builder: (context, _) {
+                                final live = _captionController.liveCaptions;
+                                final pending = _captionController.pendingCaption;
+                                // Combine Firestore-confirmed + in-flight entry,
+                                // dedup so pending doesn't double-show on confirm.
+                                final allEntries = [
+                                  ...live,
+                                  if (pending != null &&
+                                      !live.any((e) =>
+                                          e.userId == pending.userId &&
+                                          e.text == pending.text))
+                                    pending,
+                                ];
+                                allEntries.sort(
+                                    (a, b) => a.timestamp.compareTo(b.timestamp));
                                 if (allEntries.isEmpty) {
                                   return const SizedBox.shrink();
                                 }
                                 final entries = allEntries.length > 3
-                                    ? allEntries
-                                        .sublist(allEntries.length - 3)
+                                    ? allEntries.sublist(allEntries.length - 3)
                                     : allEntries;
                                 return Column(
                                   crossAxisAlignment:

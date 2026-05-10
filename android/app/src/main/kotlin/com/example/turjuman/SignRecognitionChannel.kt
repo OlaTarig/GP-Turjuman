@@ -43,7 +43,7 @@ class SignRecognitionChannel(
         // At device speed (~3 fps) we collect 3–5 frames then resample to NUM_FRAMES.
         // 800ms gives ~3 frames (≥ minimum) at half the latency; resampling stretches
         // the temporal axis to match training regardless of actual collection rate.
-        private const val BATCH_WINDOW_MS = 800L
+        private const val BATCH_WINDOW_MS = 1200L
 
         // GL_BGRA_EXT: reads bytes as B,G,R,A which maps directly to Android ARGB_8888 memory layout
         // (on little-endian ARM, ARGB_8888 stores pixels as B-G-R-A bytes).
@@ -405,34 +405,42 @@ class SignRecognitionChannel(
     // ─────────────────────────────────────────────────────────────────────────
     // Extract wrist-centered hand keypoints: lh(63) + rh(63) = 126 doubles.
     //
-    // Mirrors Python training:
-    //   lh_adj = adjust_landmarks(lh, lh[:3])   # center on wrist (landmark 0)
-    //   rh_adj = adjust_landmarks(rh, rh[:3])
-    //   return concat([lh_adj, rh_adj])
-    //
-    // Handedness note: for a FRONT camera with a mirrored image, MediaPipe's
-    // "Left"/"Right" labels are swapped relative to the user's actual hands.
-    // Set SWAP_HANDEDNESS = true if training was done on a non-mirrored desktop
-    // webcam (OpenCV default) but the phone camera provides a mirrored image.
+    // lh slot = image-left hand  (offset 0–62)
+    // rh slot = image-right hand (offset 63–125)
+    // Assigned by wrist X position, not by MediaPipe's "Left"/"Right" label,
+    // because the label is unreliable when both hands are simultaneously visible.
     // ─────────────────────────────────────────────────────────────────────────
 
-    private val SWAP_HANDEDNESS = false  // toggle if predictions are consistently wrong-handed
-
     private fun extractHandKeypoints(handResult: HandLandmarkerResult?): List<Double> {
-        var lhRaw: List<Double>? = null
-        var rhRaw: List<Double>? = null
-        val handednesses = handResult?.handednesses() ?: emptyList()
-        for (i in handednesses.indices) {
-            val category  = handednesses[i].firstOrNull()?.categoryName() ?: continue
-            val landmarks = handResult?.landmarks()?.getOrNull(i) ?: continue
-            val flat      = landmarks.flatMap { lm ->
+        var lhRaw: List<Double>? = null   // lh slot (offset   0) = user's left hand
+        var rhRaw: List<Double>? = null   // rh slot (offset  63) = user's right hand
+        val landmarks = handResult?.landmarks() ?: emptyList()
+
+        for (i in landmarks.indices) {
+            val landmarkList = landmarks[i]
+            val wristX = landmarkList.firstOrNull()?.x()?.toDouble() ?: continue
+            val flat = landmarkList.flatMap { lm ->
                 listOf(lm.x().toDouble(), lm.y().toDouble(), lm.z().toDouble())
             }
-            if (!SWAP_HANDEDNESS) {
-                when (category) { "Left" -> lhRaw = flat; "Right" -> rhRaw = flat }
+            // After MIRROR_FRONT_CAMERA flip the image is a selfie view:
+            // user's right hand appears on the image-LEFT (X < 0.5) → rh slot.
+            // user's left hand appears on the image-RIGHT (X >= 0.5) → lh slot.
+            if (wristX < 0.5) {
+                if (rhRaw == null) rhRaw = flat   // image-left = user's right hand
             } else {
-                when (category) { "Left" -> rhRaw = flat; "Right" -> lhRaw = flat }
+                if (lhRaw == null) lhRaw = flat   // image-right = user's left hand
             }
+            if (i == 0) {
+                android.util.Log.d("SignRec",
+                    "hand[$i] wristX=${String.format("%.3f", wristX)} → ${if (wristX < 0.5) "rh" else "lh"} slot")
+            }
+        }
+        if (landmarks.size == 2) {
+            val x0 = landmarks[0].firstOrNull()?.x() ?: 0f
+            val x1 = landmarks[1].firstOrNull()?.x() ?: 0f
+            android.util.Log.d("SignRec",
+                "two hands: x0=${String.format("%.3f", x0)} x1=${String.format("%.3f", x1)}" +
+                " lhRaw=${lhRaw != null} rhRaw=${rhRaw != null}")
         }
 
         val lh = if (lhRaw != null) adjustWrist(lhRaw) else List(63) { 0.0 }
@@ -474,9 +482,9 @@ class SignRecognitionChannel(
                 // VIDEO mode uses inter-frame tracking — far higher detection rate than IMAGE mode.
                 .setRunningMode(RunningMode.VIDEO)
                 .setNumHands(2)
-                .setMinHandDetectionConfidence(0.1f)
-                .setMinHandPresenceConfidence(0.1f)
-                .setMinTrackingConfidence(0.1f)
+                .setMinHandDetectionConfidence(0.5f)
+                .setMinHandPresenceConfidence(0.5f)
+                .setMinTrackingConfidence(0.5f)
                 .build()
         )
 

@@ -48,6 +48,9 @@ class HandController extends ChangeNotifier {
   void setText(List<String> tokens) {
     _stopRequested = false;
 
+    // Drop stale backlog so the avatar stays in sync with live speech.
+    if (_queue.length > 2) _queue.clear();
+
     for (final token in tokens) {
       if (token.startsWith('#fingerspell:')) {
         final word = token.substring('#fingerspell:'.length);

@@ -22,6 +22,10 @@ class CaptionController extends ChangeNotifier {
   bool isMicMuted = true;
   bool _captionsVisible = false;
 
+  // Holds the locally-recognized caption before Firestore confirms it.
+  // Cleared by the Firestore snapshot once the entry appears in captionsBuffer.
+  CaptionEntry? _pendingCaption;
+
   String? lastError;
 
   final List<CaptionEntry> _fullTranscript = [];
@@ -44,6 +48,7 @@ class CaptionController extends ChangeNotifier {
   // ── Getters ────────────────────────────────────────────────────────
   bool get captionsEnabled => _captionsVisible;
   bool get isSpeaking => _isSpeaking;
+  CaptionEntry? get pendingCaption => _pendingCaption;
   List<CaptionEntry> get liveCaptions => List.unmodifiable(_liveCaptions);
   List<CaptionEntry> get fullTranscript => List.unmodifiable(_fullTranscript);
 
@@ -83,24 +88,14 @@ class CaptionController extends ChangeNotifier {
 
     if (_captionsVisible) {
       _captionsVisible = false;
-      _liveCaptions.clear();
       notifyListeners();
       debugPrint('🔕 CC overlay hidden (recording continues in background)');
     } else {
       _captionsVisible = true;
-      // Start recording now if beginCapture hasn't fired yet (e.g. slow init).
       if (!_isSpeaking) {
         _consecutiveErrors = 0;
         await _startSpeaking();
       } else {
-        // Seed overlay from whatever is already in the transcript.
-        if (_fullTranscript.isNotEmpty) {
-          _liveCaptions
-            ..clear()
-            ..addAll(_fullTranscript.length > 3
-                ? _fullTranscript.sublist(_fullTranscript.length - 3)
-                : _fullTranscript);
-        }
         notifyListeners();
       }
       debugPrint('✅ CC overlay shown — meetingId=$_currentMeetingId');
@@ -136,24 +131,27 @@ class CaptionController extends ChangeNotifier {
           .map((e) => CaptionEntry.fromMap(e as Map<String, dynamic>))
           .toList();
 
-      // Always keep full transcript up to date
+      // Sort by speech timestamp so concurrent speakers display chronologically.
+      entries.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
       _fullTranscript
         ..clear()
         ..addAll(entries);
 
-      debugPrint('📡 Firestore snapshot: ${entries.length} entries, captionsVisible=$_captionsVisible');
+      _liveCaptions
+        ..clear()
+        ..addAll(entries);
 
-      // Only update live overlay if CC is ON for this user
-      if (_captionsVisible) {
-        final latest = entries.length > 3
-            ? entries.sublist(entries.length - 3)
-            : entries;
-        _liveCaptions
-          ..clear()
-          ..addAll(latest);
-        debugPrint('📡 liveCaptions updated: ${_liveCaptions.length} items');
-        notifyListeners();
+      // Clear pending caption once Firestore confirms it (matched by userId+text).
+      final pending = _pendingCaption;
+      if (pending != null &&
+          _liveCaptions.any(
+              (e) => e.userId == pending.userId && e.text == pending.text)) {
+        _pendingCaption = null;
       }
+
+      debugPrint('📡 Firestore snapshot: ${entries.length} entries, pending=${_pendingCaption != null}');
+      notifyListeners();
     }, onError: (e) {
       debugPrint('❌ Firestore watch error: $e');
     });
@@ -365,6 +363,11 @@ class CaptionController extends ChangeNotifier {
       timestamp: DateTime.now(),
     );
 
+    // Show recognized text instantly while the Firestore write is in-flight.
+    // The Firestore snapshot clears this once it confirms the entry.
+    _pendingCaption = entry;
+    notifyListeners();
+
     try {
       await FirebaseFirestore.instance
           .collection(kCaptionsCollection)
@@ -378,8 +381,6 @@ class CaptionController extends ChangeNotifier {
     } catch (e) {
       debugPrint('❌ Failed to push caption: $e');
     }
-
-    notifyListeners();
   }
 
   // ── Mark meeting transcript complete ──────────────────────────────
@@ -403,6 +404,7 @@ class CaptionController extends ChangeNotifier {
     _isSpeaking = false;
     _captionsVisible = false;
     isMicMuted = true;
+    _pendingCaption = null;
     await _stopMic();
     _captionSub?.cancel();
     _captionSub = null;
@@ -417,6 +419,7 @@ class CaptionController extends ChangeNotifier {
 
   void clearCaptions() {
     _liveCaptions.clear();
+    _pendingCaption = null;
     notifyListeners();
   }
 

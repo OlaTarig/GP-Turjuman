@@ -26,6 +26,12 @@ class VoiceInputHandler {
   /// How many entries from [liveCaptions] have already been processed.
   int _processedCount = 0;
 
+  /// Keys ("userId|text") of captions already forwarded via pendingCaption,
+  /// used to skip the duplicate when Firestore later confirms them in liveCaptions.
+  /// A set (not a single entry) handles the case where caption B arrives before
+  /// Firestore confirms caption A — both are tracked independently.
+  final Set<String> _pendingProcessed = {};
+
   VoiceInputHandler({
     required HandController handController,
     required NamedEntityRecognition ner,
@@ -51,6 +57,7 @@ class VoiceInputHandler {
     if (_captionController == captionController) {
       _captionController = null;
       _processedCount = 0;
+      _pendingProcessed.clear();
     }
   }
 
@@ -61,20 +68,38 @@ class VoiceInputHandler {
   // ── Caption listener ───────────────────────────────────────────────
 
   void _onCaptionsUpdated() {
-    final captions = _captionController?.liveCaptions ?? [];
+    final cc = _captionController;
+    if (cc == null) return;
 
+    // ── Fix 1: process pendingCaption immediately (before Firestore confirms) ──
+    // pendingCaption is set the moment speech is recognized, before the Firestore
+    // round-trip, so forwarding it here eliminates the 200-600ms Firestore delay.
+    final pending = cc.pendingCaption;
+    if (pending != null && pending.text.trim().isNotEmpty) {
+      final key = '${pending.userId}|${pending.text}';
+      if (!_pendingProcessed.contains(key)) {
+        _pendingProcessed.add(key);
+        startTracking(pending.text);
+      }
+    }
+
+    // ── Process newly arrived liveCaptions entries from Firestore ──
+    final captions = cc.liveCaptions;
     if (captions.length <= _processedCount) {
       // List was cleared (e.g. meeting ended) — reset counter
       _processedCount = captions.length;
       return;
     }
 
-    // Process only newly arrived entries
     final newEntries = captions.sublist(_processedCount);
     _processedCount = captions.length;
 
     for (final entry in newEntries) {
       if (entry.text.trim().isEmpty) continue;
+      // Skip the Firestore confirmation of a caption already queued via pendingCaption.
+      // Use remove() so the same phrase can be queued again if said a second time.
+      final key = '${entry.userId}|${entry.text}';
+      if (_pendingProcessed.remove(key)) continue;
       startTracking(entry.text);
     }
   }

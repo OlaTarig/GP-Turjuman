@@ -186,18 +186,24 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _statChip(
-                      icon: Icons.chat_bubble_outline,
-                      label: '${model.captionsBuffer.length} sentences',
+                    Flexible(
+                      child: _statChip(
+                        icon: Icons.chat_bubble_outline,
+                        label: '${model.captionsBuffer.length} sentences',
+                      ),
                     ),
-                    _statChip(
-                      icon: Icons.people_outline,
-                      label:
-                      '${model.captionsBuffer.map((e) => e.userName).where((n) => n.isNotEmpty).toSet().length} speakers',
+                    Flexible(
+                      child: _statChip(
+                        icon: Icons.people_outline,
+                        label:
+                        '${model.captionsBuffer.map((e) => e.userName).where((n) => n.isNotEmpty).toSet().length} speakers',
+                      ),
                     ),
-                    _statChip(
-                      icon: Icons.access_time,
-                      label: model.createdAt.toString().substring(0, 16),
+                    Flexible(
+                      child: _statChip(
+                        icon: Icons.access_time,
+                        label: model.createdAt.toString().substring(0, 16),
+                      ),
                     ),
                   ],
                 ),
@@ -508,10 +514,59 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                 },
               ),
             ),
+
+            // Delete button
+            IconButton(
+              icon: const Icon(Icons.delete_outline,
+                  color: Colors.redAccent, size: 24),
+              tooltip: 'Delete transcript',
+              onPressed: () => _confirmDelete(context, model),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  // ── Delete ─────────────────────────────────────────────────────────
+  Future<void> _confirmDelete(
+      BuildContext context, CaptionsAndTranscriptionModel model) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Transcript'),
+        content: const Text(
+            'This transcript will be permanently deleted for all participants. Continue?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection(kCaptionsCollection)
+          .doc(model.meetingId)
+          .delete();
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   // ── Empty state ────────────────────────────────────────────────────
@@ -562,9 +617,13 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
       children: [
         Icon(icon, size: 14, color: primaryOrange),
         const SizedBox(width: 4),
-        Text(label,
-            style: const TextStyle(
-                fontSize: 12, color: Color(0xFF2D3142))),
+        Flexible(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF2D3142)),
+          ),
+        ),
       ],
     );
   }
