@@ -265,12 +265,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                         if (value == null || value.trim().isEmpty) {
                                           return 'Please enter your name';
                                         }
-                                        if (value.trim().length < 2) {
+
+                                        final trimmedValue = value.trim();
+
+                                        if (trimmedValue.length < 2) {
                                           return 'Name must be at least 2 characters';
                                         }
-                                        if (RegExp(r'^[0-9]').hasMatch(value.trim())) {
+
+                                        if (trimmedValue.length > 20) {
+                                          return 'Name cannot exceed 20 characters';
+                                        }
+
+                                        if (RegExp(r'^[0-9]').hasMatch(trimmedValue)) {
                                           return 'Name cannot start with a number';
                                         }
+
                                         return null;
                                       },
                                     ),
@@ -285,9 +294,35 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                         if (value == null || value.trim().isEmpty) {
                                           return 'Please enter your email';
                                         }
-                                        if (!value.contains('@') || !value.contains('.')) {
+
+                                        final email = value.trim();
+
+                                        // No spaces
+                                        if (email.contains(' ')) {
+                                          return 'Email cannot contain spaces';
+                                        }
+
+                                        // No consecutive dots
+                                        if (email.contains('..')) {
+                                          return 'Email cannot contain consecutive dots';
+                                        }
+
+                                        // Basic email pattern with TLD check
+                                        final emailRegex = RegExp(
+                                          r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
+                                        );
+
+                                        if (!emailRegex.hasMatch(email)) {
                                           return 'Please enter a valid email address';
                                         }
+
+                                        // Check TLD length manually
+                                        final tld = email.split('.').last;
+
+                                        if (tld.length < 2 || tld.length > 6) {
+                                          return 'Invalid email domain';
+                                        }
+
                                         return null;
                                       },
                                     ),
@@ -376,9 +411,25 @@ class _SignUpScreenState extends State<SignUpScreen> {
             if (value == null || value.isEmpty) {
               return 'Please enter a password';
             }
+
             if (value.length < 9) {
               return 'Password must be at least 9 characters';
             }
+
+            if (value.length > 20) {
+              return 'Password cannot exceed 20 characters';
+            }
+
+            // Must contain letters
+            if (!RegExp(r'[A-Za-z]').hasMatch(value)) {
+              return 'Password must contain letters';
+            }
+
+            // Must contain numbers
+            if (!RegExp(r'[0-9]').hasMatch(value)) {
+              return 'Password must contain numbers';
+            }
+
             return null;
           },
           decoration: InputDecoration(
