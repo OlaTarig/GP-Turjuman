@@ -317,6 +317,36 @@
       "videoPath": "assets/fingerspelling/ي.mp4",
       "durationMs": 700,
       "word": "ي"
+    },
+    "ال": {
+      "videoPath": "assets/fingerspelling/ال.mp4",
+      "durationMs": 1500,
+      "word": "ال"
+    },
+    "ة": {
+      "videoPath": "assets/fingerspelling/ة.mp4",
+      "durationMs": 1500,
+      "word": "ة"
+    },
+    "ؤ": {
+      "videoPath": "assets/fingerspelling/ؤ.mp4",
+      "durationMs": 1500,
+      "word": "ؤ"
+    },
+    "ى": {
+      "videoPath": "assets/fingerspelling/ى.mp4",
+      "durationMs": 1500,
+      "word": "ى"
+    },
+    "ئ": {
+      "videoPath": "assets/fingerspelling/ئ.mp4",
+      "durationMs": 1500,
+      "word": "ئ"
+    },
+    "لا": {
+      "videoPath": "assets/fingerspelling/لا.mp4",
+      "durationMs": 1500,
+      "word": "لا"
     }
   }
 }
