@@ -332,6 +332,10 @@ class SignRecognitionChannel(
 
             if (handCount == 0) {
                 emit("handsOutOfFrame")
+                // Clear stale frames so they don't contaminate the next batch
+                // when the hand returns.
+                nativeFrameBuffer.clear()
+                batchStartMs = 0L
                 return
             }
 
@@ -354,7 +358,7 @@ class SignRecognitionChannel(
             val elapsed = nowMs - batchStartMs
             if (elapsed >= BATCH_WINDOW_MS) {
                 val n = nativeFrameBuffer.size
-                if (n >= 3) {
+                if (n >= 2) {
                     // Resample whatever frames we collected to exactly NUM_FRAMES so the
                     // temporal pattern always spans ~1.6s, matching the training window.
                     android.util.Log.d("SignRec",
@@ -364,7 +368,7 @@ class SignRecognitionChannel(
                     android.util.Log.d("SignRec", "emitting ${flat.size} values to Dart")
                     emit(flat.toList())
                 } else {
-                    android.util.Log.d("SignRec", "batch discarded: only $n frames in ${elapsed}ms")
+                    android.util.Log.d("SignRec", "batch discarded: only $n frame(s) in ${elapsed}ms")
                 }
                 nativeFrameBuffer.clear()
                 batchStartMs   = 0L
@@ -412,35 +416,41 @@ class SignRecognitionChannel(
     // ─────────────────────────────────────────────────────────────────────────
 
     private fun extractHandKeypoints(handResult: HandLandmarkerResult?): List<Double> {
-        var lhRaw: List<Double>? = null   // lh slot (offset   0) = user's left hand
-        var rhRaw: List<Double>? = null   // rh slot (offset  63) = user's right hand
         val landmarks = handResult?.landmarks() ?: emptyList()
 
-        for (i in landmarks.indices) {
-            val landmarkList = landmarks[i]
-            val wristX = landmarkList.firstOrNull()?.x()?.toDouble() ?: continue
-            val flat = landmarkList.flatMap { lm ->
+        // Collect (wristX, flat) for every detected hand.
+        data class HandData(val wristX: Double, val flat: List<Double>)
+        val hands = landmarks.mapNotNull { landmarkList ->
+            val wristX = landmarkList.firstOrNull()?.x()?.toDouble() ?: return@mapNotNull null
+            val flat   = landmarkList.flatMap { lm ->
                 listOf(lm.x().toDouble(), lm.y().toDouble(), lm.z().toDouble())
             }
-            // After MIRROR_FRONT_CAMERA flip the image is a selfie view:
-            // user's right hand appears on the image-LEFT (X < 0.5) → rh slot.
-            // user's left hand appears on the image-RIGHT (X >= 0.5) → lh slot.
-            if (wristX < 0.5) {
-                if (rhRaw == null) rhRaw = flat   // image-left = user's right hand
-            } else {
-                if (lhRaw == null) lhRaw = flat   // image-right = user's left hand
-            }
-            if (i == 0) {
-                android.util.Log.d("SignRec",
-                    "hand[$i] wristX=${String.format("%.3f", wristX)} → ${if (wristX < 0.5) "rh" else "lh"} slot")
-            }
+            HandData(wristX, flat)
         }
-        if (landmarks.size == 2) {
-            val x0 = landmarks[0].firstOrNull()?.x() ?: 0f
-            val x1 = landmarks[1].firstOrNull()?.x() ?: 0f
-            android.util.Log.d("SignRec",
-                "two hands: x0=${String.format("%.3f", x0)} x1=${String.format("%.3f", x1)}" +
-                " lhRaw=${lhRaw != null} rhRaw=${rhRaw != null}")
+
+        var lhRaw: List<Double>? = null   // lh slot (offset   0) = user's left hand
+        var rhRaw: List<Double>? = null   // rh slot (offset  63) = user's right hand
+
+        when (hands.size) {
+            2 -> {
+                // Sort by wrist X so relative position determines the slot,
+                // not a fixed 0.5 boundary that fails when both hands are on
+                // the same side of the frame (the original hang/miss bug).
+                // After MIRROR_FRONT_CAMERA flip: lower X = image-left = user's right hand.
+                val sorted = hands.sortedBy { it.wristX }
+                rhRaw = sorted[0].flat   // image-left  = user's right hand
+                lhRaw = sorted[1].flat   // image-right = user's left hand
+                android.util.Log.d("SignRec",
+                    "two hands: rh_wristX=${String.format("%.3f", sorted[0].wristX)}" +
+                    " lh_wristX=${String.format("%.3f", sorted[1].wristX)}")
+            }
+            1 -> {
+                // Single hand: use 0.5 threshold.
+                val h = hands[0]
+                if (h.wristX < 0.5) rhRaw = h.flat else lhRaw = h.flat
+                android.util.Log.d("SignRec",
+                    "one hand: wristX=${String.format("%.3f", h.wristX)} → ${if (h.wristX < 0.5) "rh" else "lh"} slot")
+            }
         }
 
         val lh = if (lhRaw != null) adjustWrist(lhRaw) else List(63) { 0.0 }
@@ -482,9 +492,9 @@ class SignRecognitionChannel(
                 // VIDEO mode uses inter-frame tracking — far higher detection rate than IMAGE mode.
                 .setRunningMode(RunningMode.VIDEO)
                 .setNumHands(2)
-                .setMinHandDetectionConfidence(0.5f)
-                .setMinHandPresenceConfidence(0.5f)
-                .setMinTrackingConfidence(0.5f)
+                .setMinHandDetectionConfidence(0.15f)
+                .setMinHandPresenceConfidence(0.3f)
+                .setMinTrackingConfidence(0.3f)
                 .build()
         )
 

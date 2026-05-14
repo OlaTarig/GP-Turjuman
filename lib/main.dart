@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'views/GUI.dart';
+import 'views/onboarding/onboarding_screen.dart';
 import 'services/deep_link_service.dart';
 import 'views/JoinMeetingView.dart';
 import 'views/HomePage.dart';
@@ -69,8 +71,8 @@ class _AppEntry extends StatefulWidget {
 class _AppEntryState extends State<_AppEntry> {
   String? _pendingMeetingId;
   bool _deepLinkHandled = false;
-  // Stay on splash until BOTH auth AND deep-link check are done
   bool _ready = false;
+  bool _onboardingDone = true;
 
   @override
   void initState() {
@@ -84,19 +86,32 @@ class _AppEntryState extends State<_AppEntry> {
     debugPrint('🔗 consumePendingLink() = $_pendingMeetingId');
 
     // 2. If nothing yet, do one more getInitialLink() attempt.
-    //    On some Android devices the link arrives slightly after startup.
     if (_pendingMeetingId == null) {
       _pendingMeetingId = await deepLinkService.retryInitialLink();
       debugPrint('🔗 retryInitialLink() = $_pendingMeetingId');
     }
 
-    if (mounted) setState(() => _ready = true);
+    // 3. Check whether the user has already seen onboarding.
+    final prefs = await SharedPreferences.getInstance();
+    final done = prefs.getBool('onboarding_done') ?? false;
+
+    if (mounted) {
+      setState(() {
+        _onboardingDone = done;
+        _ready = true;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Hold on splash until we know whether there's a link
     if (!_ready) return _splash();
+
+    if (!_onboardingDone) {
+      return OnboardingScreen(
+        onComplete: () => setState(() => _onboardingDone = true),
+      );
+    }
 
     debugPrint('🔗 _pendingMeetingId = $_pendingMeetingId');
 

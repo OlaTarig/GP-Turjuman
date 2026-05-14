@@ -60,7 +60,7 @@ class _HandViewState extends State<HandView>
     super.initState();
     _fadeCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 300),
     );
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeInOut);
     widget.controller.addListener(_onHandControllerChanged);
@@ -121,8 +121,11 @@ class _HandViewState extends State<HandView>
       final tmpDir = await getTemporaryDirectory();
       final tmpFile = File('${tmpDir.path}/sign_$hash.$ext');
 
-      final data = await rootBundle.load(assetPath);
-      await tmpFile.writeAsBytes(data.buffer.asUint8List(), flush: true);
+      // Skip the copy if the file is already cached from a previous load.
+      if (!tmpFile.existsSync()) {
+        final data = await rootBundle.load(assetPath);
+        await tmpFile.writeAsBytes(data.buffer.asUint8List(), flush: true);
+      }
 
       final fileCtrl = VideoPlayerController.file(tmpFile);
       await fileCtrl.initialize();
@@ -170,8 +173,8 @@ class _HandViewState extends State<HandView>
 
     final duration = _backCtrl!.value.duration;
     if (duration > Duration.zero) {
-      final fireAt = duration > const Duration(milliseconds: 300)
-          ? duration - const Duration(milliseconds: 200)
+      final fireAt = duration > const Duration(milliseconds: 400)
+          ? duration - const Duration(milliseconds: 300)
           : duration;
       _endTimer = Timer(fireAt, _onNearEnd);
     }

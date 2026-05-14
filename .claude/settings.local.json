@@ -4,7 +4,13 @@
       "Bash(find C:UsersolataAppDataLocalPubCachehostedpub.devzego_express_engine-3.23.0 -name *.aar)",
       "Bash(find C:UsersolataAppDataLocalPubCachehostedpub.devzego_express_engine-3.23.0 -name *.gradle)",
       "Read(//c/Users/olata/AppData/Local/Pub/Cache/hosted/pub.dev/zego_express_engine-3.23.0/android/libs/**)",
-      "Bash(python3 -c \":*)"
+      "Bash(python3 -c \":*)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\olata\\\\StudioProjects\\\\turjuman\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\olata\\\\StudioProjects\\\\turjuman\\\\lib\\\\views\\\\onboarding\")",
+      "Bash(Out-Null)",
+      "Bash(Write-Host \"done\")"
     ]
   }
 }

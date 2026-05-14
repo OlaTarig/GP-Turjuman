@@ -332,6 +332,7 @@ class CaptionController extends ChangeNotifier {
   // ── Push caption to Firestore ──────────────────────────────────────
   Future<void> updateCaption(String newText) async {
     if (newText.trim().isEmpty) return;
+    if (isMicMuted) return;
 
     // Check if another speaker is active
     try {

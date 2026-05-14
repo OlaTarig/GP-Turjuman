@@ -65,7 +65,7 @@ class SignCaptioningController extends ChangeNotifier {
 
   // Hands-out-of-frame tracking
   int  _noDetectionFrames    = 0;
-  static const int _maxNoDetectionFrames = 20;
+  static const int _maxNoDetectionFrames = 5;
 
   // Sentence accumulation
   final _sentenceWords = <String>[];

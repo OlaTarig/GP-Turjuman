@@ -1,33 +1,52 @@
 import '../models/hand_model.dart';
 
-/// Classifies tokens that are not in the sign dictionary as entities
-/// that should be fingerspelled letter by letter.
+/// Classifies tokens against the sign dictionary.
 ///
-/// Tokens found in [HandModel] are returned as-is.
-/// Unknown tokens are prefixed with `#fingerspell:` so [HandController]
-/// knows to expand them into individual letter tokens.
+/// Multi-word signs are checked explicitly by [_multiWordPhrases] (longest
+/// first). Everything else is a single-word lookup; unmatched words are
+/// prefixed with `#fingerspell:` so [HandController] expands them letter
+/// by letter.
 class NamedEntityRecognition {
   final HandModel _handModel;
 
   const NamedEntityRecognition(this._handModel);
 
-  /// Annotates [tokens] with fingerspell markers where needed.
-  ///
-  /// Returns a new list where every token is either:
-  /// - the original word (found in the sign dictionary), or
-  /// - `#fingerspell:<word>` (not in dictionary → spell letter by letter)
-  List<String> identifyEntities(List<String> tokens) {
-    final result = <String>[];
-    for (final token in tokens) {
-      if (token.isEmpty) continue;
+  // Known multi-word signs, sorted longest-first so the greedy check always
+  // prefers the longest match.
+  static const List<String> _multiWordPhrases = [
+    'جامعه الملك سعود',
+  ];
 
-      if (_handModel.hasGesture(token)) {
-        result.add(token);
-      } else {
-        // Mark for fingerspelling; HandController will expand this
-        result.add('#fingerspell:$token');
+  List<String> identifyEntities(List<String> words) {
+    final result = <String>[];
+    int i = 0;
+
+    while (i < words.length) {
+      bool matched = false;
+
+      // Check multi-word phrases (longest first).
+      for (final phrase in _multiWordPhrases) {
+        final parts = phrase.split(' ');
+        final len = parts.length;
+        if (i + len <= words.length &&
+            words.sublist(i, i + len).join(' ') == phrase &&
+            _handModel.hasGesture(phrase)) {
+          result.add(phrase);
+          i += len;
+          matched = true;
+          break;
+        }
       }
+      if (matched) continue;
+      // Single-word lookup.
+      if (_handModel.hasGesture(words[i])) {
+        result.add(words[i]);
+      } else {
+        result.add('#fingerspell:${words[i]}');
+      }
+      i++;
     }
+
     return result;
   }
 }
