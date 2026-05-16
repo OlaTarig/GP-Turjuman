@@ -334,6 +334,18 @@ class CaptionController extends ChangeNotifier {
     if (newText.trim().isEmpty) return;
     if (isMicMuted) return;
 
+    final entry = CaptionEntry(
+      userId: _currentUserId,
+      userName: _currentUserName,
+      text: newText.trim(),
+      timestamp: DateTime.now(),
+    );
+
+    // Show recognized text instantly — before any Firestore calls.
+    // Rolled back below if another speaker is currently active.
+    _pendingCaption = entry;
+    notifyListeners();
+
     // Check if another speaker is active
     try {
       final doc = await FirebaseFirestore.instance
@@ -344,6 +356,8 @@ class CaptionController extends ChangeNotifier {
         final activeSpeaker = doc.data()?['activeSpeakerId'] as String? ?? '';
         if (activeSpeaker.isNotEmpty && activeSpeaker != _currentUserId) {
           debugPrint('🔇 Another speaker active — skipping');
+          _pendingCaption = null;
+          notifyListeners();
           return;
         }
       }
@@ -356,18 +370,6 @@ class CaptionController extends ChangeNotifier {
           .doc(_currentMeetingId)
           .set({'activeSpeakerId': _currentUserId}, SetOptions(merge: true));
     } catch (_) {}
-
-    final entry = CaptionEntry(
-      userId: _currentUserId,
-      userName: _currentUserName,
-      text: newText.trim(),
-      timestamp: DateTime.now(),
-    );
-
-    // Show recognized text instantly while the Firestore write is in-flight.
-    // The Firestore snapshot clears this once it confirms the entry.
-    _pendingCaption = entry;
-    notifyListeners();
 
     try {
       await FirebaseFirestore.instance

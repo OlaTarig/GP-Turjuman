@@ -6,6 +6,7 @@ import 'dart:ui';
 import '../views/email_verification_screen.dart';
 // Import your auth service
 import '../AuthService.dart';
+import '../l10n/l10n.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -56,7 +57,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 3),
         action: SnackBarAction(
-          label: 'OK',
+          label: context.l10n.ok,
           textColor: Colors.white,
           onPressed: () {},
         ),
@@ -116,7 +117,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       if (mounted) {
         _showSnackBar(
-          "Account created successfully! Please verify your email 📧",
+          context.l10n.accountCreated,
           Colors.green,
           Icons.check_circle_outline,
         );
@@ -142,27 +143,27 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       switch (e.code) {
         case 'weak-password':
-          errorMessage = 'Password is too weak. Use at least 9 characters with mix of letters and numbers.';
+          errorMessage = context.l10n.errWeakPassword;
           icon = Icons.lock_outline;
           break;
         case 'email-already-in-use':
-          errorMessage = 'An account already exists with this email address.';
+          errorMessage = context.l10n.errEmailInUse;
           icon = Icons.person_outline;
           break;
         case 'invalid-email':
-          errorMessage = 'The email address format is invalid.';
+          errorMessage = context.l10n.errInvalidEmail;
           icon = Icons.email_outlined;
           break;
         case 'operation-not-allowed':
-          errorMessage = 'Email/password accounts are not enabled. Please contact support.';
+          errorMessage = context.l10n.errOperationNotAllowed;
           icon = Icons.block_outlined;
           break;
         case 'network-request-failed':
-          errorMessage = 'No internet connection. Please check your network.';
+          errorMessage = context.l10n.errNoInternet;
           icon = Icons.wifi_off_outlined;
           break;
         default:
-          errorMessage = 'Registration failed. Please try again later.';
+          errorMessage = context.l10n.errRegistrationFailed;
           icon = Icons.error_outline;
       }
 
@@ -173,7 +174,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       debugPrint("❌ Unexpected error during registration: $e");
       if (mounted) {
         _showSnackBar(
-          'An unexpected error occurred. Please try again.',
+          context.l10n.errUnexpected,
           Colors.redAccent,
           Icons.error_outline,
         );
@@ -242,42 +243,42 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 key: _formKey,
                                 child: Column(
                                   children: [
-                                    const Text(
-                                      "Sign Up",
-                                      style: TextStyle(
+                                    Text(
+                                      context.l10n.signUp,
+                                      style: const TextStyle(
                                         fontSize: 32,
                                         fontWeight: FontWeight.bold,
                                         color: Color(0xFF1A1A2E),
                                       ),
                                     ),
                                     const SizedBox(height: 10),
-                                    const Text(
-                                      "Create an account to continue!",
-                                      style: TextStyle(color: Colors.grey, fontSize: 15),
+                                    Text(
+                                      context.l10n.signUpSubtitle,
+                                      style: const TextStyle(color: Colors.grey, fontSize: 15),
                                     ),
                                     const SizedBox(height: 30),
                                     _inputField(
-                                      "Full Name",
-                                      "Enter your full name",
+                                      context.l10n.fullName,
+                                      context.l10n.fullNameHint,
                                       _nameController,
                                       Icons.person_outline,
                                       validator: (value) {
                                         if (value == null || value.trim().isEmpty) {
-                                          return 'Please enter your name';
+                                          return context.l10n.valEnterName;
                                         }
 
                                         final trimmedValue = value.trim();
 
                                         if (trimmedValue.length < 2) {
-                                          return 'Name must be at least 2 characters';
+                                          return context.l10n.valNameTooShort;
                                         }
 
                                         if (trimmedValue.length > 20) {
-                                          return 'Name cannot exceed 20 characters';
+                                          return context.l10n.valNameTooLong;
                                         }
 
                                         if (RegExp(r'^[0-9]').hasMatch(trimmedValue)) {
-                                          return 'Name cannot start with a number';
+                                          return context.l10n.valNameStartsNumber;
                                         }
 
                                         return null;
@@ -285,26 +286,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     ),
                                     const SizedBox(height: 20),
                                     _inputField(
-                                      "Email",
-                                      "example@mail.com",
+                                      context.l10n.email,
+                                      context.l10n.emailHint,
                                       _emailController,
                                       Icons.email_outlined,
                                       keyboardType: TextInputType.emailAddress,
                                       validator: (value) {
                                         if (value == null || value.trim().isEmpty) {
-                                          return 'Please enter your email';
+                                          return context.l10n.valEnterEmail;
                                         }
 
                                         final email = value.trim();
 
                                         // No spaces
                                         if (email.contains(' ')) {
-                                          return 'Email cannot contain spaces';
+                                          return context.l10n.valEmailSpace;
                                         }
 
                                         // No consecutive dots
                                         if (email.contains('..')) {
-                                          return 'Email cannot contain consecutive dots';
+                                          return context.l10n.valEmailDots;
                                         }
 
                                         // Basic email pattern with TLD check
@@ -313,14 +314,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                         );
 
                                         if (!emailRegex.hasMatch(email)) {
-                                          return 'Please enter a valid email address';
+                                          return context.l10n.valInvalidEmail;
                                         }
 
                                         // Check TLD length manually
                                         final tld = email.split('.').last;
 
                                         if (tld.length < 2 || tld.length > 6) {
-                                          return 'Invalid email domain';
+                                          return context.l10n.valInvalidDomain;
                                         }
 
                                         return null;
@@ -330,7 +331,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     _buildPasswordField(),
                                     const SizedBox(height: 40),
                                     AnimatedSignUpButton(
-                                      text: "Register",
+                                      text: context.l10n.register,
                                       onTap: _isLoading ? () {} : _handleSignUp,
                                       isLoading: _isLoading,
                                     ),
@@ -338,15 +339,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        const Text(
-                                          "Already have an account? ",
-                                          style: TextStyle(fontSize: 15),
+                                        Text(
+                                          context.l10n.alreadyHaveAccount,
+                                          style: const TextStyle(fontSize: 15),
                                         ),
                                         GestureDetector(
                                           onTap: () => Navigator.pop(context),
-                                          child: const Text(
-                                            "Login",
-                                            style: TextStyle(
+                                          child: Text(
+                                            context.l10n.login,
+                                            style: const TextStyle(
                                               color: Colors.orange,
                                               fontWeight: FontWeight.bold,
                                               fontSize: 15,
@@ -393,11 +394,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 5, bottom: 8),
+        Padding(
+          padding: const EdgeInsets.only(left: 5, bottom: 8),
           child: Text(
-            "Password",
-            style: TextStyle(
+            context.l10n.password,
+            style: const TextStyle(
               color: Colors.grey,
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -409,31 +410,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
           obscureText: _obscurePassword,
           validator: (value) {
             if (value == null || value.isEmpty) {
-              return 'Please enter a password';
+              return context.l10n.valEnterPassword;
             }
 
             if (value.length < 9) {
-              return 'Password must be at least 9 characters';
+              return context.l10n.valPasswordShort;
             }
 
             if (value.length > 20) {
-              return 'Password cannot exceed 20 characters';
+              return context.l10n.valPasswordLong;
             }
 
             // Must contain letters
             if (!RegExp(r'[A-Za-z]').hasMatch(value)) {
-              return 'Password must contain letters';
+              return context.l10n.valPasswordLetters;
             }
 
             // Must contain numbers
             if (!RegExp(r'[0-9]').hasMatch(value)) {
-              return 'Password must contain numbers';
+              return context.l10n.valPasswordNumbers;
             }
 
             return null;
           },
           decoration: InputDecoration(
-            hintText: "Enter your password",
+            hintText: context.l10n.passwordHint,
             hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
             filled: true,
             fillColor: const Color(0xFFF8F9FA),

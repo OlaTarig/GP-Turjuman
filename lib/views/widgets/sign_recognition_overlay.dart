@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../controllers/sign_recognition_controller.dart';
+import '../../l10n/l10n.dart';
 
 /// Overlay for continuous sign recognition results.
 /// Shows nothing while idle or active (waiting for first batch).
@@ -35,9 +36,9 @@ class SignRecognitionOverlay extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Text(
-                      'Sign Recognition',
-                      style: TextStyle(
+                    Text(
+                      context.l10n.signRecognition,
+                      style: const TextStyle(
                           color: Colors.tealAccent,
                           fontSize: 12,
                           fontWeight: FontWeight.w600),

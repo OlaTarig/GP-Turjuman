@@ -5,6 +5,7 @@ import 'package:printing/printing.dart';
 import '../controllers/FileTranscriptionController.dart';
 import '../controllers/CaptionController.dart';
 import '../models/CaptionsAndTranscriptionModel.dart';
+import '../l10n/l10n.dart';
 
 class FileTranscriptionView extends StatefulWidget {
   const FileTranscriptionView({super.key});
@@ -24,8 +25,10 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
   // ── Main screen ────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
     if (_currentUserId == null) {
-      return const Center(child: Text('Not logged in'));
+      return Center(child: Text(l10n.notLoggedIn));
     }
 
     return SafeArea(
@@ -37,16 +40,16 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Transcripts',
-                  style: TextStyle(
+                Text(
+                  l10n.transcripts,
+                  style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF2D3142),
                   ),
                 ),
                 Text(
-                  'Your recorded meeting transcripts',
+                  l10n.transcriptsSubtitle,
                   style:
                   TextStyle(fontSize: 14, color: Colors.grey.shade500),
                 ),
@@ -112,6 +115,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
   // ── Display full transcription in a bottom sheet ───────────────────
   void _showTranscriptSheet(
       BuildContext context, CaptionsAndTranscriptionModel model) {
+    final l10n = context.l10n;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -152,9 +156,9 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        const Text(
-                          'Meeting Transcript',
-                          style: TextStyle(
+                        Text(
+                          l10n.meetingTranscript,
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF2D3142),
@@ -189,14 +193,15 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                     Flexible(
                       child: _statChip(
                         icon: Icons.chat_bubble_outline,
-                        label: '${model.captionsBuffer.length} sentences',
+                        label: l10n.statSentences(model.captionsBuffer.length),
                       ),
                     ),
                     Flexible(
                       child: _statChip(
                         icon: Icons.people_outline,
-                        label:
-                        '${model.captionsBuffer.map((e) => e.userName).where((n) => n.isNotEmpty).toSet().length} speakers',
+                        label: l10n.statSpeakers(
+                          model.captionsBuffer.map((e) => e.userName).where((n) => n.isNotEmpty).toSet().length,
+                        ),
                       ),
                     ),
                     Flexible(
@@ -214,11 +219,11 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
               // Caption entries
               Expanded(
                 child: model.captionsBuffer.isEmpty
-                    ? const Center(
+                    ? Center(
                   child: Text(
-                    'No transcript available',
+                    l10n.noTranscriptAvailable,
                     style:
-                    TextStyle(color: Colors.grey, fontSize: 16),
+                    const TextStyle(color: Colors.grey, fontSize: 16),
                   ),
                 )
                     : ListView.builder(
@@ -233,7 +238,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                         '${entry.timestamp.second.toString().padLeft(2, '0')}';
                     final speakerName = entry.userName.isNotEmpty
                         ? entry.userName
-                        : 'Unknown Speaker';
+                        : l10n.unknownSpeaker;
                     final isMe = entry.userId == _currentUserId;
 
                     return Container(
@@ -287,7 +292,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                                   const SizedBox(width: 6),
                                   Text(
                                     isMe
-                                        ? '$speakerName (You)'
+                                        ? l10n.youSuffix(speakerName)
                                         : speakerName,
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
@@ -367,8 +372,8 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                       )
                           : const Icon(Icons.download),
                       label: Text(_controller.isDownloading
-                          ? 'Generating...'
-                          : 'Download PDF'),
+                          ? l10n.generating
+                          : l10n.downloadPdf),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryOrange,
                         foregroundColor: Colors.white,
@@ -389,6 +394,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
   // ── Transcription card ─────────────────────────────────────────────
   Widget _buildTranscriptionCard(
       BuildContext context, CaptionsAndTranscriptionModel model) {
+    final l10n = context.l10n;
     final entryCount = model.captionsBuffer.length;
     final date = model.createdAt.toString().substring(0, 16);
     final speakers = model.captionsBuffer
@@ -431,7 +437,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Meeting ${model.meetingId.length > 8 ? model.meetingId.substring(0, 8) : model.meetingId}...',
+                    l10n.meetingPrefix(model.meetingId.length > 8 ? model.meetingId.substring(0, 8) : model.meetingId),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
@@ -440,7 +446,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$date  •  $entryCount sentences  •  ${speakers.length} speakers',
+                    l10n.transcriptMeta(date, entryCount, speakers.length),
                     style: TextStyle(
                         fontSize: 12, color: Colors.grey.shade500),
                   ),
@@ -466,7 +472,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                           .toList(),
                     ),
                   const SizedBox(height: 4),
-                  _statusBadge(model.isCompleted),
+                  _statusBadge(model.isCompleted, l10n),
                 ],
               ),
             ),
@@ -486,7 +492,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                 )
                     : const Icon(Icons.download,
                     color: primaryOrange, size: 26),
-                tooltip: 'Download PDF',
+                tooltip: l10n.downloadPdf,
                 onPressed: entryCount == 0 || _controller.isDownloading
                     ? null
                     : () async {
@@ -519,7 +525,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
             IconButton(
               icon: const Icon(Icons.delete_outline,
                   color: Colors.redAccent, size: 24),
-              tooltip: 'Delete transcript',
+              tooltip: l10n.deleteTranscript,
               onPressed: () => _confirmDelete(context, model),
             ),
           ],
@@ -531,23 +537,23 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
   // ── Delete ─────────────────────────────────────────────────────────
   Future<void> _confirmDelete(
       BuildContext context, CaptionsAndTranscriptionModel model) async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete Transcript'),
-        content: const Text(
-            'This transcript will be permanently deleted for all participants. Continue?'),
+        title: Text(l10n.deleteTranscript),
+        content: Text(l10n.deleteTranscriptConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,
                 foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
@@ -562,7 +568,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to delete: $e'),
+          content: Text(l10n.failedToDelete(e.toString())),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -571,6 +577,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
 
   // ── Empty state ────────────────────────────────────────────────────
   Widget _buildEmptyState() {
+    final l10n = context.l10n;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -588,16 +595,16 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
                   size: 48, color: primaryOrange),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'No Transcripts Yet',
-              style: TextStyle(
+            Text(
+              l10n.noTranscriptsYet,
+              style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF2D3142)),
             ),
             const SizedBox(height: 10),
             Text(
-              'Enable the CC button during a meeting\nto record speech. Transcripts appear here.',
+              l10n.noTranscriptsDesc,
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: 14,
@@ -628,7 +635,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
     );
   }
 
-  Widget _statusBadge(bool isCompleted) {
+  Widget _statusBadge(bool isCompleted, AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
@@ -636,7 +643,7 @@ class _FileTranscriptionViewState extends State<FileTranscriptionView> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        isCompleted ? 'Completed' : 'In Progress',
+        isCompleted ? l10n.completed : l10n.inProgress,
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,

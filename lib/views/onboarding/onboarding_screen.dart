@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../l10n/l10n.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onComplete;
@@ -12,30 +13,9 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  static const int _pageCount = 3;
 
-  static const _pages = [
-    _OnboardingData(
-      icon: Icons.sign_language_rounded,
-      title: 'Welcome to Turjuman',
-      subtitle:
-          'Your real-time Arabic Sign Language translator, bridging communication for the deaf and hard-of-hearing community.',
-      showLogo: true,
-    ),
-    _OnboardingData(
-      icon: Icons.videocam_rounded,
-      title: 'Live Sign Recognition',
-      subtitle:
-          'Point your camera at sign language gestures and get instant Arabic text translations in real time.',
-    ),
-    _OnboardingData(
-      icon: Icons.people_alt_rounded,
-      title: 'Accessible Meetings',
-      subtitle:
-          'Join video meetings with live captions and transcriptions so everyone can participate fully.',
-    ),
-  ];
-
-  bool get _isLastPage => _currentPage == _pages.length - 1;
+  bool get _isLastPage => _currentPage == _pageCount - 1;
 
   Future<void> _complete() async {
     final prefs = await SharedPreferences.getInstance();
@@ -58,6 +38,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    final pages = [
+      _OnboardingData(
+        icon: Icons.sign_language_rounded,
+        title: l10n.onboarding1Title,
+        subtitle: l10n.onboarding1Subtitle,
+        showLogo: true,
+      ),
+      _OnboardingData(
+        icon: Icons.videocam_rounded,
+        title: l10n.onboarding2Title,
+        subtitle: l10n.onboarding2Subtitle,
+      ),
+      _OnboardingData(
+        icon: Icons.people_alt_rounded,
+        title: l10n.onboarding3Title,
+        subtitle: l10n.onboarding3Subtitle,
+      ),
+    ];
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -72,7 +73,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // Skip row
               SizedBox(
                 height: 48,
                 child: Align(
@@ -82,9 +82,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     opacity: _isLastPage ? 0 : 1,
                     child: TextButton(
                       onPressed: _isLastPage ? null : _complete,
-                      child: const Text(
-                        'Skip',
-                        style: TextStyle(
+                      child: Text(
+                        l10n.skip,
+                        style: const TextStyle(
                           color: Color(0xFF2D3142),
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -95,21 +95,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
 
-              // Page content
               Expanded(
                 child: PageView.builder(
                   controller: _pageController,
-                  itemCount: _pages.length,
+                  itemCount: pages.length,
                   onPageChanged: (i) => setState(() => _currentPage = i),
-                  itemBuilder: (_, i) => _PageContent(data: _pages[i]),
+                  itemBuilder: (_, i) => _PageContent(data: pages[i]),
                 ),
               ),
 
-              // Dot indicators
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
-                  _pages.length,
+                  _pageCount,
                   (i) => AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -127,11 +125,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
               const SizedBox(height: 32),
 
-              // Action button
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 30),
                 child: _ActionButton(
-                  label: _isLastPage ? 'Get Started' : 'Next',
+                  label: _isLastPage ? l10n.getStarted : l10n.next,
                   onTap: _isLastPage ? _complete : _next,
                 ),
               ),

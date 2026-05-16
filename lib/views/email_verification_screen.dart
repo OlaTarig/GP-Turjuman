@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // Import your auth service
  import '../AuthService.dart';
 import 'HomePage.dart';
+import '../l10n/l10n.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
@@ -61,8 +62,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         if (mounted) {
           // Email verified! Navigate to home page
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Email verified successfully!'),
+            SnackBar(
+              content: Text(context.l10n.emailVerifiedSuccess),
               backgroundColor: Colors.green,
             ),
           );
@@ -89,8 +90,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Verification email sent! Check your inbox.'),
+          SnackBar(
+            content: Text(context.l10n.verificationEmailSent),
             backgroundColor: Colors.green,
           ),
         );
@@ -151,8 +152,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Email verified successfully!'),
+          SnackBar(
+            content: Text(context.l10n.emailVerifiedSuccess),
             backgroundColor: Colors.green,
           ),
         );
@@ -162,8 +163,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Email not verified yet. Please check your inbox.'),
+          SnackBar(
+            content: Text(context.l10n.emailNotVerifiedYet),
             backgroundColor: Colors.orange,
           ),
         );
@@ -214,9 +215,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                 const SizedBox(height: 40),
 
                 // Title
-                const Text(
-                  'Verify Your Email',
-                  style: TextStyle(
+                Text(
+                  context.l10n.verifyEmail,
+                  style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1A1A2E),
@@ -228,7 +229,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
                 // Description
                 Text(
-                  'We\'ve sent a verification link to:',
+                  context.l10n.verificationSentTo,
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey.shade700,
@@ -260,7 +261,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
                 // Instructions
                 Text(
-                  'Click the link in the email to verify your account.\nThis page will automatically update once verified.',
+                  context.l10n.verificationInstructions,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey.shade600,
@@ -284,9 +285,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                       ),
                       elevation: 2,
                     ),
-                    child: const Text(
-                      'Check Now',
-                      style: TextStyle(
+                    child: Text(
+                      context.l10n.checkNow,
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -332,8 +333,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                         const SizedBox(width: 8),
                         Text(
                           _canResend
-                              ? 'Resend Verification Email'
-                              : 'Resend in ${_resendCooldown}s',
+                              ? context.l10n.resendVerification
+                              : context.l10n.resendIn(_resendCooldown),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,

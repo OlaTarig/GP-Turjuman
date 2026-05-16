@@ -1,0 +1,309 @@
+{
+  "@@locale": "en",
+
+  "welcomeTitle": "Welcome To Turjuman App",
+  "login": "Login",
+  "register": "Register",
+  "loginSubtitle": "Welcome back! Login to your account",
+  "signUp": "Sign Up",
+  "signUpSubtitle": "Create an account to continue!",
+  "email": "Email",
+  "emailHint": "example@mail.com",
+  "password": "Password",
+  "passwordHint": "Enter your password",
+  "fullName": "Full Name",
+  "fullNameHint": "Enter your full name",
+  "forgotPassword": "Forgot Password?",
+  "dontHaveAccount": "Don't have an account? ",
+  "alreadyHaveAccount": "Already have an account? ",
+  "cancel": "Cancel",
+  "ok": "OK",
+  "send": "Send",
+  "save": "Save",
+  "delete": "Delete",
+  "retry": "Retry",
+  "skip": "Skip",
+  "next": "Next",
+  "getStarted": "Get Started",
+
+  "resetPassword": "Reset Password",
+  "resetPasswordDesc": "Enter your email address and we'll send you a link to reset your password.",
+  "sendResetLink": "Send Reset Link",
+
+  "errEnterEmail": "Please enter your email",
+  "errEnterPassword": "Please enter your password",
+  "errEnterEmailAddress": "Please enter your email address",
+  "errOccurred": "An error occurred. Please try again.",
+  "errInvalidCredentials": "Email or password is incorrect. Please check your credentials.",
+  "errInvalidEmail": "The email address format is invalid.",
+  "errNoInternet": "No internet connection. Please check your network.",
+  "errTooManyRequests": "Too many failed attempts. Please try again later.",
+  "errWeakPassword": "Password is too weak. Use at least 9 characters with mix of letters and numbers.",
+  "errEmailInUse": "An account already exists with this email address.",
+  "errOperationNotAllowed": "Email/password accounts are not enabled. Please contact support.",
+  "errRegistrationFailed": "Registration failed. Please try again later.",
+  "errUnexpected": "An unexpected error occurred. Please try again.",
+  "errNoAccountFound": "No account found with this email address.",
+
+  "loginSuccess": "Login successful! Welcome back",
+  "accountCreated": "Account created successfully! Please verify your email",
+  "passwordResetSent": "Password reset email sent! Check your inbox",
+
+  "valEnterName": "Please enter your name",
+  "valNameTooShort": "Name must be at least 2 characters",
+  "valNameTooLong": "Name cannot exceed 20 characters",
+  "valNameStartsNumber": "Name cannot start with a number",
+  "valEnterEmail": "Please enter your email",
+  "valEmailSpace": "Email cannot contain spaces",
+  "valEmailDots": "Email cannot contain consecutive dots",
+  "valInvalidEmail": "Please enter a valid email address",
+  "valInvalidDomain": "Invalid email domain",
+  "valEnterPassword": "Please enter a password",
+  "valPasswordShort": "Password must be at least 9 characters",
+  "valPasswordLong": "Password cannot exceed 20 characters",
+  "valPasswordLetters": "Password must contain letters",
+  "valPasswordNumbers": "Password must contain numbers",
+
+  "verifyEmail": "Verify Your Email",
+  "verificationSentTo": "We've sent a verification link to:",
+  "verificationInstructions": "Click the link in the email to verify your account.\nThis page will automatically update once verified.",
+  "checkNow": "Check Now",
+  "resendVerification": "Resend Verification Email",
+  "resendIn": "Resend in {seconds}s",
+  "@resendIn": {
+    "placeholders": {
+      "seconds": { "type": "int" }
+    }
+  },
+  "emailVerifiedSuccess": "Email verified successfully!",
+  "emailNotVerifiedYet": "Email not verified yet. Please check your inbox.",
+  "verificationEmailSent": "Verification email sent! Check your inbox.",
+
+  "onboarding1Title": "Welcome to Turjuman",
+  "onboarding1Subtitle": "Your real-time Arabic Sign Language translator, bridging communication for the deaf and hard-of-hearing community.",
+  "onboarding2Title": "Live Sign Recognition",
+  "onboarding2Subtitle": "Point your camera at sign language gestures and get instant Arabic text translations in real time.",
+  "onboarding3Title": "Accessible Meetings",
+  "onboarding3Subtitle": "Join video meetings with live captions and transcriptions so everyone can participate fully.",
+
+  "welcomeBack": "Welcome back,",
+  "startMeeting": "Start a Meeting",
+  "joinMeeting": "Join Meeting",
+  "connectInstantly": "Connect with your team instantly",
+  "startNow": "Start Now",
+  "meetingNotFound": "Meeting not found",
+  "meetingAlreadyEnded": "Meeting already ended",
+  "enterMeetingId": "Enter Meeting ID",
+  "inMeeting": "In meeting: {title}",
+  "@inMeeting": {
+    "placeholders": {
+      "title": { "type": "String" }
+    }
+  },
+  "returnToMeeting": "Return",
+  "couldNotCreateMeeting": "Could not create meeting. Check your connection and try again.",
+  "pleaseSignIn": "Please sign in to start a meeting.",
+
+  "settings": "Settings",
+  "language": "Language",
+  "appLanguage": "App Language",
+  "meetingAccess": "Meeting Access",
+  "microphone": "Microphone (App)",
+  "micSubtitle": "OFF disables mic in app. ON requests system permission.",
+  "camera": "Camera (App)",
+  "cameraSubtitle": "OFF disables camera in app. ON requests system permission.",
+  "privacySecurity": "Privacy & Security",
+  "secureScreen": "Secure Screen",
+  "secureScreenSubtitle": "Prevents screenshots and screen recording during meetings.",
+  "micPermissionNeeded": "Microphone permission needed",
+  "cameraPermissionNeeded": "Camera permission needed",
+  "permissionNotGranted": "Permission was not granted. If it is permanently denied, enable it from system settings.",
+  "openSystemSettings": "Open system settings",
+  "systemSettings": "System settings",
+  "logoutFailed": "Logout failed: {error}",
+  "@logoutFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+
+  "profile": "Profile",
+  "name": "Name",
+  "nameRequired": "Name is required",
+  "nameTooShort": "Name is too short",
+  "takePhoto": "Take photo",
+  "chooseFromGallery": "Choose from gallery",
+  "errUserNotLoggedIn": "Error: user not logged in",
+  "profileUpdated": "Profile updated",
+
+  "homeTab": "Home",
+  "filesTab": "Files",
+  "settingsTab": "Settings",
+
+  "transcripts": "Transcripts",
+  "transcriptsSubtitle": "Your recorded meeting transcripts",
+  "notLoggedIn": "Not logged in",
+  "meetingTranscript": "Meeting Transcript",
+  "noTranscriptAvailable": "No transcript available",
+  "noTranscriptsYet": "No Transcripts Yet",
+  "noTranscriptsDesc": "Enable the CC button during a meeting\nto record speech. Transcripts appear here.",
+  "deleteTranscript": "Delete Transcript",
+  "deleteTranscriptConfirm": "This transcript will be permanently deleted for all participants. Continue?",
+  "failedToDelete": "Failed to delete: {error}",
+  "@failedToDelete": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "completed": "Completed",
+  "inProgress": "In Progress",
+  "downloadPdf": "Download PDF",
+  "generating": "Generating...",
+  "unknownSpeaker": "Unknown Speaker",
+  "youSuffix": "{name} (You)",
+  "@youSuffix": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "transcriptMeta": "{date}  •  {entryCount} sentences  •  {speakerCount} speakers",
+  "@transcriptMeta": {
+    "placeholders": {
+      "date": { "type": "String" },
+      "entryCount": { "type": "int" },
+      "speakerCount": { "type": "int" }
+    }
+  },
+  "meetingPrefix": "Meeting {id}...",
+  "@meetingPrefix": {
+    "placeholders": {
+      "id": { "type": "String" }
+    }
+  },
+  "statSentences": "{count} sentences",
+  "@statSentences": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "statSpeakers": "{count} speakers",
+  "@statSpeakers": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "joiningMeeting": "Joining Meeting...",
+  "pleaseWait": "Please wait while we connect you",
+  "unableToJoin": "Unable to Join",
+  "goBack": "Go Back",
+  "networkError": "Network error. Please check your connection and tap Retry.",
+  "needLoginFirst": "You need to log in first to join a meeting.",
+  "meetingNotFoundLink": "Meeting not found. The link may be invalid or expired.",
+  "meetingHasEnded": "This meeting has already ended.",
+  "meetingFull": "This meeting is full. Maximum capacity reached.",
+  "userProfileNotFound": "User profile not found. Please complete your profile.",
+  "unknownError": "An unknown error occurred.",
+
+  "camMicPermissionRequired": "Camera/Microphone permission is required",
+  "meetingEnded": "Meeting ended",
+  "meetingEndedByHost": "The host has ended the meeting.",
+  "accessRequired": "Access Required",
+  "micAndCameraDisabled": "Microphone and Camera access are disabled in your settings. Please enable them to use meeting features.",
+  "micAccessDisabled": "Microphone access is disabled in your settings. Please enable it to use audio.",
+  "cameraAccessDisabled": "Camera access is disabled in your settings. Please enable it to use video.",
+  "later": "Later",
+  "openSettings": "Open Settings",
+  "micDisabledInSettings": "Microphone is disabled in settings",
+  "raiseHandForPermission": "Raise hand to request host permission",
+  "micPermissionRequired": "Microphone permission is required",
+  "cameraDisabledInSettings": "Camera is disabled in settings",
+  "cameraPermissionRequired": "Camera permission is required",
+  "turnOnCameraFirst": "Turn on camera first",
+  "turnOnCameraForSign": "Turn on your camera first — sign recognition needs camera access",
+  "signAvatarEnabled": "Sign avatar enabled — captions will be translated to sign language",
+  "signAvatarDisabled": "Sign avatar disabled",
+  "handLowered": "Hand lowered",
+  "handRaised": "Hand raised",
+  "screenShareStopped": "Screen sharing stopped",
+  "notAllowedToShare": "You are not allowed to share screen.\nAsk the host to grant permission.",
+  "screenShareLabel": "Screen Share",
+  "shareMyScreen": "Share My Screen",
+  "broadcastDesc": "Broadcast your screen to all participants",
+  "disallowParticipantsShare": "Disallow Participants to Share",
+  "allowAllParticipantsShare": "Allow All Participants to Share",
+  "participantsCanShare": "Participants can currently share their screen",
+  "letParticipantsShare": "Let all participants share their screen",
+  "allParticipantsCanShare": "All participants can now share their screen",
+  "screenSharingDisabled": "Screen sharing disabled for participants",
+  "failedToUpdatePermission": "Failed to update permission",
+  "startingScreenShare": "Starting screen share...",
+  "screenSharingStarted": "Screen sharing started",
+  "failedToStartScreenShare": "Failed to start screen share",
+  "invitationCopied": "Invitation link copied to clipboard!",
+  "sendEmailInvitation": "Send Email Invitation",
+  "enterParticipantEmailDesc": "Enter the participant's email address. An invitation will be sent to them automatically.",
+  "enterEmailValidation": "Please enter an email address",
+  "enterValidEmailValidation": "Please enter a valid email address",
+  "inviteParticipant": "Invite Participant",
+  "copyInvitationLink": "Copy Invitation Link",
+  "copyLinkManually": "Copy the link and share it manually",
+  "sendInvitationByEmail": "Send Invitation by Email",
+  "sendToInbox": "Send the invitation directly to their inbox",
+  "invitationSentTo": "Invitation sent to {email}",
+  "@invitationSentTo": {
+    "placeholders": {
+      "email": { "type": "String" }
+    }
+  },
+  "failedToSendInvitation": "Failed to send invitation. Please try again.",
+  "endMeeting": "End Meeting",
+  "endMeetingConfirm": "Are you sure you want to end the meeting for everyone?",
+  "leaveMeeting": "Leave Meeting",
+  "leaveMeetingConfirm": "Leave meeting?",
+  "leave": "Leave",
+  "sharingChip": "Sharing",
+  "youAreSharing": "You are sharing",
+  "screenShareBadge": "Screen share",
+  "hostSuffix": "{name} (Host)",
+  "@hostSuffix": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "btnEnd": "End",
+  "btnLeave": "Leave",
+  "btnMic": "Mic",
+  "btnCamera": "Camera",
+  "btnFlip": "Flip",
+  "btnHand": "Hand",
+  "btnCC": "CC",
+  "btnSign": "Sign",
+  "btnAvatar": "Avatar",
+  "btnStop": "Stop",
+  "btnShare": "Share",
+  "participants": "Participants ({count})",
+  "@participants": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "invite": "Invite",
+  "screenSharingOnForAll": "Screen sharing is ON for all participants",
+  "screenSharingOffForAll": "Screen sharing is OFF for participants",
+  "raisedHands": "Raised Hands",
+  "approve": "Approve",
+  "reject": "Reject",
+  "roleHost": "Host",
+  "roleParticipant": "Participant",
+  "meetingId": "ID: {id}",
+  "@meetingId": {
+    "placeholders": {
+      "id": { "type": "String" }
+    }
+  },
+
+  "analyzingSign": "Analyzing sign…",
+  "handsNotDetected": "Hands not detected — move into frame",
+  "signRecognition": "Sign Recognition"
+}

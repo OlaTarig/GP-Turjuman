@@ -8,6 +8,8 @@ import 'views/onboarding/onboarding_screen.dart';
 import 'services/deep_link_service.dart';
 import 'views/JoinMeetingView.dart';
 import 'views/HomePage.dart';
+import 'locale_notifier.dart';
+import 'l10n/l10n.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 late final DeepLinkService deepLinkService;
@@ -18,6 +20,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await LocaleNotifier.instance.load();
 
   deepLinkService = DeepLinkService(navigatorKey);
   await deepLinkService.start();
@@ -34,16 +38,28 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   @override
+  void initState() {
+    super.initState();
+    LocaleNotifier.instance.addListener(_onLocaleChanged);
+  }
+
+  @override
   void dispose() {
+    LocaleNotifier.instance.removeListener(_onLocaleChanged);
     deepLinkService.dispose();
     super.dispose();
   }
+
+  void _onLocaleChanged() => setState(() {});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
+      locale: LocaleNotifier.instance.value,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
       home: const _AppEntry(),
       onGenerateRoute: (settings) {
         if (settings.name == '/joinMeeting') {
@@ -81,17 +97,14 @@ class _AppEntryState extends State<_AppEntry> {
   }
 
   Future<void> _init() async {
-    // 1. Grab whatever the service already captured (fast path)
     _pendingMeetingId = deepLinkService.consumePendingLink();
     debugPrint('🔗 consumePendingLink() = $_pendingMeetingId');
 
-    // 2. If nothing yet, do one more getInitialLink() attempt.
     if (_pendingMeetingId == null) {
       _pendingMeetingId = await deepLinkService.retryInitialLink();
       debugPrint('🔗 retryInitialLink() = $_pendingMeetingId');
     }
 
-    // 3. Check whether the user has already seen onboarding.
     final prefs = await SharedPreferences.getInstance();
     final done = prefs.getBool('onboarding_done') ?? false;
 
@@ -133,7 +146,6 @@ class _AppEntryState extends State<_AppEntry> {
         debugPrint(
             '👤 user=${user?.uid} | hasPendingLink=$hasPendingLink | handled=$_deepLinkHandled');
 
-        // Deep link + logged in → push imperatively ONCE
         if (hasPendingLink && user != null && !_deepLinkHandled) {
           _deepLinkHandled = true;
           debugPrint('✅ Navigating to JoinMeetingScreen: $_pendingMeetingId');
@@ -146,17 +158,14 @@ class _AppEntryState extends State<_AppEntry> {
               ),
             );
           });
-          // Render HomePage as the base (no WelcomeScreen flash)
           return const HomePage();
         }
 
-        // Deep link + NOT logged in → WelcomeScreen to log in first
         if (hasPendingLink && user == null) {
           debugPrint('⚠️ Has pending link but not logged in');
           return const WelcomeScreen();
         }
 
-        // Normal flow
         debugPrint('🏠 Normal flow: user=${user?.uid}');
         return user != null ? const HomePage() : const WelcomeScreen();
       },

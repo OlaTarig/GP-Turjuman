@@ -11,6 +11,7 @@ import '../controllers/MeetingSessionManager.dart';
 import 'package:turjuman/main.dart';
 import 'JoinMeetingView.dart';
 import 'FileTranscriptionView.dart';
+import '../l10n/l10n.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -97,25 +98,26 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _showJoinDialog() async {
     final controller = TextEditingController();
+    final l10n = context.l10n;
 
     final meetingId = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Join Meeting'),
+        title: Text(l10n.joinMeeting),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'Enter Meeting ID',
+          decoration: InputDecoration(
+            hintText: l10n.enterMeetingId,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Join'),
+            child: Text(l10n.joinMeeting),
           ),
         ],
       ),
@@ -138,7 +140,7 @@ class _HomePageState extends State<HomePage> {
     if (!meetingSnap.exists) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Meeting not found')),
+        SnackBar(content: Text(context.l10n.meetingNotFound)),
       );
       return;
     }
@@ -149,7 +151,7 @@ class _HomePageState extends State<HomePage> {
     if (!isActive) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Meeting already ended')),
+        SnackBar(content: Text(context.l10n.meetingAlreadyEnded)),
       );
       return;
     }
@@ -207,7 +209,7 @@ class _HomePageState extends State<HomePage> {
     try {
       final firebaseUser = FirebaseAuth.instance.currentUser;
       if (firebaseUser == null) {
-        _showError('Please sign in to start a meeting.');
+        _showError(context.l10n.pleaseSignIn);
         return;
       }
 
@@ -215,7 +217,7 @@ class _HomePageState extends State<HomePage> {
 
       if (!mounted) return;
       if (meeting == null) {
-        _showError('Could not create meeting. Check your connection and try again.');
+        _showError(context.l10n.couldNotCreateMeeting);
         return;
       }
 
@@ -274,6 +276,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _homeTab() {
+    final l10n = context.l10n;
     return SafeArea(
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -292,7 +295,7 @@ class _HomePageState extends State<HomePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Welcome back,',
+                          l10n.welcomeBack,
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.grey.shade600,
@@ -352,9 +355,9 @@ class _HomePageState extends State<HomePage> {
 
                     const SizedBox(height: 24),
 
-                    const Text(
-                      'Start a Meeting',
-                      style: TextStyle(
+                    Text(
+                      l10n.startMeeting,
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -373,9 +376,9 @@ class _HomePageState extends State<HomePage> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        child: const Text(
-                          'Join Meeting',
-                          style: TextStyle(
+                        child: Text(
+                          l10n.joinMeeting,
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -387,7 +390,7 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 8),
 
                     Text(
-                      'Connect with your team instantly',
+                      l10n.connectInstantly,
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.white.withOpacity(0.9),
@@ -419,14 +422,14 @@ class _HomePageState extends State<HomePage> {
                                       Color(0xFFFFB382)),
                                 ),
                               )
-                            : const Row(
+                            : Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.play_arrow_rounded, size: 28),
-                                  SizedBox(width: 8),
+                                  const Icon(Icons.play_arrow_rounded, size: 28),
+                                  const SizedBox(width: 8),
                                   Text(
-                                    'Start Now',
-                                    style: TextStyle(
+                                    l10n.startNow,
+                                    style: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -450,6 +453,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       backgroundColor: const Color(0xFFFFFBF5),
       body: _isLoading
@@ -529,7 +533,7 @@ class _HomePageState extends State<HomePage> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  'In meeting: $meetingTitle',
+                                  l10n.inMeeting(meetingTitle),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w700,
@@ -538,9 +542,9 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              const Text(
-                                'Return',
-                                style: TextStyle(
+                              Text(
+                                l10n.returnToMeeting,
+                                style: const TextStyle(
                                   color: Color(0xFFFFB382),
                                   fontWeight: FontWeight.bold,
                                 ),

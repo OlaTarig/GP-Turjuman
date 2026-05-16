@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/l10n.dart';
 
 class BottomBar extends StatelessWidget {
   final int currentIndex;
@@ -12,6 +13,7 @@ class BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -32,19 +34,19 @@ class BottomBar extends StatelessWidget {
               _buildNavItem(
                 icon: Icons.home_outlined,
                 activeIcon: Icons.home,
-                label: 'Home',
+                label: l10n.homeTab,
                 index: 0,
               ),
               _buildNavItem(
                 icon: Icons.folder_outlined,
                 activeIcon: Icons.folder,
-                label: 'Files',
+                label: l10n.filesTab,
                 index: 1,
               ),
               _buildNavItem(
                 icon: Icons.settings_outlined,
                 activeIcon: Icons.settings,
-                label: 'Settings',
+                label: l10n.settingsTab,
                 index: 2,
               ),
             ],

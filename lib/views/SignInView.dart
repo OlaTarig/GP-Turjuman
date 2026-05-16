@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:ui';
 import 'HomePage.dart';
 import 'SignUpView.dart';
+import '../l10n/l10n.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _signIn() async {
     if (_emailController.text.trim().isEmpty) {
       _showSnackBar(
-        "Please enter your email",
+        context.l10n.errEnterEmail,
         Colors.orange,
         Icons.email_outlined,
       );
@@ -36,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (_passwordController.text.trim().isEmpty) {
       _showSnackBar(
-        "Please enter your password",
+        context.l10n.errEnterPassword,
         Colors.orange,
         Icons.lock_outline,
       );
@@ -54,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       _showSnackBar(
-        "Login successful! Welcome back ",
+        context.l10n.loginSuccess,
         Colors.green,
         Icons.check_circle_outline,
       );
@@ -68,23 +69,22 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(builder: (context) => const HomePage()),
       );
     } on FirebaseAuthException catch (e) {
-      String message = "An error occurred. Please try again.";
+      String message = context.l10n.errOccurred;
       IconData icon = Icons.error_outline;
 
       if (e.code == 'user-not-found' ||
           e.code == 'wrong-password' ||
           e.code == 'invalid-credential') {
-        message =
-        "Email or password is incorrect. Please check your credentials.";
+        message = context.l10n.errInvalidCredentials;
         icon = Icons.lock_outline;
       } else if (e.code == 'invalid-email') {
-        message = "The email address format is invalid.";
+        message = context.l10n.errInvalidEmail;
         icon = Icons.email_outlined;
       } else if (e.code == 'network-request-failed') {
-        message = "No internet connection. Please check your network.";
+        message = context.l10n.errNoInternet;
         icon = Icons.wifi_off_outlined;
       } else if (e.code == 'too-many-requests') {
-        message = "Too many failed attempts. Please try again later.";
+        message = context.l10n.errTooManyRequests;
         icon = Icons.block_outlined;
       }
 
@@ -120,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
         margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 3),
         action: SnackBarAction(
-          label: 'OK',
+          label: context.l10n.ok,
           textColor: Colors.white,
           onPressed: () {},
         ),
@@ -138,9 +138,9 @@ class _LoginScreenState extends State<LoginScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: const Text(
-            'Reset Password',
-            style: TextStyle(
+          title: Text(
+            context.l10n.resetPassword,
+            style: const TextStyle(
               fontWeight: FontWeight.bold,
               color: Color(0xFF1A1A2E),
             ),
@@ -149,9 +149,9 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Enter your email address and we\'ll send you a link to reset your password.',
-                style: TextStyle(
+              Text(
+                context.l10n.resetPasswordDesc,
+                style: const TextStyle(
                   color: Colors.grey,
                   fontSize: 14,
                 ),
@@ -161,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: resetEmailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
-                  hintText: 'example@mail.com',
+                  hintText: context.l10n.emailHint,
                   hintStyle:
                   TextStyle(color: Colors.grey.shade400, fontSize: 14),
                   filled: true,
@@ -183,9 +183,9 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.grey),
+              child: Text(
+                context.l10n.cancel,
+                style: const TextStyle(color: Colors.grey),
               ),
             ),
             ElevatedButton(
@@ -194,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 if (email.isEmpty) {
                   _showSnackBar(
-                    'Please enter your email address',
+                    context.l10n.errEnterEmailAddress,
                     Colors.orange,
                     Icons.email_outlined,
                   );
@@ -209,23 +209,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   Navigator.of(context).pop();
 
                   _showSnackBar(
-                    'Password reset email sent! Check your inbox 📧',
+                    context.l10n.passwordResetSent,
                     Colors.green,
                     Icons.mark_email_read_outlined,
                   );
                 } on FirebaseAuthException catch (e) {
-                  String message = "An error occurred. Please try again.";
+                  String message = context.l10n.errOccurred;
                   IconData icon = Icons.error_outline;
 
                   if (e.code == 'user-not-found') {
-                    message = "No account found with this email address.";
+                    message = context.l10n.errNoAccountFound;
                     icon = Icons.person_off_outlined;
                   } else if (e.code == 'invalid-email') {
-                    message = "The email address format is invalid.";
+                    message = context.l10n.errInvalidEmail;
                     icon = Icons.email_outlined;
                   } else if (e.code == 'network-request-failed') {
-                    message =
-                    "No internet connection. Please check your network.";
+                    message = context.l10n.errNoInternet;
                     icon = Icons.wifi_off_outlined;
                   }
 
@@ -239,7 +238,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text('Send Reset Link'),
+              child: Text(context.l10n.sendResetLink),
             ),
           ],
         );
@@ -302,24 +301,24 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               child: Column(
                                 children: [
-                                  const Text(
-                                    "Login",
-                                    style: TextStyle(
+                                  Text(
+                                    context.l10n.login,
+                                    style: const TextStyle(
                                       fontSize: 32,
                                       fontWeight: FontWeight.bold,
                                       color: Color(0xFF1A1A2E),
                                     ),
                                   ),
                                   const SizedBox(height: 10),
-                                  const Text(
-                                    "Welcome back! Login to your account",
-                                    style: TextStyle(
+                                  Text(
+                                    context.l10n.loginSubtitle,
+                                    style: const TextStyle(
                                         color: Colors.grey, fontSize: 15),
                                   ),
                                   const SizedBox(height: 30),
                                   _inputField(
-                                    "Email",
-                                    "example@mail.com",
+                                    context.l10n.email,
+                                    context.l10n.emailHint,
                                     _emailController,
                                     Icons.email_outlined,
                                   ),
@@ -329,9 +328,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     alignment: Alignment.centerRight,
                                     child: TextButton(
                                       onPressed: _showForgotPasswordDialog,
-                                      child: const Text(
-                                        "Forgot Password?",
-                                        style: TextStyle(
+                                      child: Text(
+                                        context.l10n.forgotPassword,
+                                        style: const TextStyle(
                                           color: Colors.orange,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -340,7 +339,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                   const SizedBox(height: 20),
                                   AnimatedLoginButton(
-                                    text: "Login",
+                                    text: context.l10n.login,
                                     onTap: _isLoading ? () {} : _signIn,
                                     isLoading: _isLoading,
                                   ),
@@ -349,9 +348,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     mainAxisAlignment:
                                     MainAxisAlignment.center,
                                     children: [
-                                      const Text(
-                                        "Don't have an account? ",
-                                        style: TextStyle(fontSize: 15),
+                                      Text(
+                                        context.l10n.dontHaveAccount,
+                                        style: const TextStyle(fontSize: 15),
                                       ),
                                       GestureDetector(
                                         onTap: () {
@@ -363,9 +362,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                             ),
                                           );
                                         },
-                                        child: const Text(
-                                          "Sign Up",
-                                          style: TextStyle(
+                                        child: Text(
+                                          context.l10n.signUp,
+                                          style: const TextStyle(
                                             color: Colors.orange,
                                             fontWeight: FontWeight.bold,
                                             fontSize: 15,
@@ -412,11 +411,11 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 5, bottom: 8),
+        Padding(
+          padding: const EdgeInsets.only(left: 5, bottom: 8),
           child: Text(
-            "Password",
-            style: TextStyle(
+            context.l10n.password,
+            style: const TextStyle(
               color: Colors.grey,
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -427,7 +426,7 @@ class _LoginScreenState extends State<LoginScreen> {
           controller: _passwordController,
           obscureText: _obscurePassword,
           decoration: InputDecoration(
-            hintText: "Enter your password",
+            hintText: context.l10n.passwordHint,
             hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
             filled: true,
             fillColor: const Color(0xFFF8F9FA),

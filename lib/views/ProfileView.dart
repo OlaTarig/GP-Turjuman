@@ -7,6 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../models/UserModel.dart';
 import '../controllers/ProfileController.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../l10n/l10n.dart';
 
 class ProfileView extends StatefulWidget {
   final UserModel user;
@@ -89,7 +90,7 @@ class _ProfileViewState extends State<ProfileView> {
           children: [
             ListTile(
               leading: const Icon(Icons.camera_alt),
-              title: const Text('Take photo'),
+              title: Text(context.l10n.takePhoto),
               onTap: () {
                 Navigator.pop(context);
                 _pickImageFromCamera();
@@ -97,7 +98,7 @@ class _ProfileViewState extends State<ProfileView> {
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from gallery'),
+              title: Text(context.l10n.chooseFromGallery),
               onTap: () {
                 Navigator.pop(context);
                 _pickImageFromGallery();
@@ -132,7 +133,7 @@ class _ProfileViewState extends State<ProfileView> {
 
       if (uid.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: user not logged in')),
+          SnackBar(content: Text(context.l10n.errUserNotLoggedIn)),
         );
         return;
       }
@@ -155,7 +156,7 @@ class _ProfileViewState extends State<ProfileView> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated')),
+        SnackBar(content: Text(context.l10n.profileUpdated)),
       );
 
       Navigator.pop(context, widget.user); // ✅ يرجع للـSettings مع الموديل
@@ -180,7 +181,7 @@ class _ProfileViewState extends State<ProfileView> {
       appBar: AppBar(
         backgroundColor: primaryOrange, // ✅ نفس لون الزر
         centerTitle: true,
-        title: const Text('Profile', style: TextStyle(color: Colors.white)),
+        title: Text(context.l10n.profile, style: const TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
@@ -239,12 +240,12 @@ class _ProfileViewState extends State<ProfileView> {
               const SizedBox(height: 16),
 
               _field(
-                label: 'Name',
+                label: context.l10n.name,
                 controller: _nameCtrl,
                 validator: (v) {
                   final t = (v ?? '').trim();
-                  if (t.isEmpty) return 'Name is required';
-                  if (t.length < 2) return 'Name is too short';
+                  if (t.isEmpty) return context.l10n.nameRequired;
+                  if (t.length < 2) return context.l10n.nameTooShort;
                   return null;
                 },
               ),
@@ -253,7 +254,7 @@ class _ProfileViewState extends State<ProfileView> {
 
               // ✅ Email للعرض فقط (ممنوع التعديل)
               _field(
-                label: 'Email',
+                label: context.l10n.email,
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 enabled: false,
@@ -279,9 +280,9 @@ class _ProfileViewState extends State<ProfileView> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                      : const Text(
-                    'Save',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                      : Text(
+                    context.l10n.save,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
               ),

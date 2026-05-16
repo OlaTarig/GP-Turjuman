@@ -173,6 +173,42 @@
       "durationMs": 3000,
       "word": "ارسال"
     },
+    "أنا": {
+      "videoPath": "assets/signs/أنا.mp4",
+      "durationMs": 3000,
+      "word": "أنا"
+    },
+    "السلام عليكم": {
+      "videoPath": "assets/signs/السلام عليكم.mp4",
+      "durationMs": 3000,
+      "word": "السلام عليكم"
+    },
+    "و عليكم السلام": {
+      "videoPath": "assets/signs/و عليكم السلام.mp4",
+      "durationMs": 3000,
+      "word": "و عليكم السلام"
+    },
+    "صباح الخير": {
+      "videoPath": "assets/signs/صباح الخير.mp4",
+      "durationMs": 3000,
+      "word": "صباح الخير"
+    },
+    "صباح النور": {
+      "videoPath": "assets/signs/صباح النور.mp4",
+      "durationMs": 3000,
+      "word": "صباح النور"
+    },
+    "مساء الخير": {
+      "videoPath": "assets/signs/مساء الخير.mp4",
+      "durationMs": 3000,
+      "word": "مساء الخير"
+    },
+      "مبارك التخرج": {
+      "videoPath": "assets/signs/مبارك التخرج.mp4",
+      "durationMs": 3000,
+      "word": "مبارك التخرج"
+    },
+
 
     "ا": { "videoPath": "assets/fingerspelling/ا.mp4", "durationMs": 1500, "word": "ا" },
     "أ": { "videoPath": "assets/fingerspelling/أ.mp4", "durationMs": 1500, "word": "أ" },
@@ -180,7 +216,7 @@
     "ت": { "videoPath": "assets/fingerspelling/ت.mp4", "durationMs": 1500, "word": "ت" },
     "ث": { "videoPath": "assets/fingerspelling/ث.mp4", "durationMs": 1500, "word": "ث" },
     "ج": { "videoPath": "assets/fingerspelling/ج.mp4", "durationMs": 1500, "word": "ج" },
-    "ح": { "videoPath": "assets/fingerspelling/ح.mp4", "durationMs": 1500, "word": "ح" },
+    "ح": { "videoPath": "assets/fingerspelling/ح.mp4", "durationMs": 1500, "word": "ح"},
     "خ": { "videoPath": "assets/fingerspelling/خ.mp4", "durationMs": 1500, "word": "خ" },
     "د": { "videoPath": "assets/fingerspelling/د.mp4", "durationMs": 1500, "word": "د" },
     "ذ": { "videoPath": "assets/fingerspelling/ذ.mp4", "durationMs": 1500, "word": "ذ" },

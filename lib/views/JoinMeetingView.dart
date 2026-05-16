@@ -5,6 +5,7 @@ import '../models/MeetingModel.dart';
 import '../models/UserModel.dart';
 import 'MeetingView.dart';
 import 'HomePage.dart';
+import '../l10n/l10n.dart';
 
 class JoinMeetingScreen extends StatefulWidget {
   final String meetingId;
@@ -60,8 +61,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
         if (attempts >= maxAttempts) {
           setState(() {
             _isLoading = false;
-            _errorMessage =
-            'Network error. Please check your connection and tap Retry.';
+            _errorMessage = context.l10n.networkError;
           });
           return;
         }
@@ -78,7 +78,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'You need to log in first to join a meeting.';
+          _errorMessage = context.l10n.needLoginFirst;
         });
       }
       return;
@@ -96,8 +96,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage =
-          'Meeting not found. The link may be invalid or expired.';
+          _errorMessage = context.l10n.meetingNotFoundLink;
         });
       }
       return;
@@ -114,7 +113,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'This meeting has already ended.';
+          _errorMessage = context.l10n.meetingHasEnded;
         });
       }
       return;
@@ -125,7 +124,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'This meeting is full. Maximum capacity reached.';
+          _errorMessage = context.l10n.meetingFull;
         });
       }
       return;
@@ -164,8 +163,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage =
-          'User profile not found. Please complete your profile.';
+          _errorMessage = context.l10n.userProfileNotFound;
         });
       }
       return;
@@ -237,6 +235,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
   }
 
   Widget _buildLoading() {
+    final l10n = context.l10n;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -253,10 +252,10 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
               ),
             ],
           ),
-          child: const Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
+              const SizedBox(
                 width: 48,
                 height: 48,
                 child: CircularProgressIndicator(
@@ -264,19 +263,19 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
                   strokeWidth: 3,
                 ),
               ),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
               Text(
-                'Joining Meeting...',
-                style: TextStyle(
+                l10n.joiningMeeting,
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1A1A2E),
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
-                'Please wait while we connect you',
-                style: TextStyle(color: Colors.grey, fontSize: 14),
+                l10n.pleaseWait,
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
               ),
             ],
           ),
@@ -286,6 +285,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
   }
 
   Widget _buildError() {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
@@ -304,9 +304,9 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
         children: [
           const Icon(Icons.error_outline, color: Colors.redAccent, size: 56),
           const SizedBox(height: 16),
-          const Text(
-            'Unable to Join',
-            style: TextStyle(
+          Text(
+            l10n.unableToJoin,
+            style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
               color: Color(0xFF1A1A2E),
@@ -314,7 +314,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            _errorMessage ?? 'An unknown error occurred.',
+            _errorMessage ?? l10n.unknownError,
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.grey, fontSize: 15),
           ),
@@ -332,7 +332,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Go Back'),
+                  child: Text(l10n.goBack),
                 ),
               ),
               const SizedBox(width: 12),
@@ -347,7 +347,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Retry'),
+                  child: Text(l10n.retry),
                 ),
               ),
             ],

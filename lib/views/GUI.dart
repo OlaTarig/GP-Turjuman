@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/l10n.dart';
 import 'SignUpView.dart';
 import 'SignInView.dart';
 
@@ -7,6 +8,7 @@ class WelcomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -38,15 +40,14 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    const Text(
-                      "Welcome To Turjuman App",
+                    Text(
+                      l10n.welcomeTitle,
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 30),
 
-                    // Login Button
-                    buildButton(context, "Login", () {
+                    _AnimatedButton(text: l10n.login, onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -55,8 +56,7 @@ class WelcomeScreen extends StatelessWidget {
 
                     const SizedBox(height: 20),
 
-                    // Register Button
-                    buildButton(context, "Register", () {
+                    _AnimatedButton(text: l10n.register, onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const SignUpScreen()),
@@ -71,28 +71,19 @@ class WelcomeScreen extends StatelessWidget {
       ),
     );
   }
-
-  Widget buildButton(BuildContext context, String text, VoidCallback onTap) {
-    return AnimatedButton(text: text, onTap: onTap);
-  }
 }
 
-// Animated Button Widget for better interactivity
-class AnimatedButton extends StatefulWidget {
+class _AnimatedButton extends StatefulWidget {
   final String text;
   final VoidCallback onTap;
 
-  const AnimatedButton({
-    super.key,
-    required this.text,
-    required this.onTap,
-  });
+  const _AnimatedButton({required this.text, required this.onTap});
 
   @override
-  State<AnimatedButton> createState() => _AnimatedButtonState();
+  State<_AnimatedButton> createState() => _AnimatedButtonState();
 }
 
-class _AnimatedButtonState extends State<AnimatedButton> {
+class _AnimatedButtonState extends State<_AnimatedButton> {
   bool _isPressed = false;
 
   @override
@@ -139,3 +130,4 @@ class _AnimatedButtonState extends State<AnimatedButton> {
     );
   }
 }
+

@@ -6,6 +6,9 @@ import '../controllers/SettingsController.dart';
 import '../views/ProfileView.dart';
 import '../views/SignInView.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../locale_notifier.dart';
+import '../l10n/l10n.dart';
+
 class SettingsView extends StatefulWidget {
   final UserModel user;
   final ValueChanged<UserModel> onUserUpdated; // ✅ جديد
@@ -77,9 +80,8 @@ class _SettingsViewState extends State<SettingsView> {
         final st = await Permission.microphone.status;
         if (!st.isGranted) {
           await _permissionDialog(
-            title: 'Microphone permission needed',
-            message:
-            'Permission was not granted. If it is permanently denied, enable it from system settings.',
+            title: context.l10n.micPermissionNeeded,
+            message: context.l10n.permissionNotGranted,
             permission: Permission.microphone,
           );
         }
@@ -101,9 +103,8 @@ class _SettingsViewState extends State<SettingsView> {
         final st = await Permission.camera.status;
         if (!st.isGranted) {
           await _permissionDialog(
-            title: 'Camera permission needed',
-            message:
-            'Permission was not granted. If it is permanently denied, enable it from system settings.',
+            title: context.l10n.cameraPermissionNeeded,
+            message: context.l10n.permissionNotGranted,
             permission: Permission.camera,
           );
         }
@@ -132,7 +133,7 @@ class _SettingsViewState extends State<SettingsView> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: Text(context.l10n.ok),
           ),
           if (permanentlyDenied)
             ElevatedButton(
@@ -141,7 +142,7 @@ class _SettingsViewState extends State<SettingsView> {
                 Navigator.pop(context);
                 openAppSettings();
               },
-              child: const Text('Open system settings'),
+              child: Text(context.l10n.openSystemSettings),
             ),
         ],
       ),
@@ -163,13 +164,14 @@ class _SettingsViewState extends State<SettingsView> {
       debugPrint("Error signing out: $e");
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Logout failed: $e')),
+        SnackBar(content: Text(context.l10n.logoutFailed(e.toString()))),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(16),
@@ -178,9 +180,9 @@ class _SettingsViewState extends State<SettingsView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Settings',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              Text(
+                l10n.settings,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
 
               // ✅ نفس تصميم الهوم بالضبط
@@ -212,21 +214,49 @@ class _SettingsViewState extends State<SettingsView> {
           const SizedBox(height: 14),
 
           _card(
-            title: 'Meeting Access',
+            title: l10n.language,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.appLanguage,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  DropdownButton<String>(
+                    value: LocaleNotifier.instance.value.languageCode,
+                    underline: const SizedBox(),
+                    items: const [
+                      DropdownMenuItem(value: 'en', child: Text('English')),
+                      DropdownMenuItem(value: 'ar', child: Text('العربية')),
+                    ],
+                    onChanged: (code) {
+                      if (code != null) {
+                        LocaleNotifier.instance.setLocale(Locale(code));
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          _card(
+            title: l10n.meetingAccess,
             children: [
               _switchRow(
-                title: 'Microphone (App)',
-                subtitle:
-                'OFF disables mic in app. ON requests system permission.',
+                title: l10n.microphone,
+                subtitle: l10n.micSubtitle,
                 value: _user.micAccessSettings,
                 loading: _loadingMic,
                 onChanged: _toggleMic,
               ),
               const Divider(height: 24),
               _switchRow(
-                title: 'Camera (App)',
-                subtitle:
-                'OFF disables camera in app. ON requests system permission.',
+                title: l10n.camera,
+                subtitle: l10n.cameraSubtitle,
                 value: _user.cameraAccessSettings,
                 loading: _loadingCam,
                 onChanged: _toggleCamera,
@@ -235,12 +265,11 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           const SizedBox(height: 14),
           _card(
-            title: 'Privacy & Security',
+            title: l10n.privacySecurity,
             children: [
               _switchRow(
-                title: 'Secure Screen',
-                subtitle:
-                    'Prevents screenshots and screen recording during meetings.',
+                title: l10n.secureScreen,
+                subtitle: l10n.secureScreenSubtitle,
                 value: _secureScreenEnabled,
                 loading: false,
                 onChanged: _toggleSecureScreen,
@@ -396,7 +425,7 @@ class _SettingsViewState extends State<SettingsView> {
             Expanded(child: Text(text, style: const TextStyle(fontSize: 12))),
             TextButton(
               onPressed: openAppSettings,
-              child: const Text('System settings'),
+              child: Text(context.l10n.systemSettings),
             ),
           ],
         ),

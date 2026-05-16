@@ -74,6 +74,7 @@ class SignLanguageModule {
     _voiceInputHandler = VoiceInputHandler(
       handController: _handController,
       ner: _ner,
+      normalizeTaaMarbuta: true,
     );
 
     _initialized = true;
@@ -87,6 +88,7 @@ class SignLanguageModule {
       debugPrint('⚠️ SignLanguageModule: not initialized — skipping attach');
       return;
     }
+    _handController.stopAnimation(); // clear any stale queue from a prior session
     _voiceInputHandler.attach(captionController);
   }
 

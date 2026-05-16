@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../controllers/SignCaptioningController.dart';
+import '../../l10n/l10n.dart';
 
 class SignCaptioningOverlay extends StatelessWidget {
   final SignCaptioningController signing;
@@ -8,6 +9,7 @@ class SignCaptioningOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!signing.isEnabled) return const SizedBox.shrink();
+    final l10n = context.l10n;
     return Stack(
       children: [
         if (signing.captureState == CaptureState.inferring)
@@ -18,19 +20,19 @@ class SignCaptioningOverlay extends StatelessWidget {
             child: Center(
               child: _chip(
                 Colors.deepPurple,
-                const Row(
+                Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
+                    const SizedBox(
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2),
                     ),
-                    SizedBox(width: 8),
-                    Text('Analyzing sign…',
+                    const SizedBox(width: 8),
+                    Text(l10n.analyzingSign,
                         style:
-                            TextStyle(color: Colors.white, fontSize: 13)),
+                            const TextStyle(color: Colors.white, fontSize: 13)),
                   ],
                 ),
               ),
@@ -64,15 +66,15 @@ class SignCaptioningOverlay extends StatelessWidget {
             child: Center(
               child: _chip(
                 Colors.orange,
-                const Row(
+                Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.warning_amber_rounded,
+                    const Icon(Icons.warning_amber_rounded,
                         color: Colors.white, size: 16),
-                    SizedBox(width: 6),
-                    Text('Hands not detected — move into frame',
+                    const SizedBox(width: 6),
+                    Text(l10n.handsNotDetected,
                         style:
-                            TextStyle(color: Colors.white, fontSize: 13)),
+                            const TextStyle(color: Colors.white, fontSize: 13)),
                   ],
                 ),
               ),

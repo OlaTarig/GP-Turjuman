@@ -47,6 +47,12 @@ class VoiceInputHandler {
     detach(_captionController);
     _captionController = captionController;
     _processedCount = captionController.liveCaptions.length; // skip history
+    // Skip any caption already pending at attach time so we don't play
+    // something that was spoken before the avatar was opened.
+    final pending = captionController.pendingCaption;
+    if (pending != null && pending.text.trim().isNotEmpty) {
+      _pendingProcessed.add('${pending.userId}|${pending.text}');
+    }
     captionController.addListener(_onCaptionsUpdated);
     debugPrint('🔗 VoiceInputHandler: attached to CaptionController');
   }
