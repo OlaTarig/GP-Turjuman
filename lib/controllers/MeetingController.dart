@@ -226,4 +226,24 @@ class MeetingController {
         .doc(targetUid)
         .delete();
   }
+
+  Future<void> revokeMicCam({
+    required String meetingId,
+    required String targetUid,
+  }) async {
+    final host = _auth.currentUser;
+    if (host == null) return;
+
+    final snap = await _firestore.collection('User').doc(targetUid).get();
+    final data = snap.data() ?? {};
+
+    // تأكد أن المستخدم داخل نفس الاجتماع
+    if (data['currentMeetingId'] != meetingId) return;
+
+    await _firestore.collection('User').doc(targetUid).set({
+      'micPermissionGranted': false,
+      'cameraPermissionGranted': false,
+    }, SetOptions(merge: true));
+  }
+
 }
