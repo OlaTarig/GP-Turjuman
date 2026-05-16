@@ -4,8 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/MeetingModel.dart';
 
 class MeetingController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
+
+  MeetingController({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
   Future<MeetingModel?> createMeeting(String title) async {
     try {
@@ -220,4 +226,24 @@ class MeetingController {
         .doc(targetUid)
         .delete();
   }
+
+  Future<void> revokeMicCam({
+    required String meetingId,
+    required String targetUid,
+  }) async {
+    final host = _auth.currentUser;
+    if (host == null) return;
+
+    final snap = await _firestore.collection('User').doc(targetUid).get();
+    final data = snap.data() ?? {};
+
+    // تأكد أن المستخدم داخل نفس الاجتماع
+    if (data['currentMeetingId'] != meetingId) return;
+
+    await _firestore.collection('User').doc(targetUid).set({
+      'micPermissionGranted': false,
+      'cameraPermissionGranted': false,
+    }, SetOptions(merge: true));
+  }
+
 }
