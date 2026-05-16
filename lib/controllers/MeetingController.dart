@@ -4,8 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/MeetingModel.dart';
 
 class MeetingController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
+
+  MeetingController({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
   Future<MeetingModel?> createMeeting(String title) async {
     try {
