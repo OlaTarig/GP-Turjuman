@@ -47,6 +47,7 @@ class _MeetingScreenState extends State<MeetingView> {
   bool _endedDialogShown      = false;
   bool _screenShareAllowedForAll = false;
   bool _signAvatarEnabled     = false;
+  bool _isHandRaised          = false;
 
   // FIX #1 – guard so the Firestore listener cannot kill streams
   // before the Zego session has finished initialising.
@@ -118,6 +119,9 @@ class _MeetingScreenState extends State<MeetingView> {
         final data = snap.data() as Map<String, dynamic>? ?? {};
         final micGranted = data['micPermissionGranted'] == true;
         final camGranted = data['cameraPermissionGranted'] == true;
+        final handRaised = data['isHandRaised'] == true;
+
+        if (mounted) setState(() => _isHandRaised = handRaised);
 
         if (!(micGranted && camGranted)) {
           if (session.isMicOn) {
@@ -1049,9 +1053,50 @@ class _MeetingScreenState extends State<MeetingView> {
                   visualDensity: VisualDensity.compact,
                 ),
               ),
-            IconButton(
-              icon: const Icon(Icons.people, color: Colors.white),
-              onPressed: _showParticipantsSheet,
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: _isHost
+                  ? FirebaseFirestore.instance
+                      .collection('Meetings')
+                      .doc(widget.meeting.meetingId)
+                      .collection('permissionRequests')
+                      .where('status', isEqualTo: 'pending')
+                      .snapshots()
+                  : const Stream.empty(),
+              builder: (context, snap) {
+                final count = snap.data?.docs.length ?? 0;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.people, color: Colors.white),
+                      onPressed: _showParticipantsSheet,
+                    ),
+                    if (_isHost && count > 0)
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: primaryOrange,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                              minWidth: 16, minHeight: 16),
+                          child: Text(
+                            '$count',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
             if (_isHost)
               IconButton(
@@ -1357,6 +1402,8 @@ class _MeetingScreenState extends State<MeetingView> {
                           _meetingIcon(
                             icon: Icons.pan_tool_outlined,
                             label: context.l10n.btnHand,
+                            isActive: _isHandRaised,
+                            activeColor: primaryOrange,
                             onTap: _onHandPressed,
                           ),
                           const SizedBox(width: 16),
