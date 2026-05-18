@@ -210,6 +210,22 @@ class _MeetingScreenState extends State<MeetingView> {
       final data = snap.data() as Map<String, dynamic>?;
       if (data == null) return;
 
+      final participants =
+      List<String>.from((data['participants'] as List?) ?? []);
+
+      if (!participants.contains(_currentUid) && !_isHost) {
+        try {
+          await mgr.endAndDispose();
+        } catch (_) {}
+
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomePage()),
+              (route) => false,
+        );
+        return;
+      }
+
       final allowed = data['screenShareAllowed'] as bool? ?? false;
       if (mounted) {
         setState(() => _screenShareAllowedForAll = allowed);
@@ -1791,6 +1807,17 @@ class _MeetingScreenState extends State<MeetingView> {
                                 style: const TextStyle(
                                     color: Colors.white70),
                               ),
+                              trailing: _isHost && !isHostUid
+                                  ? IconButton(
+                                icon: const Icon(Icons.person_remove, color: Colors.redAccent),
+                                onPressed: () async {
+                                  await MeetingController().removeParticipant(
+                                    meetingId: widget.meeting.meetingId,
+                                    targetUid: uid,
+                                  );
+                                },
+                              )
+                                  : null,
                             );
                           },
                         );

@@ -227,6 +227,53 @@ class MeetingController {
         .delete();
   }
 
+  Future<void> removeParticipant({
+    required String meetingId,
+    required String targetUid,
+  }) async {
+    final host = _auth.currentUser;
+    if (host == null) return;
+
+    final ref = _firestore.collection('Meetings').doc(meetingId);
+
+    try {
+      await _firestore.runTransaction((tx) async {
+        final snap = await tx.get(ref);
+        if (!snap.exists) return;
+
+        final data = snap.data() as Map<String, dynamic>;
+        final hostId = data['hostId'] as String?;
+
+        if (hostId == null || hostId != host.uid) return;
+        if (targetUid == host.uid) return;
+
+        final participants =
+        List<String>.from((data['participants'] as List?) ?? []);
+
+        if (!participants.contains(targetUid)) return;
+
+        final currentNum =
+            (data['numOfParticipants'] as int?) ?? participants.length;
+        final nextNum = (currentNum - 1) < 0 ? 0 : currentNum - 1;
+
+        tx.update(ref, {
+          'participants': FieldValue.arrayRemove([targetUid]),
+          'numOfParticipants': nextNum,
+        });
+      });
+
+      await _firestore.collection('User').doc(targetUid).set({
+        'currentMeetingId': null,
+        'micPermissionGranted': false,
+        'cameraPermissionGranted': false,
+        'isHandRaised': false,
+        'handRaisedAt': null,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print("Error removing participant: $e");
+    }
+  }
+
   Future<void> revokeMicCam({
     required String meetingId,
     required String targetUid,
