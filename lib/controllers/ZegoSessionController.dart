@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:zego_express_engine/zego_express_engine.dart';
 
 class ZegoSessionController extends ChangeNotifier {
-  static const int    appID   = 1007373030;
-  static const String appSign =
-      '98d7d6323f1cad29be6727e77b8622e847660a4d1999846367d450ee7f976606';
+  static final int    appID   = int.tryParse(dotenv.env['ZEGO_APP_ID'] ?? '') ?? 0;
+  static final String appSign = dotenv.env['ZEGO_APP_SIGN'] ?? '';
 
   bool isInitialized = false;
 
