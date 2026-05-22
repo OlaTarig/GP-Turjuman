@@ -13,4 +13,5 @@ key.properties
 **/*.keystore
 **/*.jks
 assets/google_speech_credentials.json
+stress_tests
 .env
