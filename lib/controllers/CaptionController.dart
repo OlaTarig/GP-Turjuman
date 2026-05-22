@@ -8,6 +8,7 @@ import 'package:google_speech/google_speech.dart';
 import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/CaptionsAndTranscriptionModel.dart';
+import '../utils/latency_logger.dart';
 
 const String kCaptionsCollection = 'captionsFileTranscription';
 
@@ -44,6 +45,9 @@ class CaptionController extends ChangeNotifier {
   // ── Retry / backoff ────────────────────────────────────────────────
   int _consecutiveErrors = 0;
   static const int _maxConsecutiveErrors = 5;
+
+  // ── Latency tracking (speech→sign) ────────────────────────────────
+  DateTime? _speechStreamStart;
 
   // ── Getters ────────────────────────────────────────────────────────
   bool get captionsEnabled => _captionsVisible;
@@ -238,6 +242,7 @@ class CaptionController extends ChangeNotifier {
         enableAutomaticPunctuation: true,
       );
 
+      _speechStreamStart = DateTime.now();
       final audioStream = await _recorder.startStream(
         const RecordConfig(
           encoder: AudioEncoder.pcm16bits,
@@ -265,6 +270,10 @@ class CaptionController extends ChangeNotifier {
                   : '';
               if (text.isNotEmpty) {
                 _consecutiveErrors = 0;
+                if (_speechStreamStart != null) {
+                  _speechStreamStart = DateTime.now(); // reset for next utterance
+                }
+                LatencyLogger.startTimer('speech_to_sign');
                 debugPrint('🎤 [$_currentUserName] recognized: $text');
                 updateCaption(text);
               }

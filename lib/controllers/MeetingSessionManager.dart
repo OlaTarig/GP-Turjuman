@@ -105,7 +105,7 @@ class MeetingSessionManager extends ChangeNotifier {
     recognition.disable();
 
     // ── Tear down sign captioning ─────────────────────────────────────
-    await signing.disable();
+    await signing.stopSignCapture();
     CaptionController.instance.detachSignController();
     // ─────────────────────────────────────────────────────────────────
 

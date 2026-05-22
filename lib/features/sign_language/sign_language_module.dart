@@ -3,7 +3,7 @@
 //   import 'features/sign_language/sign_language_module.dart';
 export 'models/gesture_data.dart';
 export 'models/hand_model.dart';
-export 'services/named_entity_recognition.dart';
+export 'services/speech_tokenizer.dart';
 export 'services/voice_input_handler.dart';
 export 'controllers/hand_controller.dart';
 export 'views/hand_view.dart';
@@ -12,7 +12,7 @@ export 'views/sign_overlay_widget.dart';
 import 'package:flutter/foundation.dart';
 import '../../controllers/CaptionController.dart';
 import 'models/hand_model.dart';
-import 'services/named_entity_recognition.dart';
+import 'services/speech_tokenizer.dart';
 import 'services/voice_input_handler.dart';
 import 'controllers/hand_controller.dart';
 
@@ -34,7 +34,7 @@ class SignLanguageModule {
   static final SignLanguageModule instance = SignLanguageModule._();
 
   late final HandModel _handModel;
-  late final NamedEntityRecognition _ner;
+  late final SpeechTokenizer _ner;
   late final HandController _handController;
   late final VoiceInputHandler _voiceInputHandler;
 
@@ -69,7 +69,7 @@ class SignLanguageModule {
     _handModel = HandModel();
     await _handModel.loadFromAsset();
 
-    _ner = NamedEntityRecognition(_handModel);
+    _ner = SpeechTokenizer(_handModel);
     _handController = HandController(_handModel);
     _voiceInputHandler = VoiceInputHandler(
       handController: _handController,

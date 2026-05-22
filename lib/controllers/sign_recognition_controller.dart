@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'dart:convert';
 
-enum SignRecogState { idle, active, results }
+enum SignRecogState { idle, active, results, unrecognized }
 
 class SignRecogPrediction {
   final String arabic;
@@ -20,6 +20,10 @@ class SignRecogPrediction {
 class SignRecognitionController extends ChangeNotifier {
   static const int _numFrames = 48;
   static const int _featureDim = 126; // lh(63)+rh(63), wrist-centered by native
+  static const double _minConfidenceThreshold = 0.4;
+  // Sum of absolute wrist-centered keypoints for a real hand is well above 2.0.
+  // Values below this indicate noise or a missing hand from MediaPipe.
+  static const double _handPresenceThreshold = 2.0;
 
   SignRecogState state = SignRecogState.idle;
   List<SignRecogPrediction> topPredictions = [];
@@ -114,9 +118,15 @@ class SignRecognitionController extends ChangeNotifier {
 
       final probs = List<double>.from(out[0] as List);
       topPredictions = _top5(probs);
-      state = SignRecogState.results;
 
-      debugPrint('🤟 SignRecognition: ${topPredictions.isNotEmpty ? "${topPredictions.first.arabic} (${(topPredictions.first.confidence * 100).toStringAsFixed(1)}%)" : "none"}');
+      if (topPredictions.isNotEmpty &&
+          topPredictions.first.confidence >= _minConfidenceThreshold) {
+        state = SignRecogState.results;
+        debugPrint('🤟 SignRecognition: ${topPredictions.first.arabic} (${(topPredictions.first.confidence * 100).toStringAsFixed(1)}%)');
+      } else {
+        state = SignRecogState.unrecognized;
+        debugPrint('⚠️ SignRecognition: low confidence (${topPredictions.isNotEmpty ? (topPredictions.first.confidence * 100).toStringAsFixed(1) : "0"}%) — unrecognized');
+      }
     } catch (e) {
       debugPrint('❌ SignRecognition error: $e');
     }
@@ -139,7 +149,7 @@ class SignRecognitionController extends ChangeNotifier {
   bool _handPresent(List<double> flat, int start) {
     double sum = 0;
     for (int j = 0; j < 63; j++) sum += flat[start + j].abs();
-    return sum > 0.01;
+    return sum > _handPresenceThreshold;
   }
 
   @override

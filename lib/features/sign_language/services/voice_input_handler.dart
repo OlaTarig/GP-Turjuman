@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 import '../../../controllers/CaptionController.dart';
+import '../../../utils/latency_logger.dart';
 import '../controllers/hand_controller.dart';
-import 'named_entity_recognition.dart';
+import 'speech_tokenizer.dart';
 
 /// Bridges the live caption stream to the sign language animation pipeline.
 ///
@@ -16,7 +17,7 @@ import 'named_entity_recognition.dart';
 ///   • Strip punctuation and extra whitespace
 class VoiceInputHandler {
   final HandController _handController;
-  final NamedEntityRecognition _ner;
+  final SpeechTokenizer _ner;
 
   /// Whether to normalise ة → ه before dictionary lookup.
   final bool normalizeTaaMarbuta;
@@ -34,7 +35,7 @@ class VoiceInputHandler {
 
   VoiceInputHandler({
     required HandController handController,
-    required NamedEntityRecognition ner,
+    required SpeechTokenizer ner,
     this.normalizeTaaMarbuta = false,
   })  : _handController = handController,
         _ner = ner;
@@ -116,6 +117,8 @@ class VoiceInputHandler {
   ///
   /// This is the primary entry point; call it directly when text arrives
   /// from any source (CaptionController or tests).
+  final _speechToSignLogger = LatencyLogger(name: 'Speech→Sign', thresholdMs: 10000);
+
   void startTracking(String rawText) {
     final normalised = processInput(rawText);
     if (normalised.isEmpty) return;
@@ -123,10 +126,14 @@ class VoiceInputHandler {
     final tokens = tokenizeText(normalised);
     if (tokens.isEmpty) return;
 
-    final annotated = _ner.identifyEntities(tokens);
-    debugPrint('🔤 VoiceInputHandler: queueing ${annotated.length} tokens for "$normalised"');
-
+    final annotated = _ner.tokenize(tokens);
     _handController.setText(annotated);
+
+    // Stops the timer started in CaptionController when Google Speech returned isFinal.
+    // Records full speech→sign latency: recognition + NER + tokenization + queue.
+    LatencyLogger.stopTimer('speech_to_sign', _speechToSignLogger);
+
+    debugPrint('🔤 VoiceInputHandler: queueing ${annotated.length} tokens for "$normalised"');
   }
 
   /// Normalises raw Arabic text for dictionary lookup.

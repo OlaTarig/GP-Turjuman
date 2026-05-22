@@ -11,8 +11,8 @@ class SignRecognitionOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (controller.state != SignRecogState.results ||
-        controller.topPredictions.isEmpty) {
+    final state = controller.state;
+    if (state != SignRecogState.results && state != SignRecogState.unrecognized) {
       return const SizedBox.shrink();
     }
 
@@ -28,7 +28,10 @@ class SignRecognitionOverlay extends StatelessWidget {
               color: Colors.black.withOpacity(0.88),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                  color: Colors.tealAccent.withOpacity(0.35), width: 1),
+                  color: state == SignRecogState.unrecognized
+                      ? Colors.orange.withOpacity(0.5)
+                      : Colors.tealAccent.withOpacity(0.35),
+                  width: 1),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -56,10 +59,20 @@ class SignRecognitionOverlay extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                ...controller.topPredictions
-                    .asMap()
-                    .entries
-                    .map((e) => _ResultRow(rank: e.key, pred: e.value)),
+                if (state == SignRecogState.unrecognized)
+                  const Text(
+                    'Could not recognize the sign',
+                    style: TextStyle(
+                        color: Colors.orangeAccent,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500),
+                    textAlign: TextAlign.center,
+                  )
+                else
+                  ...controller.topPredictions
+                      .asMap()
+                      .entries
+                      .map((e) => _ResultRow(rank: e.key, pred: e.value)),
               ],
             ),
           ),

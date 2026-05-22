@@ -6,6 +6,7 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'dart:convert';
 import 'CaptionController.dart';
 import 'sign_recognition_controller.dart';
+import '../utils/latency_logger.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SignCaptioningController — continuous real-time sign recognition
@@ -40,7 +41,7 @@ class SignCaptioningController extends ChangeNotifier {
   // ── Constants — must match training ───────────────────────────────
   static const int    _numFrames           = 48;
   static const int    _featureDim          = 126; // lh(63)+rh(63), wrist-centered by native
-  static const double _confidenceThreshold = 0.3;
+  static const double _confidenceThreshold = 0.4;
 
   // ── Platform channels ──────────────────────────────────────────────
   static const _methodChannel = MethodChannel('com.example.turjuman/sign_recognition');
@@ -66,6 +67,11 @@ class SignCaptioningController extends ChangeNotifier {
   // Hands-out-of-frame tracking
   int  _noDetectionFrames    = 0;
   static const int _maxNoDetectionFrames = 5;
+
+  // ── Latency tracking (sign→text) ───────────────────────────────────
+  DateTime? _batchArrivalTime;
+  final _signToTextLogger = LatencyLogger(name: 'Sign→Text', thresholdMs: 5000);
+  final _inferenceLogger  = LatencyLogger(name: 'TFLite Inference', thresholdMs: 500);
 
   // Sentence accumulation
   final _sentenceWords = <String>[];
@@ -135,7 +141,7 @@ class SignCaptioningController extends ChangeNotifier {
 
   // ── Enable / Disable ──────────────────────────────────────────────
 
-  Future<void> enable() async {
+  Future<void> startSignCapture() async {
     if (!_initialized) await initialize();
     if (isEnabled) return;
 
@@ -156,7 +162,7 @@ class SignCaptioningController extends ChangeNotifier {
     debugPrint('✅ Sign captioning ENABLED (continuous native)');
   }
 
-  Future<void> disable() async {
+  Future<void> stopSignCapture() async {
     isEnabled          = false;
     captureState       = CaptureState.idle;
     topPredictions     = [];
@@ -180,7 +186,7 @@ class SignCaptioningController extends ChangeNotifier {
   // ── Continuous toggle ──────────────────────────────────────────────
 
   Future<void> startCapture() async {
-    if (!isEnabled) await enable();
+    if (!isEnabled) await startSignCapture();
   }
 
   // ── EventChannel handler ───────────────────────────────────────────
@@ -202,6 +208,7 @@ class SignCaptioningController extends ChangeNotifier {
       }
     } else if (event is List && isEnabled) {
       // 10 800 values = 48 frames × 225 keypoints, sent as List<dynamic>
+      _batchArrivalTime = DateTime.now();
       debugPrint('🤟 Batch received from native: ${event.length} values');
       _recognitionController?.receiveBatch(event);
       final flat = event.map<double>((e) => (e as num).toDouble()).toList();
@@ -218,6 +225,7 @@ class SignCaptioningController extends ChangeNotifier {
     captureState = CaptureState.inferring;
     notifyListeners();
 
+    final inferenceStart = DateTime.now();
     try {
       // Native already sends wrist-centered lh(63)+rh(63) per frame — use directly.
       final inputFlat = Float32List(flat.length);
@@ -243,8 +251,10 @@ class SignCaptioningController extends ChangeNotifier {
       }
 
       final topVal = topPredictions.isNotEmpty ? topPredictions.first.confidence : 0.0;
+      final inferenceMs = DateTime.now().difference(inferenceStart).inMilliseconds;
       debugPrint('🔍 Inference done — top: ${topPredictions.isNotEmpty ? topPredictions.first.arabicWord : "none"} '
           '(${(topVal * 100).toStringAsFixed(1)}%), threshold=${(_confidenceThreshold * 100).toStringAsFixed(0)}%');
+      _inferenceLogger.record(inferenceMs);
       debugPrint('✅ Sign accepted: $currentArabicSign '
           '(${(currentConfidence * 100).toStringAsFixed(1)}%)');
     } catch (e) {
@@ -279,6 +289,13 @@ class SignCaptioningController extends ChangeNotifier {
     }
     final sentence = buf.toString();
     _sentenceWords.clear();
+
+    if (_batchArrivalTime != null) {
+      final e2eMs = DateTime.now().difference(_batchArrivalTime!).inMilliseconds;
+      _signToTextLogger.record(e2eMs);
+      _batchArrivalTime = null;
+    }
+
     _captionController?.pushSignCaption(
         sentence, _userId, _userName, _meetingId);
     debugPrint('🤟 Sentence flushed: $sentence');

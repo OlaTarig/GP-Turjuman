@@ -457,7 +457,7 @@ class _MeetingScreenState extends State<MeetingView> {
 
   Future<void> _onSignPressed() async {
     if (_signing.isEnabled) {
-      await _signing.disable();
+      await _signing.stopSignCapture();
       await _recognition.disable();
     } else {
       if (!session.isCameraOn) {
