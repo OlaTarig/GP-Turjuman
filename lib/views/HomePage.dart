@@ -155,6 +155,16 @@ class _HomePageState extends State<HomePage> {
       );
       return;
     }
+    final int numOfParticipants = (data['numOfParticipants'] as int?) ?? 0;
+    final int maxCapacity = (data['maxCapacity'] as int?) ?? 100;
+
+    if (numOfParticipants >= maxCapacity) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.meetingFull)),
+      );
+      return;
+    }
 
     final meeting = MeetingModel.fromMap({
       ...data,
