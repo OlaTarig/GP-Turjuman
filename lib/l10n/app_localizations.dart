@@ -1441,6 +1441,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sign Recognition'**
   String get signRecognition;
+
+  /// No description provided for @signRecognitionStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign recognition stopped'**
+  String get signRecognitionStopped;
 }
 
 class _AppLocalizationsDelegate

@@ -744,4 +744,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get signRecognition => 'Sign Recognition';
+
+  @override
+  String get signRecognitionStopped => 'Sign recognition stopped';
 }

@@ -737,4 +737,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get signRecognition => 'التعرف على الإشارات';
+
+  @override
+  String get signRecognitionStopped => 'تم إيقاف التعرف على الإشارات';
 }
