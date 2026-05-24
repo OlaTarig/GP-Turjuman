@@ -62,7 +62,7 @@ class MeetingSessionManager extends ChangeNotifier {
 
     // ── Wire sign captioning ──────────────────────────────────────────
     await signing.initialize();
-    await signing.setupVideoProcessing();
+    // await signing.setupVideoProcessing();   // TEMP DISABLED — diagnostic
     signing.attachRecognitionController(recognition);
     CaptionController.instance.attachSignController(signing);
     // ─────────────────────────────────────────────────────────────────

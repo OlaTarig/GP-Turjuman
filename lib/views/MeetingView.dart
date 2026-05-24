@@ -459,6 +459,11 @@ class _MeetingScreenState extends State<MeetingView> {
     if (_signing.isEnabled) {
       await _signing.stopSignCapture();
       await _recognition.disable();
+      _showSnackBar(
+        context.l10n.signRecognitionStopped,
+        Colors.grey,
+        Icons.sign_language,
+      );
     } else {
       if (!session.isCameraOn) {
         _showSnackBar(

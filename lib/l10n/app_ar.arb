@@ -238,5 +238,6 @@
 
   "analyzingSign": "جارٍ تحليل الإشارة...",
   "handsNotDetected": "لم يتم رصد اليدين — أعِد تأطيرهما",
-  "signRecognition": "التعرف على الإشارات"
+  "signRecognition": "التعرف على الإشارات",
+  "signRecognitionStopped": "تم إيقاف التعرف على الإشارات"
 }

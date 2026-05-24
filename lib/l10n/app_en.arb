@@ -305,5 +305,6 @@
 
   "analyzingSign": "Analyzing sign…",
   "handsNotDetected": "Hands not detected — move into frame",
-  "signRecognition": "Sign Recognition"
+  "signRecognition": "Sign Recognition",
+  "signRecognitionStopped": "Sign recognition stopped"
 }

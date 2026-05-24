@@ -317,6 +317,12 @@ class SignCaptioningController extends ChangeNotifier {
     return top5;
   }
 
+  // ── Test entry points ─────────────────────────────────────────────
+  Future<void> runInferenceForTest(List<double> flat) =>
+      _runInferenceFromFlat(flat);
+
+  void onSignRecognizedForTest(String word) => _onSignRecognized(word);
+
   // ── Dispose ───────────────────────────────────────────────────────
 
   @override
