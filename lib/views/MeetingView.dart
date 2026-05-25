@@ -1069,7 +1069,7 @@ class _MeetingScreenState extends State<MeetingView> {
                 child: Chip(
                   label: Text(context.l10n.sharingChip,
                       style: const TextStyle(color: Colors.white, fontSize: 11)),
-                  backgroundColor: Colors.green.shade700,
+                  backgroundColor: primaryOrange,
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
                 ),
@@ -1458,7 +1458,7 @@ class _MeetingScreenState extends State<MeetingView> {
                                 : Icons.screen_share,
                             label: session.isScreenSharing ? context.l10n.btnStop : context.l10n.btnShare,
                             isActive: session.isScreenSharing,
-                            activeColor: Colors.green,
+                            activeColor: primaryOrange,
                             onTap: _onShareScreenPressed,
                             locked: !_isAllowedToShare,
                           ),
