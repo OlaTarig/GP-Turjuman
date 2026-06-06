@@ -136,6 +136,10 @@ class ZegoSessionController extends ChangeNotifier {
       }
     };
 
+    // FIX #1 – Route audio to speakerphone so remote audio is audible.
+    // Zego defaults to earpiece which makes it seem like there is no audio.
+    await ZegoExpressEngine.instance.setAudioRouteToSpeaker(true);
+
     isInitialized = true;
     notifyListeners();
   }
@@ -162,6 +166,10 @@ class ZegoSessionController extends ChangeNotifier {
       user,
       config: ZegoRoomConfig.defaultConfig()..isUserStatusNotify = true,
     );
+
+    // FIX #4 – Re-apply speaker route after every room login because
+    // Zego can reset the audio route when a new room session starts.
+    await ZegoExpressEngine.instance.setAudioRouteToSpeaker(true);
 
     notifyListeners();
   }
@@ -214,6 +222,11 @@ class ZegoSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // FIX #2 – Start playing the stream immediately (audio-only) before the
+  // canvas view is ready. Previously startPlayingStream was only called
+  // inside the createCanvasView callback which fires asynchronously after
+  // Flutter builds the widget — if rendering is delayed for any reason,
+  // audio never starts. Now audio begins instantly and video attaches later.
   Future<void> startPlayingRemote({
     required String streamId,
     required String remoteUserId,
@@ -227,12 +240,17 @@ class ZegoSessionController extends ChangeNotifier {
     _playingRemoteStreamId = streamId;
     _playingRemoteUserId   = remoteUserId;
 
+    // Start audio immediately — no canvas needed for audio playback.
+    ZegoExpressEngine.instance.startPlayingStream(streamId);
+
+    // Create the video canvas and re-attach the stream with video.
     remoteViewWidget =
     await ZegoExpressEngine.instance.createCanvasView((viewID) {
       _remoteViewID = viewID;
       final canvas  = ZegoCanvas.view(viewID);
-      ZegoExpressEngine.instance.startPlayingStream(streamId,
-          canvas: canvas);
+      // Re-call startPlayingStream with the canvas to attach video.
+      // Audio is already playing so this only adds the video surface.
+      ZegoExpressEngine.instance.startPlayingStream(streamId, canvas: canvas);
     });
 
     notifyListeners();
@@ -328,20 +346,24 @@ class ZegoSessionController extends ChangeNotifier {
 
   // ─── Remote screen share playback ────────────────────────────────
 
-  Future<void> _startPlayingRemoteScreen(
-      {required String streamId}) async {
+  // FIX #3 – Same fix as startPlayingRemote: start audio immediately
+  // before the canvas widget is built to avoid silent screen share streams.
+  Future<void> _startPlayingRemoteScreen({required String streamId}) async {
     if (_playingRemoteScreenStreamId == streamId &&
         remoteScreenWidget != null) return;
 
     _stopPlayingRemoteScreen();
     _playingRemoteScreenStreamId = streamId;
 
+    // Start audio/video stream immediately before canvas is ready.
+    ZegoExpressEngine.instance.startPlayingStream(streamId);
+
     remoteScreenWidget =
     await ZegoExpressEngine.instance.createCanvasView((viewID) {
       _remoteScreenViewID = viewID;
       final canvas        = ZegoCanvas.view(viewID);
-      ZegoExpressEngine.instance.startPlayingStream(streamId,
-          canvas: canvas);
+      // Re-attach with video canvas once the widget is built.
+      ZegoExpressEngine.instance.startPlayingStream(streamId, canvas: canvas);
     });
 
     notifyListeners();
@@ -411,30 +433,22 @@ class ZegoSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// ✅ يستخدم لما الهوست يسحب الصلاحية
   Future<void> forceMicOff() async {
     if (!isMicOn) return;
-
     isMicOn = false;
-
     try {
       ZegoExpressEngine.instance.muteMicrophone(true);
     } catch (_) {}
-
     notifyListeners();
   }
 
-  /// ✅ يستخدم لما الهوست يسحب صلاحية الكاميرا
   Future<void> forceCameraOff() async {
     if (!isCameraOn) return;
-
     isCameraOn = false;
-
     try {
       await ZegoExpressEngine.instance.enableCamera(false);
       await ZegoExpressEngine.instance.stopPreview();
     } catch (_) {}
-
     notifyListeners();
   }
 

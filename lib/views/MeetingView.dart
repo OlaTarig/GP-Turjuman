@@ -127,21 +127,15 @@ class _MeetingScreenState extends State<MeetingView> {
 
         if (mounted) setState(() => _isHandRaised = handRaised);
 
-        // ✅ ADD THIS: Re-enable streams when permission is newly granted
-        if (micGranted && !session.isMicOn) {
-          await session.toggleMicWithPermission(); // re-publish mic
-        }
-        if (camGranted && !session.isCameraOn) {
-          await session.toggleCameraWithPermission(); // re-publish camera
-        }
-
-        // Only force off if permissions are revoked
+        // Only kill streams when permission is explicitly revoked.
+// Never force streams ON — the user controls that themselves.
         if (!micGranted && session.isMicOn) {
           await session.forceMicOff();
         }
         if (!camGranted && session.isCameraOn) {
           await session.forceCameraOff();
         }
+        if (mounted) setState(() {});
       });
     }
 
