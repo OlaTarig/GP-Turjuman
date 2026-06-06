@@ -65,30 +65,23 @@ class CaptionController extends ChangeNotifier {
   }
 
   // ── Auto-start recording on meeting join ──────────────────────────
-  //
-  // Begins saving speech captions to Firestore without showing the overlay.
-  // Call once after the meeting session is established. The CC button then
-  // only controls overlay visibility — recording is always running.
   Future<void> beginCapture(
       String userId, String meetingId, String userName) async {
     if (_isSpeaking) return;
-    _currentUserId    = userId;
+    _currentUserId = userId;
     _currentMeetingId = meetingId;
-    _currentUserName  = userName;
+    _currentUserName = userName;
     _consecutiveErrors = 0;
     debugPrint('▶️ beginCapture: auto-starting speech recording');
     await _startSpeaking();
   }
 
   // ── CC button pressed — toggles overlay only ───────────────────────
-  //
-  // Recording is always running (started via beginCapture on join).
-  // This only shows/hides the caption overlay for the local user.
   Future<void> handleEnableSpeechCaptioning(
       String userId, String meetingId, String userName) async {
-    _currentUserId    = userId;
+    _currentUserId = userId;
     _currentMeetingId = meetingId;
-    _currentUserName  = userName;
+    _currentUserName = userName;
 
     if (_captionsVisible) {
       _captionsVisible = false;
@@ -150,11 +143,12 @@ class CaptionController extends ChangeNotifier {
       final pending = _pendingCaption;
       if (pending != null &&
           _liveCaptions.any(
-              (e) => e.userId == pending.userId && e.text == pending.text)) {
+                  (e) => e.userId == pending.userId && e.text == pending.text)) {
         _pendingCaption = null;
       }
 
-      debugPrint('📡 Firestore snapshot: ${entries.length} entries, pending=${_pendingCaption != null}');
+      debugPrint(
+          '📡 Firestore snapshot: ${entries.length} entries, pending=${_pendingCaption != null}');
       notifyListeners();
     }, onError: (e) {
       debugPrint('❌ Firestore watch error: $e');
@@ -199,7 +193,6 @@ class CaptionController extends ChangeNotifier {
       'translatedSign': [],
       'isCompleted': false,
       'format': 'pdf',
-      'activeSpeakerId': '',
       'attendees': FieldValue.arrayUnion([_currentUserId]),
     }, SetOptions(merge: true));
 
@@ -226,13 +219,14 @@ class CaptionController extends ChangeNotifier {
     if (!_isSpeaking) return;
 
     // Always tear down the previous session before starting a new one.
-    // Failing to stop the recorder causes startStream() to throw on restart.
     final oldSub = _audioStreamSub;
     _audioStreamSub = null;
     await oldSub?.cancel();
-    try { await _recorder.stop(); } catch (_) {}
+    try {
+      await _recorder.stop();
+    } catch (_) {}
 
-    if (!_isSpeaking) return; // may have been disabled while cleaning up
+    if (!_isSpeaking) return;
 
     try {
       final config = RecognitionConfig(
@@ -260,10 +254,12 @@ class CaptionController extends ChangeNotifier {
       );
 
       _audioStreamSub = responseStream.listen(
-        (response) {
-          debugPrint('🎙️ Speech response: ${response.results.length} results');
+            (response) {
+          debugPrint(
+              '🎙️ Speech response: ${response.results.length} results');
           for (final result in response.results) {
-            debugPrint('🎙️ isFinal=${result.isFinal} text=${result.alternatives.isNotEmpty ? result.alternatives.first.transcript : "empty"}');
+            debugPrint(
+                '🎙️ isFinal=${result.isFinal} text=${result.alternatives.isNotEmpty ? result.alternatives.first.transcript : "empty"}');
             if (result.isFinal) {
               final text = result.alternatives.isNotEmpty
                   ? result.alternatives.first.transcript.trim()
@@ -271,7 +267,7 @@ class CaptionController extends ChangeNotifier {
               if (text.isNotEmpty) {
                 _consecutiveErrors = 0;
                 if (_speechStreamStart != null) {
-                  _speechStreamStart = DateTime.now(); // reset for next utterance
+                  _speechStreamStart = DateTime.now();
                 }
                 LatencyLogger.startTimer('speech_to_sign');
                 debugPrint('🎤 [$_currentUserName] recognized: $text');
@@ -282,41 +278,48 @@ class CaptionController extends ChangeNotifier {
         },
         onError: (e) {
           _consecutiveErrors++;
-          debugPrint('❌ Speech stream error ($_consecutiveErrors/$_maxConsecutiveErrors): $e');
+          debugPrint(
+              '❌ Speech stream error ($_consecutiveErrors/$_maxConsecutiveErrors): $e');
           if (!_isSpeaking) return;
           if (_consecutiveErrors >= _maxConsecutiveErrors) {
             _isSpeaking = false;
-            lastError = 'Speech recognition unavailable — check your internet connection.';
+            lastError =
+            'Speech recognition unavailable — check your internet connection.';
             debugPrint('🛑 Too many consecutive errors — stopping CC');
             notifyListeners();
             return;
           }
-          // Exponential backoff: 1s, 2s, 4s, 8s … capped at 30s
-          final delay = Duration(seconds: min(1 << (_consecutiveErrors - 1), 30));
+          final delay =
+          Duration(seconds: min(1 << (_consecutiveErrors - 1), 30));
           debugPrint('🔁 Retrying in ${delay.inSeconds}s...');
           Future.delayed(delay, _startStreaming);
         },
         onDone: () {
           debugPrint('🔄 Speech stream ended — restarting...');
           if (_isSpeaking) {
-            Future.delayed(const Duration(milliseconds: 500), _startStreaming);
+            Future.delayed(
+                const Duration(milliseconds: 500), _startStreaming);
           }
         },
         cancelOnError: false,
       );
 
-      debugPrint('✅ Google Speech streaming started for $_currentUserName');
+      debugPrint(
+          '✅ Google Speech streaming started for $_currentUserName');
     } catch (e) {
       _consecutiveErrors++;
       lastError = 'Failed to start recording: $e';
-      debugPrint('❌ _startStreaming error ($_consecutiveErrors/$_maxConsecutiveErrors): $e');
+      debugPrint(
+          '❌ _startStreaming error ($_consecutiveErrors/$_maxConsecutiveErrors): $e');
       notifyListeners();
       if (_isSpeaking && _consecutiveErrors < _maxConsecutiveErrors) {
-        final delay = Duration(seconds: min(1 << (_consecutiveErrors - 1), 30));
+        final delay =
+        Duration(seconds: min(1 << (_consecutiveErrors - 1), 30));
         Future.delayed(delay, _startStreaming);
       } else if (_consecutiveErrors >= _maxConsecutiveErrors) {
         _isSpeaking = false;
-        lastError = 'Speech recognition unavailable — check your internet connection.';
+        lastError =
+        'Speech recognition unavailable — check your internet connection.';
         notifyListeners();
       }
     }
@@ -324,7 +327,7 @@ class CaptionController extends ChangeNotifier {
 
   // ── Stop mic ───────────────────────────────────────────────────────
   Future<void> _stopMic() async {
-    _isSpeaking = false; // block any in-flight onDone/onError from restarting
+    _isSpeaking = false;
     final sub = _audioStreamSub;
     _audioStreamSub = null;
     try {
@@ -339,6 +342,11 @@ class CaptionController extends ChangeNotifier {
   }
 
   // ── Push caption to Firestore ──────────────────────────────────────
+  //
+  // The activeSpeakerId lock has been removed. It caused captions to be
+  // silently dropped when two participants spoke in quick succession.
+  // Firestore's arrayUnion is atomic — concurrent writes from different
+  // devices are safe and each entry already carries its own userId/userName.
   Future<void> updateCaption(String newText) async {
     if (newText.trim().isEmpty) return;
     if (isMicMuted) return;
@@ -350,35 +358,9 @@ class CaptionController extends ChangeNotifier {
       timestamp: DateTime.now(),
     );
 
-    // Show recognized text instantly — before any Firestore calls.
-    // Rolled back below if another speaker is currently active.
+    // Show recognized text instantly — before the Firestore round-trip.
     _pendingCaption = entry;
     notifyListeners();
-
-    // Check if another speaker is active
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection(kCaptionsCollection)
-          .doc(_currentMeetingId)
-          .get();
-      if (doc.exists) {
-        final activeSpeaker = doc.data()?['activeSpeakerId'] as String? ?? '';
-        if (activeSpeaker.isNotEmpty && activeSpeaker != _currentUserId) {
-          debugPrint('🔇 Another speaker active — skipping');
-          _pendingCaption = null;
-          notifyListeners();
-          return;
-        }
-      }
-    } catch (_) {}
-
-    // Claim slot
-    try {
-      await FirebaseFirestore.instance
-          .collection(kCaptionsCollection)
-          .doc(_currentMeetingId)
-          .set({'activeSpeakerId': _currentUserId}, SetOptions(merge: true));
-    } catch (_) {}
 
     try {
       await FirebaseFirestore.instance
@@ -387,11 +369,12 @@ class CaptionController extends ChangeNotifier {
           .set({
         'captionsBuffer': FieldValue.arrayUnion([entry.toMap()]),
         'updatedAt': FieldValue.serverTimestamp(),
-        'activeSpeakerId': '',
       }, SetOptions(merge: true));
       debugPrint('✅ Caption pushed: ${entry.text}');
     } catch (e) {
       debugPrint('❌ Failed to push caption: $e');
+      _pendingCaption = null;
+      notifyListeners();
     }
   }
 
@@ -452,9 +435,6 @@ class CaptionController extends ChangeNotifier {
   void detachSignController() {}
 
   // ── Sign captioning ────────────────────────────────────────────────
-  //
-  // Called by SignCaptioningController when a sentence is flushed.
-  // Bypasses the mic-mute gate so deaf users can caption with mic off.
   Future<void> pushSignCaption(
       String text, String userId, String userName, String meetingId) async {
     if (text.trim().isEmpty || meetingId.isEmpty) return;
@@ -467,7 +447,6 @@ class CaptionController extends ChangeNotifier {
     );
 
     try {
-      // Single write: creates the doc if absent, appends the entry, updates attendees.
       await FirebaseFirestore.instance
           .collection(kCaptionsCollection)
           .doc(meetingId)
