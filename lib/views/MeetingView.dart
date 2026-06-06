@@ -338,7 +338,7 @@ class _MeetingScreenState extends State<MeetingView> {
     }
 
     final renderBox =
-        keys[step].currentContext?.findRenderObject() as RenderBox?;
+    keys[step].currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
     final position = renderBox.localToGlobal(Offset.zero);
@@ -400,7 +400,10 @@ class _MeetingScreenState extends State<MeetingView> {
     super.dispose();
   }
 
-  Future<Map<String, bool>> _getHostPermissionFlags() async {
+  // ── FIXED: renamed from _getHostPermissionFlags to _getCurrentUserPermissionFlags
+  // so it correctly reads the current participant's own permission flags,
+  // which are written by MeetingController.approveMicCam() into their own User doc.
+  Future<Map<String, bool>> _getCurrentUserPermissionFlags() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return {'mic': false, 'cam': false};
 
@@ -455,7 +458,9 @@ class _MeetingScreenState extends State<MeetingView> {
 
     // FIX #3 – host bypasses Firestore permission flag entirely.
     if (!_isHost) {
-      final flags = await _getHostPermissionFlags();
+      // FIXED: was _getHostPermissionFlags() — now correctly reads
+      // the current user's own permission flags from their User doc.
+      final flags = await _getCurrentUserPermissionFlags();
       // FIX #2 – only check the mic flag, not cam.
       if (flags['mic'] != true) {
         _showSnackBar(
@@ -485,7 +490,9 @@ class _MeetingScreenState extends State<MeetingView> {
 
     // FIX #3 – host bypasses Firestore permission flag entirely.
     if (!_isHost) {
-      final flags = await _getHostPermissionFlags();
+      // FIXED: was _getHostPermissionFlags() — now correctly reads
+      // the current user's own permission flags from their User doc.
+      final flags = await _getCurrentUserPermissionFlags();
       // FIX #2 – only check the cam flag, not mic.
       if (flags['cam'] != true) {
         _showSnackBar(
@@ -1143,11 +1150,11 @@ class _MeetingScreenState extends State<MeetingView> {
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: _isHost
                   ? FirebaseFirestore.instance
-                      .collection('Meetings')
-                      .doc(widget.meeting.meetingId)
-                      .collection('permissionRequests')
-                      .where('status', isEqualTo: 'pending')
-                      .snapshots()
+                  .collection('Meetings')
+                  .doc(widget.meeting.meetingId)
+                  .collection('permissionRequests')
+                  .where('status', isEqualTo: 'pending')
+                  .snapshots()
                   : const Stream.empty(),
               builder: (context, snap) {
                 final count = snap.data?.docs.length ?? 0;
