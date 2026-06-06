@@ -193,12 +193,16 @@ class ZegoSessionController extends ChangeNotifier {
     final uid = currentUserId;
     if (uid == null) return;
 
+    // startPreview must be called before startPublishingStream for video
+    // to be included in the stream. Call without canvas first to initialize
+    // the capture pipeline; the canvas will be attached once the view renders.
+    ZegoExpressEngine.instance.startPreview();
+
     localViewWidget ??=
     await ZegoExpressEngine.instance.createCanvasView((viewID) {
       _localViewID = viewID;
       final canvas = ZegoCanvas.view(viewID);
       ZegoExpressEngine.instance.startPreview(canvas: canvas);
-      // Re-apply camera state in case it was toggled before the view was ready
       if (isCameraOn) {
         ZegoExpressEngine.instance.enableCamera(true);
       }

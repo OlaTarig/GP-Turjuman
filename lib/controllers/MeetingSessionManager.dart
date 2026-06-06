@@ -48,12 +48,12 @@ class MeetingSessionManager extends ChangeNotifier {
     session.removeListener(_forward);
     session.addListener(_forward);
 
-    final ok = await session.ensurePermissions(
+    await session.ensurePermissions(
       needMic:    user.micAccessSettings,
       needCamera: user.cameraAccessSettings,
     );
-
-    if (!ok) throw Exception('Permissions not granted');
+    // Always proceed even if permissions were denied — the user can still
+    // watch and join the room; they just won't be able to publish camera/mic.
 
     await session.initialize();
 
