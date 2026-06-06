@@ -29,12 +29,14 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
-            isMinifyEnabled = true
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -51,6 +53,12 @@ android {
 dependencies {
     // MediaPipe Tasks Vision: PoseLandmarker + HandLandmarker
     implementation("com.google.mediapipe:tasks-vision:0.10.13")
+
+    // TFLite benchmark instrumentation tests
+    androidTestImplementation("org.tensorflow:tensorflow-lite:2.14.0")
+    androidTestImplementation("org.tensorflow:tensorflow-lite-gpu:2.14.0")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test:runner:1.5.2")
 }
 
 flutter {

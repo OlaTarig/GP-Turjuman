@@ -1447,6 +1447,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sign recognition stopped'**
   String get signRecognitionStopped;
+
+  /// No description provided for @coachSignTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Recognition'**
+  String get coachSignTitle;
+
+  /// No description provided for @coachSignDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap this button to start translating your hand signs into Arabic text captions in real time.'**
+  String get coachSignDesc;
+
+  /// No description provided for @coachAvatarTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Language Avatar'**
+  String get coachAvatarTitle;
+
+  /// No description provided for @coachAvatarDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap this button to translate spoken words into sign language animations performed by an avatar.'**
+  String get coachAvatarDesc;
+
+  /// No description provided for @coachNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get coachNext;
+
+  /// No description provided for @coachGotIt.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get coachGotIt;
 }
 
 class _AppLocalizationsDelegate

@@ -306,5 +306,11 @@
   "analyzingSign": "Analyzing sign…",
   "handsNotDetected": "Hands not detected — move into frame",
   "signRecognition": "Sign Recognition",
-  "signRecognitionStopped": "Sign recognition stopped"
+  "signRecognitionStopped": "Sign recognition stopped",
+  "coachSignTitle": "Sign Recognition",
+  "coachSignDesc": "Tap this button to start translating your hand signs into Arabic text captions in real time.",
+  "coachAvatarTitle": "Sign Language Avatar",
+  "coachAvatarDesc": "Tap this button to translate spoken words into sign language animations performed by an avatar.",
+  "coachNext": "Next",
+  "coachGotIt": "Got it"
 }

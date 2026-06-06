@@ -14,10 +14,10 @@ import '../controllers/MeetingSessionManager.dart';
 import '../controllers/CaptionController.dart';
 import '../controllers/SignCaptioningController.dart';
 import '../controllers/sign_recognition_controller.dart';
-import '../models/CaptionsAndTranscriptionModel.dart';
 import '../features/sign_language/sign_language_module.dart';
 import 'widgets/sign_captioning_overlay.dart';
 import 'widgets/sign_recognition_overlay.dart';
+import 'widgets/coach_mark_overlay.dart';
 import 'HomePage.dart';
 import '../l10n/l10n.dart';
 
@@ -48,6 +48,10 @@ class _MeetingScreenState extends State<MeetingView> {
   bool _screenShareAllowedForAll = false;
   bool _signAvatarEnabled     = false;
   bool _isHandRaised          = false;
+
+  final _signButtonKey   = GlobalKey();
+  final _avatarButtonKey = GlobalKey();
+  OverlayEntry? _coachOverlayEntry;
 
   // FIX #1 – guard so the Firestore listener cannot kill streams
   // before the Zego session has finished initialising.
@@ -186,6 +190,8 @@ class _MeetingScreenState extends State<MeetingView> {
 
         await _signLang.initialize();
         _signLang.handController.addListener(_onSessionChanged);
+
+        _showCoachMarks();
       } catch (_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -316,8 +322,67 @@ class _MeetingScreenState extends State<MeetingView> {
     }
   }
 
+  Future<void> _showCoachMarks() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('coach_marks_seen') == true) return;
+    if (!mounted) return;
+    _showCoachMarkStep(0);
+  }
+
+  void _showCoachMarkStep(int step) {
+    final keys  = [_signButtonKey, _avatarButtonKey];
+    if (step >= keys.length) {
+      SharedPreferences.getInstance()
+          .then((p) => p.setBool('coach_marks_seen', true));
+      return;
+    }
+
+    final renderBox =
+        keys[step].currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size     = renderBox.size;
+    final center   = Offset(
+      position.dx + size.width / 2,
+      position.dy + size.height / 2,
+    );
+
+    final l10n      = context.l10n;
+    final titles    = [l10n.coachSignTitle, l10n.coachAvatarTitle];
+    final descs     = [l10n.coachSignDesc,  l10n.coachAvatarDesc];
+    final icons     = [Icons.sign_language, Icons.interpreter_mode];
+    final isLast    = step == keys.length - 1;
+    final btnLabel  = isLast ? l10n.coachGotIt : l10n.coachNext;
+
+    _coachOverlayEntry?.remove();
+    _coachOverlayEntry = OverlayEntry(
+      builder: (_) => CoachMarkOverlay(
+        spotlightCenter: center,
+        spotlightRadius: 44,
+        featureIcon: icons[step],
+        title:       titles[step],
+        description: descs[step],
+        buttonLabel: btnLabel,
+        onNext: () {
+          _coachOverlayEntry?.remove();
+          _coachOverlayEntry = null;
+          if (isLast) {
+            SharedPreferences.getInstance()
+                .then((p) => p.setBool('coach_marks_seen', true));
+          } else {
+            _showCoachMarkStep(step + 1);
+          }
+        },
+      ),
+    );
+    Overlay.of(context).insert(_coachOverlayEntry!);
+  }
+
   @override
   void dispose() {
+    _coachOverlayEntry?.remove();
+    _coachOverlayEntry = null;
     _disableSecureScreen();
 
     _meetingSub?.cancel();
@@ -445,6 +510,7 @@ class _MeetingScreenState extends State<MeetingView> {
       return;
     }
     await session.flipCamera();
+    _signing.setFrontCamera(session.isFrontCamera);
   }
 
   Future<void> _onCaptionsPressed() async {
@@ -1436,20 +1502,26 @@ class _MeetingScreenState extends State<MeetingView> {
                             onTap: _onCaptionsPressed,
                           ),
                           const SizedBox(width: 16),
-                          _meetingIcon(
-                            icon: Icons.sign_language,
-                            label: context.l10n.btnSign,
-                            isActive: _signing.isEnabled,
-                            activeColor: primaryOrange,
-                            onTap: _onSignPressed,
+                          KeyedSubtree(
+                            key: _signButtonKey,
+                            child: _meetingIcon(
+                              icon: Icons.sign_language,
+                              label: context.l10n.btnSign,
+                              isActive: _signing.isEnabled,
+                              activeColor: primaryOrange,
+                              onTap: _onSignPressed,
+                            ),
                           ),
                           const SizedBox(width: 16),
-                          _meetingIcon(
-                            icon: Icons.interpreter_mode,
-                            label: context.l10n.btnAvatar,
-                            isActive: _signAvatarEnabled,
-                            activeColor: primaryOrange,
-                            onTap: _onSignAvatarPressed,
+                          KeyedSubtree(
+                            key: _avatarButtonKey,
+                            child: _meetingIcon(
+                              icon: Icons.interpreter_mode,
+                              label: context.l10n.btnAvatar,
+                              isActive: _signAvatarEnabled,
+                              activeColor: primaryOrange,
+                              onTap: _onSignAvatarPressed,
+                            ),
                           ),
                           const SizedBox(width: 16),
                           _meetingIcon(

@@ -279,7 +279,7 @@ class SignRecognitionChannel(
                     "B=${px and 0xFF} A=${(px ushr 24) and 0xFF}")
             }
 
-            // Apply horizontal mirror for front camera (no vertical flip — Zego is top-down).
+            // Toggle if predictions are consistently wrong-handed (handedness swap symptom).
             val bmp = if (MIRROR_FRONT_CAMERA) {
                 val m = Matrix().apply { postScale(-1f, 1f, width / 2f, height / 2f) }
                 Bitmap.createBitmap(raw, 0, 0, width, height, m, false)

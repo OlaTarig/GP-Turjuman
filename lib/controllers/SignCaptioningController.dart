@@ -125,6 +125,9 @@ class SignCaptioningController extends ChangeNotifier {
     debugPrint('✅ Zego custom video processing hook registered');
   }
 
+  bool _isFrontCamera = true;
+  void setFrontCamera(bool isFront) => _isFrontCamera = isFront;
+
   // ── Attach/detach CaptionController ───────────────────────────────
 
   void attachCaptionController(
@@ -212,6 +215,11 @@ class SignCaptioningController extends ChangeNotifier {
       debugPrint('🤟 Batch received from native: ${event.length} values');
       _recognitionController?.receiveBatch(event);
       final flat = event.map<double>((e) => (e as num).toDouble()).toList();
+      // Native always mirrors for front camera. When using the back camera,
+      // negate all X values (every 3rd value) to undo the incorrect mirror.
+      if (!_isFrontCamera) {
+        for (int i = 0; i < flat.length; i += 3) flat[i] = -flat[i];
+      }
       _runInferenceFromFlat(flat);
     }
   }

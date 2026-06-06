@@ -747,4 +747,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get signRecognitionStopped => 'Sign recognition stopped';
+
+  @override
+  String get coachSignTitle => 'Sign Recognition';
+
+  @override
+  String get coachSignDesc =>
+      'Tap this button to start translating your hand signs into Arabic text captions in real time.';
+
+  @override
+  String get coachAvatarTitle => 'Sign Language Avatar';
+
+  @override
+  String get coachAvatarDesc =>
+      'Tap this button to translate spoken words into sign language animations performed by an avatar.';
+
+  @override
+  String get coachNext => 'Next';
+
+  @override
+  String get coachGotIt => 'Got it';
 }

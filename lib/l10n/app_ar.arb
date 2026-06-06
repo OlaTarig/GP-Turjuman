@@ -239,5 +239,11 @@
   "analyzingSign": "جارٍ تحليل الإشارة...",
   "handsNotDetected": "لم يتم رصد اليدين — أعِد تأطيرهما",
   "signRecognition": "التعرف على الإشارات",
-  "signRecognitionStopped": "تم إيقاف التعرف على الإشارات"
+  "signRecognitionStopped": "تم إيقاف التعرف على الإشارات",
+  "coachSignTitle": "التعرف على الإشارات",
+  "coachSignDesc": "اضغط هذا الزر لبدء ترجمة إشاراتك اليدوية إلى نصوص عربية في الوقت الفعلي.",
+  "coachAvatarTitle": "الصورة الرمزية للإشارة",
+  "coachAvatarDesc": "اضغط هذا الزر لترجمة الكلام المنطوق إلى حركات لغة الإشارة بواسطة صورة رمزية.",
+  "coachNext": "التالي",
+  "coachGotIt": "فهمت"
 }

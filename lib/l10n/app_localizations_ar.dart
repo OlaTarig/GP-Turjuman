@@ -740,4 +740,24 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get signRecognitionStopped => 'تم إيقاف التعرف على الإشارات';
+
+  @override
+  String get coachSignTitle => 'التعرف على الإشارات';
+
+  @override
+  String get coachSignDesc =>
+      'اضغط هذا الزر لبدء ترجمة إشاراتك اليدوية إلى نصوص عربية في الوقت الفعلي.';
+
+  @override
+  String get coachAvatarTitle => 'الصورة الرمزية للإشارة';
+
+  @override
+  String get coachAvatarDesc =>
+      'اضغط هذا الزر لترجمة الكلام المنطوق إلى حركات لغة الإشارة بواسطة صورة رمزية.';
+
+  @override
+  String get coachNext => 'التالي';
+
+  @override
+  String get coachGotIt => 'فهمت';
 }

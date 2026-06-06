@@ -198,6 +198,10 @@ class ZegoSessionController extends ChangeNotifier {
       _localViewID = viewID;
       final canvas = ZegoCanvas.view(viewID);
       ZegoExpressEngine.instance.startPreview(canvas: canvas);
+      // Re-apply camera state in case it was toggled before the view was ready
+      if (isCameraOn) {
+        ZegoExpressEngine.instance.enableCamera(true);
+      }
     });
 
     final streamId = _myStreamId ?? 'stream_$uid';
@@ -381,9 +385,14 @@ class ZegoSessionController extends ChangeNotifier {
     if (!isCameraOn) {
       await ZegoExpressEngine.instance.stopPreview();
     } else {
-      if (_localViewID != null) {
-        final canvas = ZegoCanvas.view(_localViewID!);
+      final viewId = _localViewID;
+      if (viewId != null) {
+        final canvas = ZegoCanvas.view(viewId);
         ZegoExpressEngine.instance.startPreview(canvas: canvas);
+      } else {
+        // View not ready yet — startPreview will be called from the
+        // createCanvasView callback in startPublishing once the view renders.
+        ZegoExpressEngine.instance.startPreview();
       }
     }
 

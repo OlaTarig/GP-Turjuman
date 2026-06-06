@@ -180,7 +180,7 @@ A Firebase Cloud Function health check endpoint was deployed and monitored conti
 ### Health Check Endpoint
 
 **Deployed at:**
-```
+
 https://us-central1-turjuman-63e17.cloudfunctions.net/healthCheck
 ```
 
@@ -223,6 +223,57 @@ This page serves as verifiable external evidence that the system meets the 99% a
 
 ---
 
+## 5. Edge Device Model Testing — TFLite CPU Benchmark
+
+### Approach
+The on-device AI model (`model_good.tflite`) was benchmarked directly on the CPU using the **Google AI Edge LiteRT** Python library (`ai-edge-litert`). The benchmark measured inference latency, throughput, and memory footprint across 50 runs (preceded by 5 warmup runs) using random float32 input tensors matching the model's expected input shape.
+
+### Tool
+**AI Edge LiteRT** (Google)  
+**Script:** `benchmark_tflite_cpu.py`  
+**Delegate:** XNNPACK (CPU)
+
+### Command
+```bash
+python benchmark_tflite_cpu.py
+```
+
+### Model Details
+
+| Property | Value |
+|----------|-------|
+| Model file | `assets/models/model_good.tflite` |
+| Model size (on disk) | 1,574.6 KB |
+| Input shape | [1, 48, 126] float32 |
+| Output shape | [1, 252] |
+| Warmup runs | 5 |
+| Benchmark runs | 50 |
+
+### Results
+
+#### Latency & Throughput
+
+| Metric | Value |
+|--------|-------|
+| Average latency | 0.68 ms |
+| Minimum latency | 0.64 ms |
+| Maximum latency | 0.90 ms |
+| P95 latency | 0.84 ms |
+| Std deviation | 0.06 ms |
+| Throughput | 1,473.4 inferences/sec |
+
+#### Memory Footprint
+
+| Metric | Value |
+|--------|-------|
+| RAM increase at model load | +5,104.0 KB |
+| Peak RAM increase (after 50 inferences) | +9,040.0 KB |
+
+### Conclusion
+The model runs entirely on the CPU via the XNNPACK delegate with an average inference latency of **0.68 ms** and a P95 of **0.84 ms**, well within the 5-second translation latency requirement. The peak memory footprint of approximately **9 MB** above baseline is well-suited for deployment on mid-range Android devices.
+
+---
+
 ## Summary
 
 | NFR | Test Method | Tool | Status |
@@ -233,3 +284,4 @@ This page serves as verifiable external evidence that the system meets the 99% a
 | 50 Concurrent Users | Load test | k6 | ✅ Verified |
 | 2 Concurrent Sessions | Load test — 2 parallel sessions × 25 VUs | k6 | ✅ Verified |
 | 99% Availability | Continuous uptime monitoring | UptimeRobot | ✅ Monitoring |
+| Edge Device Model (CPU) | TFLite CPU benchmark — 50 runs | AI Edge LiteRT (Python) | ✅ Verified |
