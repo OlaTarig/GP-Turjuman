@@ -582,7 +582,7 @@ class _MeetingScreenState extends State<MeetingView> {
     } else {
       await meetingController.raiseHand(widget.meeting.meetingId);
       if (!mounted) return;
-      _showSnackBar(context.l10n.handRaised, Colors.green, Icons.pan_tool_outlined);
+      _showSnackBar(context.l10n.handRaised, primaryOrange, Icons.pan_tool_outlined);
     }
   }
 
@@ -591,7 +591,7 @@ class _MeetingScreenState extends State<MeetingView> {
       if (session.isScreenSharing) {
         await session.stopScreenShare();
         _showSnackBar(
-            context.l10n.screenShareStopped, primaryOrange, Icons.stop_screen_share);
+            context.l10n.screenShareStopped, Colors.grey, Icons.stop_screen_share);
         return;
       }
       _showHostShareOptions();
@@ -610,7 +610,7 @@ class _MeetingScreenState extends State<MeetingView> {
     if (session.isScreenSharing) {
       await session.stopScreenShare();
       _showSnackBar(
-          context.l10n.screenShareStopped, primaryOrange, Icons.stop_screen_share);
+          context.l10n.screenShareStopped, Colors.grey, Icons.stop_screen_share);
       return;
     }
 
@@ -649,7 +649,7 @@ class _MeetingScreenState extends State<MeetingView> {
                 const SizedBox(height: 20),
                 ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Colors.green.shade700,
+                    backgroundColor: primaryOrange,
                     child: const Icon(Icons.screen_share, color: Colors.white),
                   ),
                   title: Text(l10n.shareMyScreen,
@@ -718,7 +718,7 @@ class _MeetingScreenState extends State<MeetingView> {
         newValue
             ? context.l10n.allParticipantsCanShare
             : context.l10n.screenSharingDisabled,
-        newValue ? Colors.green : primaryOrange,
+        newValue ? primaryOrange : Colors.grey,
         newValue ? Icons.screen_share : Icons.stop_screen_share,
       );
     } catch (e) {
@@ -736,7 +736,7 @@ class _MeetingScreenState extends State<MeetingView> {
 
     if (ok) {
       _showSnackBar(
-          context.l10n.screenSharingStarted, Colors.green, Icons.screen_share);
+          context.l10n.screenSharingStarted, primaryOrange, Icons.screen_share);
     } else {
       _showSnackBar(
           context.l10n.failedToStartScreenShare, Colors.redAccent, Icons.error_outline);
@@ -1135,7 +1135,7 @@ class _MeetingScreenState extends State<MeetingView> {
                 child: Chip(
                   label: Text(context.l10n.sharingChip,
                       style: const TextStyle(color: Colors.white, fontSize: 11)),
-                  backgroundColor: Colors.green.shade700,
+                  backgroundColor: primaryOrange,
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
                 ),
@@ -1530,7 +1530,7 @@ class _MeetingScreenState extends State<MeetingView> {
                                 : Icons.screen_share,
                             label: session.isScreenSharing ? context.l10n.btnStop : context.l10n.btnShare,
                             isActive: session.isScreenSharing,
-                            activeColor: Colors.green,
+                            activeColor: primaryOrange,
                             onTap: _onShareScreenPressed,
                             locked: !_isAllowedToShare,
                           ),

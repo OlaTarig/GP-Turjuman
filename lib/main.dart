@@ -11,7 +11,7 @@ import 'views/JoinMeetingView.dart';
 import 'views/HomePage.dart';
 import 'locale_notifier.dart';
 import 'l10n/l10n.dart';
-
+import 'views/email_verification_screen.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 late final DeepLinkService deepLinkService;
 
@@ -169,7 +169,16 @@ class _AppEntryState extends State<_AppEntry> {
         }
 
         debugPrint('🏠 Normal flow: user=${user?.uid}');
-        return user != null ? const HomePage() : const WelcomeScreen();
+        if (user == null) return const WelcomeScreen();
+
+        if (!user.emailVerified) {
+          return EmailVerificationScreen(
+            email: user.email ?? '',
+            userId: user.uid,
+          );
+        }
+
+        return const HomePage();
       },
     );
   }
