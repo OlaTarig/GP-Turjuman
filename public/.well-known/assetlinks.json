@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.example.turjuman",
+      "sha256_cert_fingerprints": ["F2:50:0B:E9:B8:D9:16:B3:47:4B:B5:31:D1:84:5C:E9:02:8D:D6:72:97:1D:F2:71:92:54:6F:82:7D:B4:E3:03"]
+    }
+  }
+]

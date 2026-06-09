@@ -1,0 +1,120 @@
+import 'package:flutter/foundation.dart';
+import '../controllers/ZegoSessionController.dart';
+import '../controllers/SignCaptioningController.dart';
+import '../controllers/sign_recognition_controller.dart';
+import '../controllers/CaptionController.dart';
+import '../models/MeetingModel.dart';
+import '../models/UserModel.dart';
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class MeetingSessionManager extends ChangeNotifier {
+  MeetingSessionManager._();
+  static final MeetingSessionManager instance = MeetingSessionManager._();
+
+  final ZegoSessionController    session     = ZegoSessionController();
+  final SignCaptioningController  signing     = SignCaptioningController();
+  final SignRecognitionController recognition = SignRecognitionController();
+
+  StreamSubscription<DocumentSnapshot>? _meetingSub;
+
+  MeetingModel? activeMeeting;
+  UserModel?    activeUser;
+
+  bool get hasActiveMeeting => activeMeeting != null;
+  bool get isInMeeting      => hasActiveMeeting;
+
+  void _cancelMeetingListener() {
+    _meetingSub?.cancel();
+    _meetingSub = null;
+  }
+
+  Future<void> startOrJoin({
+    required MeetingModel meeting,
+    required UserModel    user,
+  }) async {
+    if (activeMeeting?.meetingId == meeting.meetingId &&
+        session.isInitialized) {
+      activeMeeting = meeting;
+      activeUser    = user;
+      notifyListeners();
+      return;
+    }
+
+    activeMeeting = meeting;
+    activeUser    = user;
+
+    session.removeListener(_forward);
+    session.addListener(_forward);
+
+    await session.ensurePermissions(
+      needMic:    user.micAccessSettings,
+      needCamera: user.cameraAccessSettings,
+    );
+    // Always proceed even if permissions were denied — the user can still
+    // watch and join the room; they just won't be able to publish camera/mic.
+
+    await session.initialize();
+
+    final fbUid = FirebaseAuth.instance.currentUser?.uid;
+    if (fbUid == null) throw Exception('No Firebase user');
+
+    // ── Wire sign captioning ──────────────────────────────────────────
+    await signing.initialize();
+    await signing.setupVideoProcessing();
+    signing.attachRecognitionController(recognition);
+    CaptionController.instance.attachSignController(signing);
+    // ─────────────────────────────────────────────────────────────────
+
+    // Pre-load the recognition model in the background so first press is instant
+    recognition.initialize().ignore();
+
+    await session.loginRoom(
+      roomId:   meeting.meetingId,
+      userId:   fbUid,
+      userName: user.name.isNotEmpty ? user.name : fbUid,
+    );
+
+    await session.startPublishing();
+    _cancelMeetingListener();
+
+    _meetingSub = FirebaseFirestore.instance
+        .collection('Meetings')
+        .doc(meeting.meetingId)
+        .snapshots()
+        .listen((snap) async {
+      if (!snap.exists) return;
+      final data = snap.data() as Map<String, dynamic>?;
+      if (data == null) return;
+      final isActive = data['isActive'] as bool? ?? true;
+      if (!isActive) await endAndDispose();
+    });
+
+    notifyListeners();
+  }
+
+  void detachUIOnly() {
+    notifyListeners();
+  }
+
+  Future<void> endAndDispose() async {
+    _cancelMeetingListener();
+    session.removeListener(_forward);
+
+    recognition.disable();
+
+    // ── Tear down sign captioning ─────────────────────────────────────
+    await signing.stopSignCapture();
+    CaptionController.instance.detachSignController();
+    // ─────────────────────────────────────────────────────────────────
+
+    await session.disposeSession();
+    activeMeeting = null;
+    activeUser    = null;
+
+    notifyListeners();
+  }
+
+  void _forward() => notifyListeners();
+}

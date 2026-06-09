@@ -1,0 +1,196 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'firebase_options.dart';
+import 'views/GUI.dart';
+import 'views/onboarding/onboarding_screen.dart';
+import 'services/deep_link_service.dart';
+import 'views/JoinMeetingView.dart';
+import 'views/HomePage.dart';
+import 'locale_notifier.dart';
+import 'l10n/l10n.dart';
+import 'views/email_verification_screen.dart';
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+late final DeepLinkService deepLinkService;
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  await LocaleNotifier.instance.load();
+
+  deepLinkService = DeepLinkService(navigatorKey);
+  await deepLinkService.start();
+  await dotenv.load(fileName: ".env");
+
+  runApp(const MyApp());
+}
+
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    LocaleNotifier.instance.addListener(_onLocaleChanged);
+  }
+
+  @override
+  void dispose() {
+    LocaleNotifier.instance.removeListener(_onLocaleChanged);
+    deepLinkService.dispose();
+    super.dispose();
+  }
+
+  void _onLocaleChanged() => setState(() {});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      navigatorKey: navigatorKey,
+      debugShowCheckedModeBanner: false,
+      locale: LocaleNotifier.instance.value,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      home: const _AppEntry(),
+      onGenerateRoute: (settings) {
+        if (settings.name == '/joinMeeting') {
+          final meetingId = settings.arguments as String?;
+          if (meetingId == null || meetingId.isEmpty) {
+            return MaterialPageRoute(builder: (_) => const WelcomeScreen());
+          }
+          return MaterialPageRoute(
+            builder: (_) => JoinMeetingScreen(meetingId: meetingId),
+          );
+        }
+        return MaterialPageRoute(builder: (_) => const WelcomeScreen());
+      },
+    );
+  }
+}
+
+class _AppEntry extends StatefulWidget {
+  const _AppEntry();
+
+  @override
+  State<_AppEntry> createState() => _AppEntryState();
+}
+
+class _AppEntryState extends State<_AppEntry> {
+  String? _pendingMeetingId;
+  bool _deepLinkHandled = false;
+  bool _ready = false;
+  bool _onboardingDone = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    _pendingMeetingId = deepLinkService.consumePendingLink();
+    debugPrint('🔗 consumePendingLink() = $_pendingMeetingId');
+
+    if (_pendingMeetingId == null) {
+      _pendingMeetingId = await deepLinkService.retryInitialLink();
+      debugPrint('🔗 retryInitialLink() = $_pendingMeetingId');
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final done = prefs.getBool('onboarding_done') ?? false;
+
+    if (mounted) {
+      setState(() {
+        _onboardingDone = done;
+        _ready = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_ready) return _splash();
+
+    if (!_onboardingDone) {
+      return OnboardingScreen(
+        onComplete: () => setState(() => _onboardingDone = true),
+      );
+    }
+
+    debugPrint('🔗 _pendingMeetingId = $_pendingMeetingId');
+
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        debugPrint(
+            '🔥 Auth state: ${snapshot.connectionState}, user: ${snapshot.data?.uid}');
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          debugPrint('⏳ Waiting for auth...');
+          return _splash();
+        }
+
+        final user = snapshot.data;
+        final hasPendingLink =
+            _pendingMeetingId != null && _pendingMeetingId!.isNotEmpty;
+
+        debugPrint(
+            '👤 user=${user?.uid} | hasPendingLink=$hasPendingLink | handled=$_deepLinkHandled');
+
+        if (hasPendingLink && user != null && !_deepLinkHandled) {
+          _deepLinkHandled = true;
+          debugPrint('✅ Navigating to JoinMeetingScreen: $_pendingMeetingId');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) =>
+                    JoinMeetingScreen(meetingId: _pendingMeetingId!),
+              ),
+            );
+          });
+          return const HomePage();
+        }
+
+        if (hasPendingLink && user == null) {
+          debugPrint('⚠️ Has pending link but not logged in');
+          return const WelcomeScreen();
+        }
+
+        debugPrint('🏠 Normal flow: user=${user?.uid}');
+        if (user == null) return const WelcomeScreen();
+
+        if (!user.emailVerified) {
+          return EmailVerificationScreen(
+            email: user.email ?? '',
+            userId: user.uid,
+          );
+        }
+
+        return const HomePage();
+      },
+    );
+  }
+
+  Widget _splash() {
+    return const Scaffold(
+      backgroundColor: Color(0xFFFFF9E3),
+      body: Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
+        ),
+      ),
+    );
+  }
+}
