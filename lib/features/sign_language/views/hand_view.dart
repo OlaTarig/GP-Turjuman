@@ -102,16 +102,31 @@ class _HandViewState extends State<HandView>
   /// 2. If that fails (common on Android with Arabic/Unicode filenames),
   ///    copy the asset bytes to a temp file with an ASCII name and use
   ///    `VideoPlayerController.file()` instead.
+  // Sign clips are silent. mixWithOthers stops the player from taking Android
+  // audio focus, which otherwise pauses the mic recorder and makes Google
+  // Speech drop the stream with "Audio Timeout Error".
+  static final _playerOptions = VideoPlayerOptions(mixWithOthers: true);
+
+  static final _nonAscii = RegExp(r'[^\x00-\x7F]');
+
   Future<VideoPlayerController> _makeController(String assetPath) async {
     // ── Attempt 1: asset path directly ──────────────────────────────
-    final direct = VideoPlayerController.asset(assetPath);
-    try {
-      await direct.initialize();
-      debugPrint('✅ HandView: loaded via asset path "$assetPath"');
-      return direct;
-    } catch (e) {
-      direct.dispose();
-      debugPrint('⚠️ HandView: asset() failed for "$assetPath" — falling back to temp file ($e)');
+    // Skipped for non-ASCII (Arabic) paths: Android's AssetManager can't open
+    // them, so trying first only adds a failed player and a log error.
+    if (!_nonAscii.hasMatch(assetPath)) {
+      final direct = VideoPlayerController.asset(
+        assetPath,
+        videoPlayerOptions: _playerOptions,
+      );
+      try {
+        await direct.initialize();
+        await direct.setVolume(0);
+        debugPrint('✅ HandView: loaded via asset path "$assetPath"');
+        return direct;
+      } catch (e) {
+        direct.dispose();
+        debugPrint('⚠️ HandView: asset() failed for "$assetPath" — falling back to temp file ($e)');
+      }
     }
 
     // ── Attempt 2: extract to temp file with ASCII name ──────────────
@@ -127,8 +142,12 @@ class _HandViewState extends State<HandView>
         await tmpFile.writeAsBytes(data.buffer.asUint8List(), flush: true);
       }
 
-      final fileCtrl = VideoPlayerController.file(tmpFile);
+      final fileCtrl = VideoPlayerController.file(
+        tmpFile,
+        videoPlayerOptions: _playerOptions,
+      );
       await fileCtrl.initialize();
+      await fileCtrl.setVolume(0);
       debugPrint('✅ HandView: loaded via temp file for "$assetPath"');
       return fileCtrl;
     } catch (e2) {
@@ -165,7 +184,7 @@ class _HandViewState extends State<HandView>
       return;
     }
 
-    await _backCtrl?.dispose();
+    _disposeAfterFrame(_backCtrl);
     _backCtrl = newCtrl;
 
     await _backCtrl!.setLooping(false);
@@ -189,7 +208,10 @@ class _HandViewState extends State<HandView>
       return;
     }
 
-    await _frontCtrl?.dispose();
+    // Swap first and rebuild, then dispose the old controller only after the
+    // frame that stops showing it. Disposing while a VideoPlayer widget still
+    // references it throws "Bad state: No active player with ID n".
+    final oldFront = _frontCtrl;
     _frontCtrl = _backCtrl;
     _frontPath = assetPath;
     _backCtrl = null;
@@ -197,6 +219,7 @@ class _HandViewState extends State<HandView>
     _transitioning = false;
 
     setState(() {});
+    _disposeAfterFrame(oldFront);
 
     if (_pendingPath != null && _pendingPath != _frontPath) {
       final next = _pendingPath!;
@@ -205,6 +228,12 @@ class _HandViewState extends State<HandView>
     } else {
       _pendingPath = null;
     }
+  }
+
+  void _disposeAfterFrame(VideoPlayerController? ctrl) {
+    if (ctrl == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.dispose());
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   void _onNearEnd() {
