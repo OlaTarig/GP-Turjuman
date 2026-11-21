@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -7,6 +9,8 @@ import 'package:zego_express_engine/zego_express_engine.dart';
 class ZegoSessionController extends ChangeNotifier {
   static final int    appID   = int.tryParse(dotenv.env['ZEGO_APP_ID'] ?? '') ?? 0;
   static final String appSign = dotenv.env['ZEGO_APP_SIGN'] ?? '';
+
+  static const Duration _loginTimeout = Duration(seconds: 20);
 
   bool isInitialized = false;
 
@@ -157,11 +161,28 @@ class ZegoSessionController extends ChangeNotifier {
 
     final user = ZegoUser(userId, userName);
 
-    await ZegoExpressEngine.instance.loginRoom(
-      roomId,
-      user,
-      config: ZegoRoomConfig.defaultConfig()..isUserStatusNotify = true,
-    );
+    final result = await ZegoExpressEngine.instance
+        .loginRoom(
+          roomId,
+          user,
+          config: ZegoRoomConfig.defaultConfig()..isUserStatusNotify = true,
+        )
+        .timeout(
+          _loginTimeout,
+          onTimeout: () => throw TimeoutException(
+            'ZEGO loginRoom did not finish within ${_loginTimeout.inSeconds}s '
+            '(room stuck in CONNECTING). Check the ZEGO project status and '
+            'ZEGO_APP_ID / ZEGO_APP_SIGN in .env.',
+          ),
+        );
+
+    if (result.errorCode != 0) {
+      throw Exception(
+        'ZEGO loginRoom failed: errorCode=${result.errorCode} '
+        'extendedData=${result.extendedData}',
+      );
+    }
+    debugPrint('✅ ZEGO room login succeeded: $roomId');
 
     notifyListeners();
   }

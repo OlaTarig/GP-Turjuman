@@ -148,6 +148,17 @@ class _MeetingScreenState extends State<MeetingView> {
         hostId:    widget.meeting.hostId,
       );
 
+      // The sign avatar only needs the local gesture dictionary, so set it up
+      // before joining. Otherwise a stuck or failed room login leaves the
+      // avatar uninitialized and its overlay never appears.
+      try {
+        await _signLang.initialize();
+        _signLang.handController.addListener(_onSessionChanged);
+        if (mounted) setState(() {});
+      } catch (e, st) {
+        debugPrint('❌ SignLanguageModule init failed: $e\n$st');
+      }
+
       try {
         await mgr.startOrJoin(meeting: widget.meeting, user: widget.user);
 
@@ -188,11 +199,9 @@ class _MeetingScreenState extends State<MeetingView> {
           debugPrint('⚠️ beginCapture error: $e');
         });
 
-        await _signLang.initialize();
-        _signLang.handController.addListener(_onSessionChanged);
-
         _showCoachMarks();
-      } catch (_) {
+      } catch (e, st) {
+        debugPrint('❌ Meeting join failed: $e\n$st');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
