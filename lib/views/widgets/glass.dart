@@ -51,22 +51,26 @@ class Glass extends StatelessWidget {
         borderRadius: borderRadius,
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          // Tint and sheen are separate layers: a BoxDecoration ignores
+          // `color` whenever `gradient` is set.
           child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: tint,
-              borderRadius: borderRadius,
-              border: Border.all(color: rim),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withValues(alpha: dark ? 0.10 : 0.35),
-                  Colors.white.withValues(alpha: 0.0),
-                ],
-                stops: const [0.0, 0.55],
+            decoration: BoxDecoration(color: tint, borderRadius: borderRadius),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: borderRadius,
+                border: Border.all(color: rim),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withValues(alpha: dark ? 0.10 : 0.35),
+                    Colors.white.withValues(alpha: 0.0),
+                  ],
+                  stops: const [0.0, 0.55],
+                ),
               ),
+              child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
             ),
-            child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
           ),
         ),
       ),
@@ -135,7 +139,9 @@ class _GradientButtonState extends State<GradientButton> {
                 borderRadius: BorderRadius.circular(widget.height / 2),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFF8C50).withValues(alpha: widget.white ? 0.18 : 0.35),
+                    color: const Color(
+                      0xFFFF8C50,
+                    ).withValues(alpha: widget.white ? 0.18 : 0.35),
                     blurRadius: 24,
                     offset: const Offset(0, 10),
                   ),
@@ -146,7 +152,10 @@ class _GradientButtonState extends State<GradientButton> {
                   ? SizedBox(
                       width: 24,
                       height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2.5, color: fg),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: fg,
+                      ),
                     )
                   : Row(
                       mainAxisSize: MainAxisSize.min,
@@ -159,7 +168,11 @@ class _GradientButtonState extends State<GradientButton> {
                           child: Text(
                             widget.label,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: fg, fontSize: 17, fontWeight: FontWeight.w700),
+                            style: TextStyle(
+                              color: fg,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ],
@@ -218,19 +231,45 @@ class _BrandBackgroundState extends State<BrandBackground>
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.lerp(Alignment.topRight, Alignment.topCenter, t)!,
-                  end: Alignment.lerp(Alignment.bottomLeft, Alignment.bottomCenter, t)!,
+                  begin: Alignment.lerp(
+                    Alignment.topRight,
+                    Alignment.topCenter,
+                    t,
+                  )!,
+                  end: Alignment.lerp(
+                    Alignment.bottomLeft,
+                    Alignment.bottomCenter,
+                    t,
+                  )!,
                   colors: TGradients.brand.colors,
                   stops: TGradients.brand.stops,
                 ),
               ),
             ),
-            _Blob(t: t, size: 270, top: -80, right: -80, phase: 0,
-                colors: const [Color(0xE6FFFFFF), Color(0x26FFFFFF)]),
-            _Blob(t: t, size: 220, top: 300, left: -90, phase: 2,
-                colors: const [Color(0xBFFFA06E), Color(0x00FFB382)]),
-            _Blob(t: t, size: 160, top: 190, right: -40, phase: 4,
-                colors: const [Color(0xF2FFECAA), Color(0x00FFD98F)]),
+            _Blob(
+              t: t,
+              size: 270,
+              top: -80,
+              right: -80,
+              phase: 0,
+              colors: const [Color(0xE6FFFFFF), Color(0x26FFFFFF)],
+            ),
+            _Blob(
+              t: t,
+              size: 220,
+              top: 300,
+              left: -90,
+              phase: 2,
+              colors: const [Color(0xBFFFA06E), Color(0x00FFB382)],
+            ),
+            _Blob(
+              t: t,
+              size: 160,
+              top: 190,
+              right: -40,
+              phase: 4,
+              colors: const [Color(0xF2FFECAA), Color(0x00FFD98F)],
+            ),
             child!,
           ],
         );
@@ -264,11 +303,23 @@ class _Blob extends StatelessWidget {
     final a = (t * 2 * math.pi) + phase;
     // Morph by animating each corner radius independently.
     BorderRadius r(double s) => BorderRadius.only(
-          topLeft: Radius.elliptical(s * (0.42 + 0.16 * math.sin(a)), s * (0.45 + 0.12 * math.cos(a))),
-          topRight: Radius.elliptical(s * (0.58 - 0.16 * math.sin(a)), s * (0.41 + 0.15 * math.sin(a))),
-          bottomRight: Radius.elliptical(s * (0.63 - 0.2 * math.cos(a)), s * (0.59 - 0.14 * math.sin(a))),
-          bottomLeft: Radius.elliptical(s * (0.37 + 0.2 * math.cos(a)), s * (0.55 - 0.1 * math.cos(a))),
-        );
+      topLeft: Radius.elliptical(
+        s * (0.42 + 0.16 * math.sin(a)),
+        s * (0.45 + 0.12 * math.cos(a)),
+      ),
+      topRight: Radius.elliptical(
+        s * (0.58 - 0.16 * math.sin(a)),
+        s * (0.41 + 0.15 * math.sin(a)),
+      ),
+      bottomRight: Radius.elliptical(
+        s * (0.63 - 0.2 * math.cos(a)),
+        s * (0.59 - 0.14 * math.sin(a)),
+      ),
+      bottomLeft: Radius.elliptical(
+        s * (0.37 + 0.2 * math.cos(a)),
+        s * (0.55 - 0.1 * math.cos(a)),
+      ),
+    );
     return Positioned(
       top: top,
       left: left,
@@ -280,7 +331,10 @@ class _Blob extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             borderRadius: r(size),
-            gradient: RadialGradient(colors: colors, center: const Alignment(-0.3, -0.3)),
+            gradient: RadialGradient(
+              colors: colors,
+              center: const Alignment(-0.3, -0.3),
+            ),
           ),
         ),
       ),
@@ -299,7 +353,8 @@ class PulseRings extends StatefulWidget {
   State<PulseRings> createState() => _PulseRingsState();
 }
 
-class _PulseRingsState extends State<PulseRings> with SingleTickerProviderStateMixin {
+class _PulseRingsState extends State<PulseRings>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 3600),
@@ -340,7 +395,10 @@ class _PulseRingsState extends State<PulseRings> with SingleTickerProviderStateM
                   height: widget.size,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.85), width: 2),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      width: 2,
+                    ),
                   ),
                 ),
               ),
@@ -354,7 +412,12 @@ class _PulseRingsState extends State<PulseRings> with SingleTickerProviderStateM
 
 /// Gentle up-and-down float used on hero elements.
 class Floating extends StatefulWidget {
-  const Floating({super.key, required this.child, this.delay = Duration.zero, this.distance = 7});
+  const Floating({
+    super.key,
+    required this.child,
+    this.delay = Duration.zero,
+    this.distance = 7,
+  });
 
   final Widget child;
   final Duration delay;
@@ -364,7 +427,8 @@ class Floating extends StatefulWidget {
   State<Floating> createState() => _FloatingState();
 }
 
-class _FloatingState extends State<Floating> with SingleTickerProviderStateMixin {
+class _FloatingState extends State<Floating>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 3400),
@@ -397,7 +461,10 @@ class _FloatingState extends State<Floating> with SingleTickerProviderStateMixin
     return AnimatedBuilder(
       animation: _c,
       builder: (context, child) => Transform.translate(
-        offset: Offset(0, -widget.distance * Curves.easeInOut.transform(_c.value)),
+        offset: Offset(
+          0,
+          -widget.distance * Curves.easeInOut.transform(_c.value),
+        ),
         child: child,
       ),
       child: widget.child,
@@ -407,7 +474,12 @@ class _FloatingState extends State<Floating> with SingleTickerProviderStateMixin
 
 /// One-shot fade + rise on first build (cards, forms, slides).
 class RiseIn extends StatelessWidget {
-  const RiseIn({super.key, required this.child, this.delay = Duration.zero, this.offset = 24});
+  const RiseIn({
+    super.key,
+    required this.child,
+    this.delay = Duration.zero,
+    this.offset = 24,
+  });
 
   final Widget child;
   final Duration delay;
@@ -422,11 +494,16 @@ class RiseIn extends StatelessWidget {
       tween: Tween(begin: 0, end: 1),
       duration: total,
       builder: (context, v, child) {
-        final p = startFrac >= 1 ? 1.0 : ((v - startFrac) / (1 - startFrac)).clamp(0.0, 1.0);
+        final p = startFrac >= 1
+            ? 1.0
+            : ((v - startFrac) / (1 - startFrac)).clamp(0.0, 1.0);
         final e = TMotion.out.transform(p);
         return Opacity(
           opacity: e,
-          child: Transform.translate(offset: Offset(0, offset * (1 - e)), child: child),
+          child: Transform.translate(
+            offset: Offset(0, offset * (1 - e)),
+            child: child,
+          ),
         );
       },
       child: child,
