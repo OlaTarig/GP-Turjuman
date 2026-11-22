@@ -420,14 +420,17 @@ class _HomePageState extends State<HomePage> {
             Text(l10n.whatTurjumanOffers,
                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: TColors.ink)),
             const SizedBox(height: 12),
-            Row(
-              children: [
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                 Expanded(child: _featureTile(Icons.center_focus_strong_rounded, l10n.featureSignToText)),
                 const SizedBox(width: 10),
                 Expanded(child: _featureTile(Icons.closed_caption_rounded, l10n.featureSpeechToText)),
                 const SizedBox(width: 10),
                 Expanded(child: _featureTile(Icons.person_rounded, l10n.featureAvatar)),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 22),
 

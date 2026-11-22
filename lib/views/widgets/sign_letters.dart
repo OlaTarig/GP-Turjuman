@@ -5,13 +5,14 @@ import '../../services/sign_letters_service.dart';
 import '../../theme/turjuman_theme.dart';
 
 /// Sign image for one Arabic letter, loaded from Firebase Storage.
-/// Falls back to nothing (the caller still shows the letter itself).
+/// Shows [fallback] (or nothing) when the image is missing or fails.
 class SignLetterImage extends StatelessWidget {
-  const SignLetterImage({super.key, required this.letter, required this.width, required this.height});
+  const SignLetterImage({super.key, required this.letter, required this.width, required this.height, this.fallback});
 
   final String letter;
   final double width;
   final double height;
+  final Widget? fallback;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +32,7 @@ class SignLetterImage extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2, color: TColors.ember),
                     ),
                   )
-                : null,
+                : fallback,
           );
         }
         return Image.network(
@@ -40,7 +41,7 @@ class SignLetterImage extends StatelessWidget {
           height: height,
           fit: BoxFit.contain,
           cacheWidth: (width * MediaQuery.devicePixelRatioOf(context)).round(),
-          errorBuilder: (_, __, ___) => SizedBox(width: width, height: height),
+          errorBuilder: (_, __, ___) => SizedBox(width: width, height: height, child: fallback),
           frameBuilder: (context, child, frame, wasSync) => AnimatedOpacity(
             opacity: frame == null ? 0 : 1,
             duration: TMotion.medium,
@@ -86,7 +87,15 @@ class LetterOfTheDayCard extends StatelessWidget {
                 ],
               ),
               alignment: Alignment.center,
-              child: SignLetterImage(letter: letter, width: 64, height: 80),
+              child: SignLetterImage(
+                letter: letter,
+                width: 64,
+                height: 80,
+                fallback: Center(
+                  child: Text(letter,
+                      style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w700, color: TColors.onPeach)),
+                ),
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
