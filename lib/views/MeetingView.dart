@@ -20,6 +20,7 @@ import 'widgets/sign_recognition_overlay.dart';
 import 'widgets/coach_mark_overlay.dart';
 import 'HomePage.dart';
 import '../l10n/l10n.dart';
+import '../theme/turjuman_theme.dart';
 
 class MeetingView extends StatefulWidget {
   final MeetingModel meeting;
@@ -36,7 +37,9 @@ class _MeetingScreenState extends State<MeetingView> {
   static const Color primaryOrange   = Color(0xFFFFB382);
   static const Color orangeLight     = Color(0xFFFFD98F);   // lighter tint
   static const Color orangeDark      = Color(0xFFE8955A);   // pressed / darker
-  static const Color darkBg          = Color(0xFF2D2F31);
+  static const Color darkBg          = Color(0xFF2A221D);   // warm dark surface
+  static const Color stageBg         = Color(0xFF1C1714);   // video stage
+  static const Color idleButton      = Color(0xFF41362F);   // inactive control
 
   late final MeetingSessionManager mgr;
   ZegoSessionController get session => mgr.session;
@@ -637,7 +640,7 @@ class _MeetingScreenState extends State<MeetingView> {
     final l10n = context.l10n;
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.grey[900],
+      backgroundColor: darkBg,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) {
@@ -783,7 +786,7 @@ class _MeetingScreenState extends State<MeetingView> {
               title: Text(
                 context.l10n.sendEmailInvitation,
                 style: const TextStyle(
-                    fontWeight: FontWeight.bold, color: Color(0xFF1A1A2E)),
+                    fontWeight: FontWeight.bold, color: TColors.ink),
               ),
               content: Form(
                 key: formKey,
@@ -874,13 +877,13 @@ class _MeetingScreenState extends State<MeetingView> {
                           'html': '''
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #FFF9E3, #FFD98F, #FFB382); padding: 30px; border-radius: 16px; text-align: center;">
-    <h1 style="color: #1A1A2E; margin: 0;">Meeting Invitation</h1>
+    <h1 style="color: #3A2C24; margin: 0;">Meeting Invitation</h1>
   </div>
   <div style="padding: 30px 20px;">
     <p style="font-size: 16px; color: #333;">Hi,</p>
     <p style="font-size: 16px; color: #333;"><strong>$hostName</strong> has invited you to join the meeting:</p>
     <div style="background: #F8F9FA; border-radius: 12px; padding: 20px; margin: 20px 0; border-left: 4px solid #FFB382;">
-      <p style="margin: 0 0 8px 0; font-size: 18px; font-weight: bold; color: #1A1A2E;">$meetingTitle</p>
+      <p style="margin: 0 0 8px 0; font-size: 18px; font-weight: bold; color: #3A2C24;">$meetingTitle</p>
       <p style="margin: 0; font-size: 14px; color: #666;">Meeting ID: $meetingId</p>
     </div>
     <div style="text-align: center; margin: 30px 0;">
@@ -939,7 +942,7 @@ class _MeetingScreenState extends State<MeetingView> {
     final l10n = context.l10n;
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.grey[900],
+      backgroundColor: darkBg,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) {
@@ -1125,9 +1128,9 @@ class _MeetingScreenState extends State<MeetingView> {
       canPop: true,
       onPopInvoked: (_) async {},
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: stageBg,
         appBar: AppBar(
-          backgroundColor: Colors.grey[900],
+          backgroundColor: darkBg,
           centerTitle: true,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -1216,7 +1219,7 @@ class _MeetingScreenState extends State<MeetingView> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
-                    color: Colors.black,
+                    color: stageBg,
                     child: Stack(
                       children: [
                         Positioned.fill(
@@ -1250,7 +1253,7 @@ class _MeetingScreenState extends State<MeetingView> {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(14),
                             child: Container(
-                              color: Colors.black,
+                              color: stageBg,
                               child: session.localViewWidget == null
                                   ? const Center(
                                   child: CircularProgressIndicator(
@@ -1600,7 +1603,8 @@ class _MeetingScreenState extends State<MeetingView> {
     bool locked = false,
   }) {
     final bg =
-    isActive ? (activeColor ?? primaryOrange) : Colors.grey.shade800;
+    isActive ? (activeColor ?? primaryOrange) : idleButton;
+    final fg = isActive && activeColor == null ? TColors.onPeach : Colors.white;
 
     return GestureDetector(
       onTap: onTap,
@@ -1611,7 +1615,7 @@ class _MeetingScreenState extends State<MeetingView> {
               CircleAvatar(
                 radius: 24,
                 backgroundColor: bg,
-                child: Icon(icon, color: Colors.white, size: 22),
+                child: Icon(icon, color: fg, size: 22),
               ),
               if (locked)
                 Positioned(
@@ -1639,7 +1643,7 @@ class _MeetingScreenState extends State<MeetingView> {
     final l10n = context.l10n;
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.grey[900],
+      backgroundColor: darkBg,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) {
@@ -1730,7 +1734,7 @@ class _MeetingScreenState extends State<MeetingView> {
                       decoration: BoxDecoration(
                         color: screenShareAllowed
                             ? Colors.green.shade900
-                            : Colors.grey.shade800,
+                            : idleButton,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(

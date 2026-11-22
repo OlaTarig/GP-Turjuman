@@ -12,6 +12,7 @@ import 'views/HomePage.dart';
 import 'locale_notifier.dart';
 import 'l10n/l10n.dart';
 import 'views/email_verification_screen.dart';
+import 'theme/turjuman_theme.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 late final DeepLinkService deepLinkService;
 
@@ -59,6 +60,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
+      theme: buildTurjumanTheme(),
       locale: LocaleNotifier.instance.value,
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: AppLocalizations.localizationsDelegates,

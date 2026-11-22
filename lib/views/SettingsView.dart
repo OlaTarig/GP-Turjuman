@@ -8,6 +8,8 @@ import '../views/SignInView.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../locale_notifier.dart';
 import '../l10n/l10n.dart';
+import '../theme/turjuman_theme.dart';
+import 'widgets/AppBar.dart';
 
 class SettingsView extends StatefulWidget {
   final UserModel user;
@@ -174,7 +176,7 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = context.l10n;
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, BottomBar.height + 48),
         children: [
           // ✅ نفس مكان/تصميم زر الهوم (أعلى يمين) + عنوان Settings
           Row(
@@ -182,7 +184,7 @@ class _SettingsViewState extends State<SettingsView> {
             children: [
               Text(
                 l10n.settings,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: TColors.ink),
               ),
 
               // ✅ نفس تصميم الهوم بالضبط
@@ -201,8 +203,9 @@ class _SettingsViewState extends State<SettingsView> {
                 child: IconButton(
                   onPressed: _signOut,
                   icon: const Icon(Icons.logout_rounded),
-                  color: primaryOrange,
+                  color: TColors.accent,
                   iconSize: 24,
+                  tooltip: l10n.signOut,
                 ),
               ),
             ],
@@ -276,6 +279,15 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ],
           ),
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              l10n.signLettersAttribution,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, height: 1.5, color: TColors.inkMuted),
+            ),
+          ),
         ],
       ),
     );
@@ -304,11 +316,11 @@ class _SettingsViewState extends State<SettingsView> {
           children: [
             CircleAvatar(
               radius: 30, // ✅ أكبر من قبل
-              backgroundColor: primaryOrange,
+              backgroundColor: TColors.peach,
               child: Text(
                 initial,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: TColors.onPeach,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -324,6 +336,7 @@ class _SettingsViewState extends State<SettingsView> {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
+                      color: TColors.ink,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -331,7 +344,7 @@ class _SettingsViewState extends State<SettingsView> {
                     _user.email,
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey.shade600,
+                      color: TColors.inkSoft,
                     ),
                   ),
                 ],
@@ -350,7 +363,8 @@ class _SettingsViewState extends State<SettingsView> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: TColors.line),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -363,7 +377,7 @@ class _SettingsViewState extends State<SettingsView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: TColors.ink)),
           const SizedBox(height: 10),
           ...children,
         ],
@@ -386,10 +400,10 @@ class _SettingsViewState extends State<SettingsView> {
             children: [
               Text(title,
                   style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600)),
+                      fontSize: 14, fontWeight: FontWeight.w600, color: TColors.ink)),
               const SizedBox(height: 4),
               Text(subtitle,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  style: TextStyle(fontSize: 12, color: TColors.inkSoft)),
             ],
           ),
         ),
@@ -397,12 +411,13 @@ class _SettingsViewState extends State<SettingsView> {
           const SizedBox(
             width: 18,
             height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator(strokeWidth: 2, color: TColors.ember),
           )
         else
           Switch(
             value: value,
-            activeThumbColor: primaryOrange,
+            activeThumbColor: Colors.white,
+            activeTrackColor: TColors.ember,
             onChanged: onChanged,
           ),
       ],

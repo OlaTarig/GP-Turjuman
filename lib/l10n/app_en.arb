@@ -1,6 +1,5 @@
 {
   "@@locale": "en",
-
   "welcomeTitle": "Welcome To Turjuman App",
   "login": "Login",
   "register": "Register",
@@ -25,11 +24,9 @@
   "skip": "Skip",
   "next": "Next",
   "getStarted": "Get Started",
-
   "resetPassword": "Reset Password",
   "resetPasswordDesc": "Enter your email address and we'll send you a link to reset your password.",
   "sendResetLink": "Send Reset Link",
-
   "errEnterEmail": "Please enter your email",
   "errEnterPassword": "Please enter your password",
   "errEnterEmailAddress": "Please enter your email address",
@@ -44,11 +41,9 @@
   "errRegistrationFailed": "Registration failed. Please try again later.",
   "errUnexpected": "An unexpected error occurred. Please try again.",
   "errNoAccountFound": "No account found with this email address.",
-
   "loginSuccess": "Login successful! Welcome back",
   "accountCreated": "Account created successfully! Please verify your email",
   "passwordResetSent": "Password reset email sent! Check your inbox",
-
   "valEnterName": "Please enter your name",
   "valNameTooShort": "Name must be at least 2 characters",
   "valNameTooLong": "Name cannot exceed 20 characters",
@@ -63,7 +58,6 @@
   "valPasswordLong": "Password cannot exceed 20 characters",
   "valPasswordLetters": "Password must contain letters",
   "valPasswordNumbers": "Password must contain numbers",
-
   "verifyEmail": "Verify Your Email",
   "verificationSentTo": "We've sent a verification link to:",
   "verificationInstructions": "Click the link in the email to verify your account.\nThis page will automatically update once verified.",
@@ -72,20 +66,20 @@
   "resendIn": "Resend in {seconds}s",
   "@resendIn": {
     "placeholders": {
-      "seconds": { "type": "int" }
+      "seconds": {
+        "type": "int"
+      }
     }
   },
   "emailVerifiedSuccess": "Email verified successfully!",
   "emailNotVerifiedYet": "Email not verified yet. Please check your inbox.",
   "verificationEmailSent": "Verification email sent! Check your inbox.",
-
   "onboarding1Title": "Welcome to Turjuman",
   "onboarding1Subtitle": "Your real-time Arabic Sign Language translator, bridging communication for the deaf and hard-of-hearing community.",
   "onboarding2Title": "Live Sign Recognition",
   "onboarding2Subtitle": "Point your camera at sign language gestures and get instant Arabic text translations in real time.",
   "onboarding3Title": "Accessible Meetings",
   "onboarding3Subtitle": "Join video meetings with live captions and transcriptions so everyone can participate fully.",
-
   "welcomeBack": "Welcome back,",
   "startMeeting": "Start a Meeting",
   "joinMeeting": "Join Meeting",
@@ -97,13 +91,14 @@
   "inMeeting": "In meeting: {title}",
   "@inMeeting": {
     "placeholders": {
-      "title": { "type": "String" }
+      "title": {
+        "type": "String"
+      }
     }
   },
   "returnToMeeting": "Return",
   "couldNotCreateMeeting": "Could not create meeting. Check your connection and try again.",
   "pleaseSignIn": "Please sign in to start a meeting.",
-
   "settings": "Settings",
   "language": "Language",
   "appLanguage": "App Language",
@@ -123,10 +118,11 @@
   "logoutFailed": "Logout failed: {error}",
   "@logoutFailed": {
     "placeholders": {
-      "error": { "type": "String" }
+      "error": {
+        "type": "String"
+      }
     }
   },
-
   "profile": "Profile",
   "name": "Name",
   "nameRequired": "Name is required",
@@ -135,11 +131,9 @@
   "chooseFromGallery": "Choose from gallery",
   "errUserNotLoggedIn": "Error: user not logged in",
   "profileUpdated": "Profile updated",
-
   "homeTab": "Home",
   "filesTab": "Files",
   "settingsTab": "Settings",
-
   "transcripts": "Transcripts",
   "transcriptsSubtitle": "Your recorded meeting transcripts",
   "notLoggedIn": "Not logged in",
@@ -152,7 +146,9 @@
   "failedToDelete": "Failed to delete: {error}",
   "@failedToDelete": {
     "placeholders": {
-      "error": { "type": "String" }
+      "error": {
+        "type": "String"
+      }
     }
   },
   "completed": "Completed",
@@ -163,36 +159,49 @@
   "youSuffix": "{name} (You)",
   "@youSuffix": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "transcriptMeta": "{date}  •  {entryCount} sentences  •  {speakerCount} speakers",
   "@transcriptMeta": {
     "placeholders": {
-      "date": { "type": "String" },
-      "entryCount": { "type": "int" },
-      "speakerCount": { "type": "int" }
+      "date": {
+        "type": "String"
+      },
+      "entryCount": {
+        "type": "int"
+      },
+      "speakerCount": {
+        "type": "int"
+      }
     }
   },
   "meetingPrefix": "Meeting {id}...",
   "@meetingPrefix": {
     "placeholders": {
-      "id": { "type": "String" }
+      "id": {
+        "type": "String"
+      }
     }
   },
   "statSentences": "{count} sentences",
   "@statSentences": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "statSpeakers": "{count} speakers",
   "@statSpeakers": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
-
   "joiningMeeting": "Joining Meeting...",
   "pleaseWait": "Please wait while we connect you",
   "unableToJoin": "Unable to Join",
@@ -204,7 +213,6 @@
   "meetingFull": "This meeting is full. Maximum capacity reached.",
   "userProfileNotFound": "User profile not found. Please complete your profile.",
   "unknownError": "An unknown error occurred.",
-
   "camMicPermissionRequired": "Camera/Microphone permission is required",
   "meetingEnded": "Meeting ended",
   "meetingEndedByHost": "The host has ended the meeting.",
@@ -253,7 +261,9 @@
   "invitationSentTo": "Invitation sent to {email}",
   "@invitationSentTo": {
     "placeholders": {
-      "email": { "type": "String" }
+      "email": {
+        "type": "String"
+      }
     }
   },
   "failedToSendInvitation": "Failed to send invitation. Please try again.",
@@ -268,7 +278,9 @@
   "hostSuffix": "{name} (Host)",
   "@hostSuffix": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "btnEnd": "End",
@@ -285,7 +297,9 @@
   "participants": "Participants ({count})",
   "@participants": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "invite": "Invite",
@@ -299,10 +313,11 @@
   "meetingId": "ID: {id}",
   "@meetingId": {
     "placeholders": {
-      "id": { "type": "String" }
+      "id": {
+        "type": "String"
+      }
     }
   },
-
   "analyzingSign": "Analyzing sign…",
   "handsNotDetected": "Hands not detected — move into frame",
   "signRecognition": "Sign Recognition",
@@ -312,5 +327,32 @@
   "coachAvatarTitle": "Sign Language Avatar",
   "coachAvatarDesc": "Tap this button to translate spoken words into sign language animations performed by an avatar.",
   "coachNext": "Next",
-  "coachGotIt": "Got it"
+  "coachGotIt": "Got it",
+  "heroTitle": "A meeting everyone understands",
+  "heroSubtitle": "Signs become words, and words become signs… moment by moment.",
+  "openNewMeeting": "Open a new meeting",
+  "meetingIdLabel": "Meeting ID",
+  "joinShort": "Join",
+  "whatTurjumanOffers": "What Turjuman offers",
+  "featureSignToText": "Sign language to text",
+  "featureSpeechToText": "Speech captions",
+  "featureAvatar": "Sign language avatar",
+  "letterOfTheDay": "Letter of the day",
+  "letterOfTheDayHint": "Try signing it on camera in your next meeting",
+  "nameInSign": "Your name in sign language",
+  "typeYourName": "Type your name below…",
+  "onboardSignTitle": "Your hands speak, we write",
+  "onboardMeetingsBody": "Speech appears as text and as signs by the avatar, so everyone takes part fully.",
+  "loginWelcomeTitle": "Welcome back",
+  "loginWelcomeSubtitle": "Sign in and continue your meetings",
+  "signUpJourneyTitle": "Start your journey with us",
+  "signLettersAttribution": "Sign letter images from the AASL dataset — Al-Barham et al. (2023), licensed CC BY-SA 4.0, backgrounds removed.",
+  "mainNavigation": "Main navigation",
+  "sampleHello": "Hello",
+  "sampleCaption1": "Good morning, shall we start?",
+  "sampleCaption2": "Good morning, I'm ready",
+  "sampleCaption3": "Great, everyone is following along",
+  "speakerOne": "Speaker 1",
+  "speakerTwoSign": "Speaker 2 · in sign",
+  "signOut": "Sign out"
 }

@@ -1,6 +1,5 @@
 {
   "@@locale": "ar",
-
   "welcomeTitle": "مرحباً بك في تطبيق ترجمان",
   "login": "تسجيل الدخول",
   "register": "إنشاء حساب",
@@ -25,11 +24,9 @@
   "skip": "تخطي",
   "next": "التالي",
   "getStarted": "ابدأ الآن",
-
   "resetPassword": "إعادة تعيين كلمة المرور",
   "resetPasswordDesc": "أدخل بريدك الإلكتروني وسنرسل لك رابطاً لإعادة تعيين كلمة المرور.",
   "sendResetLink": "إرسال رابط الإعادة",
-
   "errEnterEmail": "يرجى إدخال بريدك الإلكتروني",
   "errEnterPassword": "يرجى إدخال كلمة المرور",
   "errEnterEmailAddress": "يرجى إدخال عنوان بريدك الإلكتروني",
@@ -44,11 +41,9 @@
   "errRegistrationFailed": "فشل التسجيل. يرجى المحاولة لاحقاً.",
   "errUnexpected": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.",
   "errNoAccountFound": "لا يوجد حساب مرتبط بهذا البريد الإلكتروني.",
-
   "loginSuccess": "تم تسجيل الدخول بنجاح! مرحباً بعودتك",
   "accountCreated": "تم إنشاء الحساب بنجاح! يرجى التحقق من بريدك الإلكتروني",
   "passwordResetSent": "تم إرسال رابط إعادة تعيين كلمة المرور! تحقق من صندوق الوارد",
-
   "valEnterName": "يرجى إدخال اسمك",
   "valNameTooShort": "يجب أن يكون الاسم حرفين على الأقل",
   "valNameTooLong": "لا يمكن أن يتجاوز الاسم 20 حرفاً",
@@ -63,7 +58,6 @@
   "valPasswordLong": "لا يمكن أن تتجاوز كلمة المرور 20 حرفاً",
   "valPasswordLetters": "يجب أن تحتوي كلمة المرور على حروف",
   "valPasswordNumbers": "يجب أن تحتوي كلمة المرور على أرقام",
-
   "verifyEmail": "تحقق من بريدك الإلكتروني",
   "verificationSentTo": "لقد أرسلنا رابط التحقق إلى:",
   "verificationInstructions": "انقر على الرابط في البريد الإلكتروني للتحقق من حسابك.\nسيتم تحديث هذه الصفحة تلقائياً عند التحقق.",
@@ -73,14 +67,12 @@
   "emailVerifiedSuccess": "تم التحقق من البريد الإلكتروني بنجاح!",
   "emailNotVerifiedYet": "لم يتم التحقق بعد. يرجى مراجعة صندوق الوارد.",
   "verificationEmailSent": "تم إرسال بريد التحقق! تحقق من صندوق الوارد.",
-
   "onboarding1Title": "مرحباً بك في ترجمان",
   "onboarding1Subtitle": "مترجم لغة الإشارة العربية في الوقت الفعلي، يجسر التواصل لمجتمع الصم وضعاف السمع.",
   "onboarding2Title": "التعرف على الإشارات المباشرة",
   "onboarding2Subtitle": "وجّه الكاميرا نحو إشارات لغة الإشارة واحصل على ترجمات نصية عربية فورية.",
   "onboarding3Title": "اجتماعات شاملة للجميع",
   "onboarding3Subtitle": "انضم إلى مؤتمرات الفيديو مع التعليقات التوضيحية والنصوص الحية حتى يتمكن الجميع من المشاركة الكاملة.",
-
   "welcomeBack": "مرحباً بعودتك،",
   "startMeeting": "بدء اجتماع",
   "joinMeeting": "انضمام إلى اجتماع",
@@ -93,7 +85,6 @@
   "returnToMeeting": "العودة",
   "couldNotCreateMeeting": "تعذّر إنشاء الاجتماع. تحقق من اتصالك وحاول مجدداً.",
   "pleaseSignIn": "يرجى تسجيل الدخول لبدء اجتماع.",
-
   "settings": "الإعدادات",
   "language": "اللغة",
   "appLanguage": "لغة التطبيق",
@@ -111,7 +102,6 @@
   "openSystemSettings": "فتح إعدادات النظام",
   "systemSettings": "إعدادات النظام",
   "logoutFailed": "فشل تسجيل الخروج: {error}",
-
   "profile": "الملف الشخصي",
   "name": "الاسم",
   "nameRequired": "الاسم مطلوب",
@@ -120,11 +110,9 @@
   "chooseFromGallery": "اختيار من المعرض",
   "errUserNotLoggedIn": "خطأ: المستخدم غير مسجّل الدخول",
   "profileUpdated": "تم تحديث الملف الشخصي",
-
   "homeTab": "الرئيسية",
   "filesTab": "الملفات",
   "settingsTab": "الإعدادات",
-
   "transcripts": "النصوص",
   "transcriptsSubtitle": "نصوص اجتماعاتك المسجّلة",
   "notLoggedIn": "غير مسجّل الدخول",
@@ -145,7 +133,6 @@
   "meetingPrefix": "اجتماع {id}...",
   "statSentences": "{count} جملة",
   "statSpeakers": "{count} متحدث",
-
   "joiningMeeting": "جارٍ الانضمام...",
   "pleaseWait": "يرجى الانتظار حتى يكتمل الاتصال",
   "unableToJoin": "تعذّر الانضمام",
@@ -157,7 +144,6 @@
   "meetingFull": "الاجتماع ممتلئ. تم الوصول للحد الأقصى.",
   "userProfileNotFound": "الملف الشخصي غير موجود. يرجى إكمال ملفك الشخصي.",
   "unknownError": "حدث خطأ غير معروف.",
-
   "camMicPermissionRequired": "مطلوب إذن الكاميرا/الميكروفون",
   "meetingEnded": "انتهى الاجتماع",
   "meetingEndedByHost": "أنهى المضيف الاجتماع.",
@@ -235,7 +221,6 @@
   "roleHost": "مضيف",
   "roleParticipant": "مشارك",
   "meetingId": "المعرّف: {id}",
-
   "analyzingSign": "جارٍ تحليل الإشارة...",
   "handsNotDetected": "لم يتم رصد اليدين — أعِد تأطيرهما",
   "signRecognition": "التعرف على الإشارات",
@@ -245,5 +230,32 @@
   "coachAvatarTitle": "الصورة الرمزية للإشارة",
   "coachAvatarDesc": "اضغط هذا الزر لترجمة الكلام المنطوق إلى حركات لغة الإشارة بواسطة صورة رمزية.",
   "coachNext": "التالي",
-  "coachGotIt": "فهمت"
+  "coachGotIt": "فهمت",
+  "heroTitle": "لقاءٌ يفهمه الجميع",
+  "heroSubtitle": "الإشارة تصير كلاماً، والكلام يصير إشارة… لحظةً بلحظة.",
+  "openNewMeeting": "افتح لقاءً جديداً",
+  "meetingIdLabel": "رقم الاجتماع",
+  "joinShort": "انضمام",
+  "whatTurjumanOffers": "ماذا يقدّم ترجمان",
+  "featureSignToText": "لغة الإشارة إلى نص",
+  "featureSpeechToText": "الترجمة النصية للصوت",
+  "featureAvatar": "أفاتار لغة الإشارة",
+  "letterOfTheDay": "حرف اليوم",
+  "letterOfTheDayHint": "جرّب تهجئته أمام الكاميرا في اجتماعك القادم",
+  "nameInSign": "اسمك بلغة الإشارة",
+  "typeYourName": "اكتب اسمك بالأسفل…",
+  "onboardSignTitle": "يدك تتكلم، ونحن نكتب",
+  "onboardMeetingsBody": "الكلام يظهر نصاً وإشارةً بالأفاتار، حتى يشارك الجميع بالكامل.",
+  "loginWelcomeTitle": "أهلاً بك من جديد",
+  "loginWelcomeSubtitle": "سجّل الدخول وتابع لقاءاتك",
+  "signUpJourneyTitle": "ابدأ رحلتك معنا",
+  "signLettersAttribution": "صور حروف الإشارة من مجموعة AASL — Al-Barham وآخرون (2023)، مرخّصة بـ CC BY-SA 4.0، وأُزيلت خلفيتها.",
+  "mainNavigation": "التنقل الرئيسي",
+  "sampleHello": "مرحباً",
+  "sampleCaption1": "صباح الخير، نبدأ الاجتماع؟",
+  "sampleCaption2": "صباح النور، جاهزة",
+  "sampleCaption3": "ممتاز، الكل يتابع معنا",
+  "speakerOne": "المتحدث ١",
+  "speakerTwoSign": "المتحدث ٢ · بالإشارة",
+  "signOut": "تسجيل الخروج"
 }

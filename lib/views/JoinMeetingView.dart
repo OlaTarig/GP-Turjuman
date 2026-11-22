@@ -269,7 +269,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A1A2E),
+                  color: Color(0xFF3A2C24),
                 ),
               ),
               const SizedBox(height: 8),
@@ -309,7 +309,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1A1A2E),
+              color: Color(0xFF3A2C24),
             ),
           ),
           const SizedBox(height: 12),
@@ -325,7 +325,7 @@ class _JoinMeetingScreenState extends State<JoinMeetingScreen> {
                 child: OutlinedButton(
                   onPressed: _goBack,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF1A1A2E),
+                    foregroundColor: const Color(0xFF3A2C24),
                     side: const BorderSide(color: Color(0xFFFFB382)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),

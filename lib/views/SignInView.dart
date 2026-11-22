@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:ui';
 import 'HomePage.dart';
 import 'SignUpView.dart';
 import '../l10n/l10n.dart';
+import '../theme/turjuman_theme.dart';
+import 'widgets/glass.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -142,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
             context.l10n.resetPassword,
             style: const TextStyle(
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1A1A2E),
+              color: TColors.ink,
             ),
           ),
           content: Column(
@@ -232,8 +233,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFB382),
-                foregroundColor: Colors.white,
+                backgroundColor: TColors.peach,
+                foregroundColor: TColors.onPeach,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -248,327 +249,168 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFF9E3), Color(0xFFFFD98F), Color(0xFFFFB382)],
-          ),
-        ),
-        child: Stack(
-          children: [
-            SafeArea(
-              child: Column(
-                children: [
-                  const SizedBox(height: 30),
-                  Image.asset(
-                    'assets/logoT.png',
-                    height: 180,
-                    errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.auto_awesome,
-                        size: 80, color: Colors.orange),
-                  ),
-                  const SizedBox(height: 30),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 25),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(30),
-                          child: BackdropFilter(
-                            filter:
-                            ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                            child: Container(
-                              padding: const EdgeInsets.all(30),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.85),
-                                borderRadius: BorderRadius.circular(30),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.3),
-                                  width: 1.5,
+      body: BrandBackground(
+        child: SafeArea(
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 24, 22, 32),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 12),
+                    RiseIn(
+                      child: Floating(
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const PulseRings(size: 150, count: 2),
+                            Glass(
+                              borderRadius: BorderRadius.circular(75),
+                              child: SizedBox(
+                                width: 150,
+                                height: 150,
+                                child: Center(
+                                  child: Image.asset('assets/logoT.png', width: 122, fit: BoxFit.contain),
                                 ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    context.l10n.login,
-                                    style: const TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF1A1A2E),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    context.l10n.loginSubtitle,
-                                    style: const TextStyle(
-                                        color: Colors.grey, fontSize: 15),
-                                  ),
-                                  const SizedBox(height: 30),
-                                  _inputField(
-                                    context.l10n.email,
-                                    context.l10n.emailHint,
-                                    _emailController,
-                                    Icons.email_outlined,
-                                  ),
-                                  const SizedBox(height: 20),
-                                  _buildPasswordField(),
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: TextButton(
-                                      onPressed: _showForgotPasswordDialog,
-                                      child: Text(
-                                        context.l10n.forgotPassword,
-                                        style: const TextStyle(
-                                          color: Colors.orange,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  AnimatedLoginButton(
-                                    text: context.l10n.login,
-                                    onTap: _isLoading ? () {} : _signIn,
-                                    isLoading: _isLoading,
-                                  ),
-                                  const SizedBox(height: 20),
-                                  Row(
-                                    mainAxisAlignment:
-                                    MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        context.l10n.dontHaveAccount,
-                                        style: const TextStyle(fontSize: 15),
-                                      ),
-                                      GestureDetector(
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                              const SignUpScreen(),
-                                            ),
-                                          );
-                                        },
-                                        child: Text(
-                                          context.l10n.signUp,
-                                          style: const TextStyle(
-                                            color: Colors.orange,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
                               ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-              ),
-            ),
-            if (Navigator.of(context).canPop())
-              Positioned(
-                top: 50,
-                left: 20,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new,
-                        color: Color(0xFF4A4A4A), size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+                    const SizedBox(height: 22),
+                    RiseIn(
+                      delay: const Duration(milliseconds: 80),
+                      child: Text(l10n.loginWelcomeTitle,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 28, fontWeight: FontWeight.w700, color: TColors.ink)),
+                    ),
+                    const SizedBox(height: 6),
+                    RiseIn(
+                      delay: const Duration(milliseconds: 140),
+                      child: Text(l10n.loginWelcomeSubtitle,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 16, height: 1.5, color: Color(0xFF4F5254))),
+                    ),
+                    const SizedBox(height: 26),
+                    RiseIn(
+                      delay: const Duration(milliseconds: 200),
+                      child: Glass(
+                        tint: const Color(0xC7FFFFFF),
+                        borderRadius: BorderRadius.circular(30),
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _inputField(l10n.email, l10n.emailHint, _emailController, Icons.email_outlined),
+                            const SizedBox(height: 16),
+                            _buildPasswordField(),
+                            Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: TextButton(
+                                onPressed: _showForgotPasswordDialog,
+                                child: Text(l10n.forgotPassword,
+                                    style: const TextStyle(color: TColors.accent, fontWeight: FontWeight.w600)),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            GradientButton(
+                              label: l10n.login,
+                              loading: _isLoading,
+                              onPressed: _isLoading ? null : _signIn,
+                            ),
+                            const SizedBox(height: 18),
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(l10n.dontHaveAccount,
+                                    style: const TextStyle(fontSize: 15, color: TColors.inkSoft)),
+                                TextButton(
+                                  onPressed: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const SignUpScreen()),
+                                  ),
+                                  child: Text(l10n.signUp,
+                                      style: const TextStyle(
+                                          color: TColors.accent, fontWeight: FontWeight.w700, fontSize: 15)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-          ],
+              if (Navigator.of(context).canPop())
+                PositionedDirectional(
+                  top: 8,
+                  start: 16,
+                  child: Glass(
+                    borderRadius: BorderRadius.circular(24),
+                    child: IconButton(
+                      tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                      icon: const BackButtonIcon(),
+                      color: TColors.ink,
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
+        child: Text(text,
+            style: const TextStyle(color: TColors.ink, fontSize: 14, fontWeight: FontWeight.w600)),
+      );
 
   Widget _buildPasswordField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 5, bottom: 8),
-          child: Text(
-            context.l10n.password,
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
+        _label(context.l10n.password),
         TextField(
           controller: _passwordController,
           obscureText: _obscurePassword,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _isLoading ? null : _signIn(),
           decoration: InputDecoration(
             hintText: context.l10n.passwordHint,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-            filled: true,
-            fillColor: const Color(0xFFF8F9FA),
-            prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
+            prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
-              icon: Icon(
-                _obscurePassword
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
-                color: Colors.grey,
-              ),
-              onPressed: () {
-                setState(() {
-                  _obscurePassword = !_obscurePassword;
-                });
-              },
+              icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           ),
         ),
       ],
     );
   }
 
-  Widget _inputField(String label, String hint,
-      TextEditingController controller, IconData icon) {
+  Widget _inputField(String label, String hint, TextEditingController controller, IconData icon) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 5, bottom: 8),
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
+        _label(label),
         TextField(
           controller: controller,
           keyboardType: TextInputType.emailAddress,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-            filled: true,
-            fillColor: const Color(0xFFF8F9FA),
-            prefixIcon: Icon(icon, color: Colors.grey),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          ),
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.email],
+          decoration: InputDecoration(hintText: hint, prefixIcon: Icon(icon)),
         ),
       ],
     );
   }
 }
 
-// Animated Login Button Widget
-class AnimatedLoginButton extends StatefulWidget {
-  final String text;
-  final VoidCallback onTap;
-  final bool isLoading;
-
-  const AnimatedLoginButton({
-    super.key,
-    required this.text,
-    required this.onTap,
-    this.isLoading = false,
-  });
-
-  @override
-  State<AnimatedLoginButton> createState() => _AnimatedLoginButtonState();
-}
-
-class _AnimatedLoginButtonState extends State<AnimatedLoginButton> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: widget.isLoading ? null : (_) => setState(() => _isPressed = true),
-      onTapUp: widget.isLoading
-          ? null
-          : (_) {
-        setState(() => _isPressed = false);
-        widget.onTap();
-      },
-      onTapCancel:
-      widget.isLoading ? null : () => setState(() => _isPressed = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeInOut,
-        width: double.infinity,
-        height: 60,
-        transform: Matrix4.identity()..scale(_isPressed ? 0.95 : 1.0),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: widget.isLoading
-                ? [Colors.grey.shade400, Colors.grey.shade500]
-                : [const Color(0xFFFDBB84), const Color(0xFFFFD98F)],
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: _isPressed || widget.isLoading
-              ? []
-              : [
-            BoxShadow(
-              color: const Color(0xFFFFD98F).withOpacity(0.5),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Center(
-          child: widget.isLoading
-              ? const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 2.5,
-            ),
-          )
-              : Text(
-            widget.text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

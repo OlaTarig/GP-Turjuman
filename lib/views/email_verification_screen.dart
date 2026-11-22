@@ -220,7 +220,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                   style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A2E),
+                    color: Color(0xFF3A2C24),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -251,7 +251,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A2E),
+                      color: Color(0xFF3A2C24),
                     ),
                     textAlign: TextAlign.center,
                   ),

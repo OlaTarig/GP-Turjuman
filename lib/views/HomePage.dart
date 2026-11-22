@@ -12,6 +12,9 @@ import 'package:turjuman/main.dart';
 import 'JoinMeetingView.dart';
 import 'FileTranscriptionView.dart';
 import '../l10n/l10n.dart';
+import '../theme/turjuman_theme.dart';
+import 'widgets/glass.dart';
+import 'widgets/sign_letters.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -96,36 +99,25 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  Future<void> _showJoinDialog() async {
-    final controller = TextEditingController();
-    final l10n = context.l10n;
+  final TextEditingController _joinController = TextEditingController();
+  bool _joining = false;
 
-    final meetingId = await showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(l10n.joinMeeting),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: l10n.enterMeetingId,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: Text(l10n.joinMeeting),
-          ),
-        ],
-      ),
-    );
+  @override
+  void dispose() {
+    _joinController.dispose();
+    super.dispose();
+  }
 
-    if (meetingId == null || meetingId.isEmpty) return;
-
-    await _joinMeetingById(meetingId);
+  Future<void> _joinFromField() async {
+    final meetingId = _joinController.text.trim();
+    if (meetingId.isEmpty || _joining) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _joining = true);
+    try {
+      await _joinMeetingById(meetingId);
+    } finally {
+      if (mounted) setState(() => _joining = false);
+    }
   }
 
   Future<void> _joinMeetingById(String meetingId) async {
@@ -287,190 +279,220 @@ class _HomePageState extends State<HomePage> {
 
   Widget _homeTab() {
     final l10n = context.l10n;
+    final initial = _userName.trim().isEmpty ? '?' : _userName.trim().characters.first;
     return SafeArea(
+      bottom: false,
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.welcomeBack,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _userName,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2D3142),
-                          ),
-                        ),
-                      ],
+        padding: EdgeInsets.fromLTRB(20, 20, 20, BottomBar.height + 48),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Greeting ────────────────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l10n.welcomeBack,
+                          style: const TextStyle(fontSize: 15, color: TColors.inkSoft)),
+                      const SizedBox(height: 2),
+                      Text(
+                        _userName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: TColors.ink),
+                      ),
+                    ],
+                  ),
+                ),
+                Semantics(
+                  button: true,
+                  label: l10n.settingsTab,
+                  child: InkWell(
+                    onTap: () => _onBottomNavTap(2),
+                    customBorder: const CircleBorder(),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: TColors.soft,
+                        border: Border.all(color: const Color(0xFFF0E6DE)),
+                      ),
+                      child: Text(initial,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: TColors.accent)),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
 
-              const SizedBox(height: 40),
-
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(32),
+            // ── Hero: start a meeting ───────────────────────────────
+            RiseIn(
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFB382), Color(0xFFFFD0A0)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
+                  gradient: TGradients.hero,
+                  borderRadius: BorderRadius.circular(30),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFFB382).withOpacity(0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
+                      color: const Color(0xFFFF8C50).withValues(alpha: 0.28),
+                      blurRadius: 40,
+                      offset: const Offset(0, 18),
                     ),
                   ],
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.videocam_rounded,
-                        size: 50,
-                        color: Colors.white,
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    Text(
-                      l10n.startMeeting,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: OutlinedButton(
-                        onPressed: _showJoinDialog,
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.white),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: Text(
-                          l10n.joinMeeting,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    Text(
-                      l10n.connectInstantly,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withOpacity(0.9),
-                      ),
-                    ),
-
-                    const SizedBox(height: 28),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _startingMeeting ? null : _startMeeting,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFFFFB382),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: _startingMeeting
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      Color(0xFFFFB382)),
-                                ),
-                              )
-                            : Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.play_arrow_rounded, size: 28),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    l10n.startNow,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
+                    Text(l10n.heroTitle,
+                        style: const TextStyle(
+                            fontSize: 26, height: 1.3, fontWeight: FontWeight.w700, color: TColors.ink)),
+                    const SizedBox(height: 6),
+                    Text(l10n.heroSubtitle,
+                        style: const TextStyle(fontSize: 15, height: 1.6, color: Color(0xFF4A3428))),
+                    const SizedBox(height: 18),
+                    GradientButton(
+                      white: true,
+                      height: 52,
+                      icon: Icons.videocam_rounded,
+                      label: l10n.openNewMeeting,
+                      loading: _startingMeeting,
+                      onPressed: _startingMeeting ? null : _startMeeting,
                     ),
                   ],
                 ),
               ),
+            ),
+            const SizedBox(height: 20),
 
-              const SizedBox(height: 32),
-              const SizedBox(height: 100),
-            ],
-          ),
+            // ── Join by ID ──────────────────────────────────────────
+            RiseIn(
+              delay: const Duration(milliseconds: 80),
+              child: _whiteCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _iconTile(Icons.login_rounded),
+                        const SizedBox(width: 12),
+                        Text(l10n.joinMeeting,
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: TColors.ink)),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(l10n.meetingIdLabel, style: const TextStyle(fontSize: 13, color: TColors.inkSoft)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _joinController,
+                            textInputAction: TextInputAction.go,
+                            onSubmitted: (_) => _joinFromField(),
+                            decoration: InputDecoration(hintText: l10n.enterMeetingId),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 104,
+                          child: GradientButton(
+                            height: 52,
+                            label: l10n.joinShort,
+                            loading: _joining,
+                            onPressed: _joinFromField,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+
+            // ── Features ────────────────────────────────────────────
+            Text(l10n.whatTurjumanOffers,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: TColors.ink)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _featureTile(Icons.center_focus_strong_rounded, l10n.featureSignToText)),
+                const SizedBox(width: 10),
+                Expanded(child: _featureTile(Icons.closed_caption_rounded, l10n.featureSpeechToText)),
+                const SizedBox(width: 10),
+                Expanded(child: _featureTile(Icons.person_rounded, l10n.featureAvatar)),
+              ],
+            ),
+            const SizedBox(height: 22),
+
+            // ── Letter of the day ───────────────────────────────────
+            const RiseIn(delay: Duration(milliseconds: 160), child: LetterOfTheDayCard()),
+          ],
         ),
       ),
     );
   }
 
+  Widget _whiteCard({required Widget child}) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: TColors.card,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: TColors.line),
+          boxShadow: [
+            BoxShadow(color: TColors.ink.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 6)),
+          ],
+        ),
+        child: child,
+      );
+
+  Widget _iconTile(IconData icon) => Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(color: TColors.soft, borderRadius: BorderRadius.circular(14)),
+        child: Icon(icon, color: TColors.accent, size: 22),
+      );
+
+  Widget _featureTile(IconData icon, String label) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+        decoration: BoxDecoration(
+          color: TColors.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: TColors.line),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: TColors.soft, borderRadius: BorderRadius.circular(13)),
+              child: Icon(icon, color: TColors.accent, size: 22),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, height: 1.35, fontWeight: FontWeight.w500, color: TColors.ink),
+            ),
+          ],
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFBF5),
+      backgroundColor: TColors.page,
+      extendBody: true,
       body: _isLoading
           ? const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFB382)),
-        ),
+        child: CircularProgressIndicator(color: TColors.ember),
       )
           : Stack(
         children: [
@@ -515,12 +537,11 @@ class _HomePageState extends State<HomePage> {
                   bottom: false,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                    child: Material(
-                      elevation: 6,
-                      borderRadius: BorderRadius.circular(14),
-                      color: const Color(0xFF2D2F31),
+                    child: Glass(
+                      borderRadius: BorderRadius.circular(22),
+                      tint: const Color(0xD9FFFFFF),
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(22),
                         onTap: () async {
                           final meeting = mgr.activeMeeting!;
                           final user = mgr.activeUser!;
@@ -539,13 +560,13 @@ class _HomePageState extends State<HomePage> {
                           child: Row(
                             children: [
                               const Icon(Icons.circle,
-                                  color: Colors.green, size: 12),
+                                  color: TColors.success, size: 12),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   l10n.inMeeting(meetingTitle),
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: TColors.ink,
                                     fontWeight: FontWeight.w700,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -555,13 +576,13 @@ class _HomePageState extends State<HomePage> {
                               Text(
                                 l10n.returnToMeeting,
                                 style: const TextStyle(
-                                  color: Color(0xFFFFB382),
+                                  color: TColors.accent,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              const Icon(Icons.arrow_forward_ios,
-                                  size: 14, color: Color(0xFFFFB382)),
+                              const Icon(Icons.arrow_forward_ios_rounded,
+                                  size: 14, color: TColors.accent),
                             ],
                           ),
                         ),

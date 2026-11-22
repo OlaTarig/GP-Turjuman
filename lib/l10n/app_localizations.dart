@@ -1483,6 +1483,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Got it'**
   String get coachGotIt;
+
+  /// No description provided for @heroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A meeting everyone understands'**
+  String get heroTitle;
+
+  /// No description provided for @heroSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Signs become words, and words become signs… moment by moment.'**
+  String get heroSubtitle;
+
+  /// No description provided for @openNewMeeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Open a new meeting'**
+  String get openNewMeeting;
+
+  /// No description provided for @meetingIdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Meeting ID'**
+  String get meetingIdLabel;
+
+  /// No description provided for @joinShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Join'**
+  String get joinShort;
+
+  /// No description provided for @whatTurjumanOffers.
+  ///
+  /// In en, this message translates to:
+  /// **'What Turjuman offers'**
+  String get whatTurjumanOffers;
+
+  /// No description provided for @featureSignToText.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign language to text'**
+  String get featureSignToText;
+
+  /// No description provided for @featureSpeechToText.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech captions'**
+  String get featureSpeechToText;
+
+  /// No description provided for @featureAvatar.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign language avatar'**
+  String get featureAvatar;
+
+  /// No description provided for @letterOfTheDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Letter of the day'**
+  String get letterOfTheDay;
+
+  /// No description provided for @letterOfTheDayHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try signing it on camera in your next meeting'**
+  String get letterOfTheDayHint;
+
+  /// No description provided for @nameInSign.
+  ///
+  /// In en, this message translates to:
+  /// **'Your name in sign language'**
+  String get nameInSign;
+
+  /// No description provided for @typeYourName.
+  ///
+  /// In en, this message translates to:
+  /// **'Type your name below…'**
+  String get typeYourName;
+
+  /// No description provided for @onboardSignTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your hands speak, we write'**
+  String get onboardSignTitle;
+
+  /// No description provided for @onboardMeetingsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech appears as text and as signs by the avatar, so everyone takes part fully.'**
+  String get onboardMeetingsBody;
+
+  /// No description provided for @loginWelcomeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome back'**
+  String get loginWelcomeTitle;
+
+  /// No description provided for @loginWelcomeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in and continue your meetings'**
+  String get loginWelcomeSubtitle;
+
+  /// No description provided for @signUpJourneyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start your journey with us'**
+  String get signUpJourneyTitle;
+
+  /// No description provided for @signLettersAttribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign letter images from the AASL dataset — Al-Barham et al. (2023), licensed CC BY-SA 4.0, backgrounds removed.'**
+  String get signLettersAttribution;
+
+  /// No description provided for @mainNavigation.
+  ///
+  /// In en, this message translates to:
+  /// **'Main navigation'**
+  String get mainNavigation;
+
+  /// No description provided for @sampleHello.
+  ///
+  /// In en, this message translates to:
+  /// **'Hello'**
+  String get sampleHello;
+
+  /// No description provided for @sampleCaption1.
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning, shall we start?'**
+  String get sampleCaption1;
+
+  /// No description provided for @sampleCaption2.
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning, I\'m ready'**
+  String get sampleCaption2;
+
+  /// No description provided for @sampleCaption3.
+  ///
+  /// In en, this message translates to:
+  /// **'Great, everyone is following along'**
+  String get sampleCaption3;
+
+  /// No description provided for @speakerOne.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaker 1'**
+  String get speakerOne;
+
+  /// No description provided for @speakerTwoSign.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaker 2 · in sign'**
+  String get speakerTwoSign;
+
+  /// No description provided for @signOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get signOut;
 }
 
 class _AppLocalizationsDelegate

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:ui';
 // Import your email verification screen
 import '../views/email_verification_screen.dart';
 // Import your auth service
 import '../AuthService.dart';
 import '../l10n/l10n.dart';
+import '../theme/turjuman_theme.dart';
+import 'widgets/glass.dart';
+import 'widgets/sign_letters.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -188,283 +190,223 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
+  String? _validateName(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return context.l10n.valEnterName;
+    }
+    final trimmedValue = value.trim();
+    if (trimmedValue.length < 2) {
+      return context.l10n.valNameTooShort;
+    }
+    if (trimmedValue.length > 20) {
+      return context.l10n.valNameTooLong;
+    }
+    if (RegExp(r'^[0-9]').hasMatch(trimmedValue)) {
+      return context.l10n.valNameStartsNumber;
+    }
+    return null;
+  }
+
+  String? _validateEmail(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return context.l10n.valEnterEmail;
+    }
+    final email = value.trim();
+    // No spaces
+    if (email.contains(' ')) {
+      return context.l10n.valEmailSpace;
+    }
+    // No consecutive dots
+    if (email.contains('..')) {
+      return context.l10n.valEmailDots;
+    }
+    // Basic email pattern with TLD check
+    final emailRegex = RegExp(
+      r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
+    );
+    if (!emailRegex.hasMatch(email)) {
+      return context.l10n.valInvalidEmail;
+    }
+    // Check TLD length manually
+    final tld = email.split('.').last;
+    if (tld.length < 2 || tld.length > 6) {
+      return context.l10n.valInvalidDomain;
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return context.l10n.valEnterPassword;
+    }
+    if (value.length < 9) {
+      return context.l10n.valPasswordShort;
+    }
+    if (value.length > 20) {
+      return context.l10n.valPasswordLong;
+    }
+    // Must contain letters
+    if (!RegExp(r'[A-Za-z]').hasMatch(value)) {
+      return context.l10n.valPasswordLetters;
+    }
+    // Must contain numbers
+    if (!RegExp(r'[0-9]').hasMatch(value)) {
+      return context.l10n.valPasswordNumbers;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFF9E3), Color(0xFFFFD98F), Color(0xFFFFB382)],
-          ),
-        ),
-        child: Stack(
-          children: [
-            SafeArea(
-              child: Column(
-                children: [
-                  const SizedBox(height: 30),
-                  Image.asset(
-                    'assets/logoT.png',
-                    height: 180,
-                    errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.auto_awesome, size: 80, color: Colors.orange),
-                  ),
-                  const SizedBox(height: 30),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 25),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(30),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                            child: Container(
-                              padding: const EdgeInsets.all(30),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.85),
-                                borderRadius: BorderRadius.circular(30),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.3),
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
-                              ),
-                              child: Form(
-                                key: _formKey,
-                                child: Column(
-                                  children: [
-                                    Text(
-                                      context.l10n.signUp,
-                                      style: const TextStyle(
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF1A1A2E),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      context.l10n.signUpSubtitle,
-                                      style: const TextStyle(color: Colors.grey, fontSize: 15),
-                                    ),
-                                    const SizedBox(height: 30),
-                                    _inputField(
-                                      context.l10n.fullName,
-                                      context.l10n.fullNameHint,
-                                      _nameController,
-                                      Icons.person_outline,
-                                      validator: (value) {
-                                        if (value == null || value.trim().isEmpty) {
-                                          return context.l10n.valEnterName;
-                                        }
-
-                                        final trimmedValue = value.trim();
-
-                                        if (trimmedValue.length < 2) {
-                                          return context.l10n.valNameTooShort;
-                                        }
-
-                                        if (trimmedValue.length > 20) {
-                                          return context.l10n.valNameTooLong;
-                                        }
-
-                                        if (RegExp(r'^[0-9]').hasMatch(trimmedValue)) {
-                                          return context.l10n.valNameStartsNumber;
-                                        }
-
-                                        return null;
-                                      },
-                                    ),
-                                    const SizedBox(height: 20),
-                                    _inputField(
-                                      context.l10n.email,
-                                      context.l10n.emailHint,
-                                      _emailController,
-                                      Icons.email_outlined,
-                                      keyboardType: TextInputType.emailAddress,
-                                      validator: (value) {
-                                        if (value == null || value.trim().isEmpty) {
-                                          return context.l10n.valEnterEmail;
-                                        }
-
-                                        final email = value.trim();
-
-                                        // No spaces
-                                        if (email.contains(' ')) {
-                                          return context.l10n.valEmailSpace;
-                                        }
-
-                                        // No consecutive dots
-                                        if (email.contains('..')) {
-                                          return context.l10n.valEmailDots;
-                                        }
-
-                                        // Basic email pattern with TLD check
-                                        final emailRegex = RegExp(
-                                          r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
-                                        );
-
-                                        if (!emailRegex.hasMatch(email)) {
-                                          return context.l10n.valInvalidEmail;
-                                        }
-
-                                        // Check TLD length manually
-                                        final tld = email.split('.').last;
-
-                                        if (tld.length < 2 || tld.length > 6) {
-                                          return context.l10n.valInvalidDomain;
-                                        }
-
-                                        return null;
-                                      },
-                                    ),
-                                    const SizedBox(height: 20),
-                                    _buildPasswordField(),
-                                    const SizedBox(height: 40),
-                                    AnimatedSignUpButton(
-                                      text: context.l10n.register,
-                                      onTap: _isLoading ? () {} : _handleSignUp,
-                                      isLoading: _isLoading,
-                                    ),
-                                    const SizedBox(height: 20),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          context.l10n.alreadyHaveAccount,
-                                          style: const TextStyle(fontSize: 15),
-                                        ),
-                                        GestureDetector(
-                                          onTap: () => Navigator.pop(context),
-                                          child: Text(
-                                            context.l10n.login,
-                                            style: const TextStyle(
-                                              color: Colors.orange,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 15,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
+      body: BrandBackground(
+        child: SafeArea(
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 64, 22, 32),
+                child: Column(
+                  children: [
+                    RiseIn(
+                      child: Floating(
+                        child: Glass(
+                          borderRadius: BorderRadius.circular(48),
+                          child: SizedBox(
+                            width: 96,
+                            height: 96,
+                            child: Center(
+                              child: Image.asset('assets/logoT.png', width: 78, fit: BoxFit.contain),
                             ),
                           ),
                         ),
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    RiseIn(
+                      delay: const Duration(milliseconds: 80),
+                      child: Text(l10n.signUpJourneyTitle,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 27, fontWeight: FontWeight.w700, color: TColors.ink)),
+                    ),
+                    const SizedBox(height: 6),
+                    RiseIn(
+                      delay: const Duration(milliseconds: 140),
+                      child: Text(l10n.signUpSubtitle,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 16, height: 1.5, color: Color(0xFF4F5254))),
+                    ),
+                    const SizedBox(height: 22),
+                    RiseIn(
+                      delay: const Duration(milliseconds: 200),
+                      child: Glass(
+                        tint: const Color(0xC7FFFFFF),
+                        borderRadius: BorderRadius.circular(30),
+                        padding: const EdgeInsets.all(22),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _inputField(
+                                l10n.fullName,
+                                l10n.fullNameHint,
+                                _nameController,
+                                Icons.person_outline,
+                                validator: _validateName,
+                                autofill: AutofillHints.name,
+                              ),
+                              const SizedBox(height: 12),
+                              ValueListenableBuilder<TextEditingValue>(
+                                valueListenable: _nameController,
+                                builder: (context, value, _) => NameInSign(name: value.text),
+                              ),
+                              const SizedBox(height: 16),
+                              _inputField(
+                                l10n.email,
+                                l10n.emailHint,
+                                _emailController,
+                                Icons.email_outlined,
+                                keyboardType: TextInputType.emailAddress,
+                                validator: _validateEmail,
+                                autofill: AutofillHints.email,
+                              ),
+                              const SizedBox(height: 16),
+                              _buildPasswordField(),
+                              const SizedBox(height: 24),
+                              GradientButton(
+                                label: l10n.register,
+                                loading: _isLoading,
+                                onPressed: _isLoading ? null : _handleSignUp,
+                              ),
+                              const SizedBox(height: 14),
+                              Wrap(
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(l10n.alreadyHaveAccount,
+                                      style: const TextStyle(fontSize: 15, color: TColors.inkSoft)),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: Text(l10n.login,
+                                        style: const TextStyle(
+                                            color: TColors.accent, fontWeight: FontWeight.w700, fontSize: 15)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (Navigator.of(context).canPop())
+                PositionedDirectional(
+                  top: 8,
+                  start: 16,
+                  child: Glass(
+                    borderRadius: BorderRadius.circular(24),
+                    child: IconButton(
+                      tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                      icon: const BackButtonIcon(),
+                      color: TColors.ink,
+                      onPressed: () => Navigator.pop(context),
+                    ),
                   ),
-                  const SizedBox(height: 20),
-                ],
-              ),
-            ),
-            Positioned(
-              top: 50,
-              left: 20,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.3),
-                  shape: BoxShape.circle,
                 ),
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new,
-                      color: Color(0xFF4A4A4A), size: 20),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
+        child: Text(text,
+            style: const TextStyle(color: TColors.ink, fontSize: 14, fontWeight: FontWeight.w600)),
+      );
+
   Widget _buildPasswordField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 5, bottom: 8),
-          child: Text(
-            context.l10n.password,
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
+        _label(context.l10n.password),
         TextFormField(
           controller: _passwordController,
           obscureText: _obscurePassword,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return context.l10n.valEnterPassword;
-            }
-
-            if (value.length < 9) {
-              return context.l10n.valPasswordShort;
-            }
-
-            if (value.length > 20) {
-              return context.l10n.valPasswordLong;
-            }
-
-            // Must contain letters
-            if (!RegExp(r'[A-Za-z]').hasMatch(value)) {
-              return context.l10n.valPasswordLetters;
-            }
-
-            // Must contain numbers
-            if (!RegExp(r'[0-9]').hasMatch(value)) {
-              return context.l10n.valPasswordNumbers;
-            }
-
-            return null;
-          },
+          validator: _validatePassword,
+          autofillHints: const [AutofillHints.newPassword],
           decoration: InputDecoration(
             hintText: context.l10n.passwordHint,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-            filled: true,
-            fillColor: const Color(0xFFF8F9FA),
-            prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
+            prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
-              icon: Icon(
-                _obscurePassword
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
-                color: Colors.grey,
-              ),
-              onPressed: () {
-                setState(() {
-                  _obscurePassword = !_obscurePassword;
-                });
-              },
+              icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide.none,
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           ),
         ),
       ],
@@ -472,131 +414,27 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   Widget _inputField(
-      String label,
-      String hint,
-      TextEditingController controller,
-      IconData icon, {
-        TextInputType? keyboardType,
-        String? Function(String?)? validator,
-      }) {
+    String label,
+    String hint,
+    TextEditingController controller,
+    IconData icon, {
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+    String? autofill,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 5, bottom: 8),
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
+        _label(label),
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
           validator: validator,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-            filled: true,
-            fillColor: const Color(0xFFF8F9FA),
-            prefixIcon: Icon(icon, color: Colors.grey),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide.none,
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          ),
+          textInputAction: TextInputAction.next,
+          autofillHints: autofill == null ? null : [autofill],
+          decoration: InputDecoration(hintText: hint, prefixIcon: Icon(icon)),
         ),
       ],
-    );
-  }
-}
-
-// Animated Sign Up Button Widget
-class AnimatedSignUpButton extends StatefulWidget {
-  final String text;
-  final VoidCallback onTap;
-  final bool isLoading;
-
-  const AnimatedSignUpButton({
-    super.key,
-    required this.text,
-    required this.onTap,
-    this.isLoading = false,
-  });
-
-  @override
-  State<AnimatedSignUpButton> createState() => _AnimatedSignUpButtonState();
-}
-
-class _AnimatedSignUpButtonState extends State<AnimatedSignUpButton> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: widget.isLoading ? null : (_) => setState(() => _isPressed = true),
-      onTapUp: widget.isLoading
-          ? null
-          : (_) {
-        setState(() => _isPressed = false);
-        widget.onTap();
-      },
-      onTapCancel: widget.isLoading ? null : () => setState(() => _isPressed = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeInOut,
-        width: double.infinity,
-        height: 60,
-        transform: Matrix4.identity()..scale(_isPressed ? 0.95 : 1.0),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: widget.isLoading
-                ? [Colors.grey.shade400, Colors.grey.shade500]
-                : [const Color(0xFFFDBB84), const Color(0xFFFFD98F)],
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: _isPressed || widget.isLoading
-              ? []
-              : [
-            BoxShadow(
-              color: const Color(0xFFFFD98F).withOpacity(0.5),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Center(
-          child: widget.isLoading
-              ? const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 2.5,
-            ),
-          )
-              : Text(
-            widget.text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

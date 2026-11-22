@@ -767,4 +767,89 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get coachGotIt => 'Got it';
+
+  @override
+  String get heroTitle => 'A meeting everyone understands';
+
+  @override
+  String get heroSubtitle =>
+      'Signs become words, and words become signs… moment by moment.';
+
+  @override
+  String get openNewMeeting => 'Open a new meeting';
+
+  @override
+  String get meetingIdLabel => 'Meeting ID';
+
+  @override
+  String get joinShort => 'Join';
+
+  @override
+  String get whatTurjumanOffers => 'What Turjuman offers';
+
+  @override
+  String get featureSignToText => 'Sign language to text';
+
+  @override
+  String get featureSpeechToText => 'Speech captions';
+
+  @override
+  String get featureAvatar => 'Sign language avatar';
+
+  @override
+  String get letterOfTheDay => 'Letter of the day';
+
+  @override
+  String get letterOfTheDayHint =>
+      'Try signing it on camera in your next meeting';
+
+  @override
+  String get nameInSign => 'Your name in sign language';
+
+  @override
+  String get typeYourName => 'Type your name below…';
+
+  @override
+  String get onboardSignTitle => 'Your hands speak, we write';
+
+  @override
+  String get onboardMeetingsBody =>
+      'Speech appears as text and as signs by the avatar, so everyone takes part fully.';
+
+  @override
+  String get loginWelcomeTitle => 'Welcome back';
+
+  @override
+  String get loginWelcomeSubtitle => 'Sign in and continue your meetings';
+
+  @override
+  String get signUpJourneyTitle => 'Start your journey with us';
+
+  @override
+  String get signLettersAttribution =>
+      'Sign letter images from the AASL dataset — Al-Barham et al. (2023), licensed CC BY-SA 4.0, backgrounds removed.';
+
+  @override
+  String get mainNavigation => 'Main navigation';
+
+  @override
+  String get sampleHello => 'Hello';
+
+  @override
+  String get sampleCaption1 => 'Good morning, shall we start?';
+
+  @override
+  String get sampleCaption2 => 'Good morning, I\'m ready';
+
+  @override
+  String get sampleCaption3 => 'Great, everyone is following along';
+
+  @override
+  String get speakerOne => 'Speaker 1';
+
+  @override
+  String get speakerTwoSign => 'Speaker 2 · in sign';
+
+  @override
+  String get signOut => 'Sign out';
 }

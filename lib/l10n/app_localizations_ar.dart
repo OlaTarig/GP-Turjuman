@@ -760,4 +760,89 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get coachGotIt => 'فهمت';
+
+  @override
+  String get heroTitle => 'لقاءٌ يفهمه الجميع';
+
+  @override
+  String get heroSubtitle =>
+      'الإشارة تصير كلاماً، والكلام يصير إشارة… لحظةً بلحظة.';
+
+  @override
+  String get openNewMeeting => 'افتح لقاءً جديداً';
+
+  @override
+  String get meetingIdLabel => 'رقم الاجتماع';
+
+  @override
+  String get joinShort => 'انضمام';
+
+  @override
+  String get whatTurjumanOffers => 'ماذا يقدّم ترجمان';
+
+  @override
+  String get featureSignToText => 'لغة الإشارة إلى نص';
+
+  @override
+  String get featureSpeechToText => 'الترجمة النصية للصوت';
+
+  @override
+  String get featureAvatar => 'أفاتار لغة الإشارة';
+
+  @override
+  String get letterOfTheDay => 'حرف اليوم';
+
+  @override
+  String get letterOfTheDayHint =>
+      'جرّب تهجئته أمام الكاميرا في اجتماعك القادم';
+
+  @override
+  String get nameInSign => 'اسمك بلغة الإشارة';
+
+  @override
+  String get typeYourName => 'اكتب اسمك بالأسفل…';
+
+  @override
+  String get onboardSignTitle => 'يدك تتكلم، ونحن نكتب';
+
+  @override
+  String get onboardMeetingsBody =>
+      'الكلام يظهر نصاً وإشارةً بالأفاتار، حتى يشارك الجميع بالكامل.';
+
+  @override
+  String get loginWelcomeTitle => 'أهلاً بك من جديد';
+
+  @override
+  String get loginWelcomeSubtitle => 'سجّل الدخول وتابع لقاءاتك';
+
+  @override
+  String get signUpJourneyTitle => 'ابدأ رحلتك معنا';
+
+  @override
+  String get signLettersAttribution =>
+      'صور حروف الإشارة من مجموعة AASL — Al-Barham وآخرون (2023)، مرخّصة بـ CC BY-SA 4.0، وأُزيلت خلفيتها.';
+
+  @override
+  String get mainNavigation => 'التنقل الرئيسي';
+
+  @override
+  String get sampleHello => 'مرحباً';
+
+  @override
+  String get sampleCaption1 => 'صباح الخير، نبدأ الاجتماع؟';
+
+  @override
+  String get sampleCaption2 => 'صباح النور، جاهزة';
+
+  @override
+  String get sampleCaption3 => 'ممتاز، الكل يتابع معنا';
+
+  @override
+  String get speakerOne => 'المتحدث ١';
+
+  @override
+  String get speakerTwoSign => 'المتحدث ٢ · بالإشارة';
+
+  @override
+  String get signOut => 'تسجيل الخروج';
 }
